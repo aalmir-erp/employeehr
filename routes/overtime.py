@@ -464,7 +464,6 @@ def employee_overtime(employee_id):
         AttendanceRecord.date <= to_date,
         AttendanceRecord.overtime_hours > 0
     ).order_by(AttendanceRecord.date).all()
-    
     # Calculate summary statistics
     total_hours = sum(r.overtime_hours or 0 for r in records)
     total_weekday_overtime = sum(r.regular_overtime_hours or 0 for r in records)
@@ -583,12 +582,11 @@ def report():
         from_date = date.today().replace(day=1)
     
     if not to_date:
-        # Last day of the same month
         next_month = from_date.replace(month=from_date.month + 1 if from_date.month < 12 else 1,
                                       year=from_date.year if from_date.month < 12 else from_date.year + 1)
         to_date = (next_month - timedelta(days=1))
     
-    # Build query for overtime report
+    # Build query for overtime report including absent days count
     query = db.session.query(
         Employee.id,
         Employee.name,
@@ -610,7 +608,6 @@ def report():
     ).filter(
         AttendanceRecord.date >= from_date,
         AttendanceRecord.date <= to_date,
-        AttendanceRecord.overtime_hours > 0,
         Employee.is_active == True
     )
     

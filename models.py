@@ -142,37 +142,31 @@ class Employee(db.Model):
         Returns:
             List of weekday numbers (0-6, Monday=0, Sunday=6) representing weekend days
         """
-        # If employee has specific weekend days defined, use those
+        
         if self.weekend_days:
             return self.weekend_days
         
-        # If date provided, check if employee has a shift assignment on that date
         if date_obj:
-            # Find the shift assignment for this date
             shift_assignment = ShiftAssignment.query.filter(
                 ShiftAssignment.employee_id == self.id,
                 ShiftAssignment.start_date <= date_obj,
                 (ShiftAssignment.end_date >= date_obj) | (ShiftAssignment.end_date.is_(None))
             ).first()
-            
+           
             if shift_assignment and shift_assignment.shift:
-                # Use shift's weekend days if defined
                 if shift_assignment.shift.weekend_days:
                     return shift_assignment.shift.weekend_days
         
-        # If no specific weekend days defined, use current shift's weekend days if available
         if self.current_shift_id:
             shift = Shift.query.get(self.current_shift_id)
             if shift and shift.weekend_days:
                 return shift.weekend_days
         
-        # If none of the above are defined, use system-wide default weekend days
         system_config = SystemConfig.query.first()
         if system_config and system_config.weekend_days:
             return system_config.weekend_days
         
-        # Fallback to Saturday and Sunday if nothing else is defined
-        return [5, 6]  # Default: Saturday and Sunday
+        return [5, 6] 
 
 class AttendanceDevice(db.Model):
     id = db.Column(db.Integer, primary_key=True)

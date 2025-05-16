@@ -610,6 +610,7 @@
     }
     
     function createEmployeeDetailContent(data) {
+        console.log(data.records,data,"============================")
         const employee = data.employee;
         const records = data.records;
         const summary = data.summary;
@@ -758,8 +759,12 @@
         
         sortedRecords.forEach(record => {
             let statusBadge = '';
-            
-            if (record.status === 'present') {
+            console.log(record.is_holiday,record.is_weekend,"=============================================",sortedRecords)
+            if (record.is_holiday) {
+                statusBadge = '<span class="badge bg-info">Holiday</span>';
+            } else if (record.is_weekend) {
+                statusBadge = '<span class="badge bg-secondary">Weekend</span>';
+            } else if (record.status === 'present') {
                 statusBadge = '<span class="badge bg-success">Present</span>';
             } else if (record.status === 'absent') {
                 statusBadge = '<span class="badge bg-danger">Absent</span>';

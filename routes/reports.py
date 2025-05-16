@@ -1172,6 +1172,8 @@ def api_employee_attendance(employee_id):
             'check_out': record.check_out.strftime('%H:%M:%S') if record.check_out else None,
             'work_hours': record.work_hours,
             'overtime_hours': record.overtime_hours,
+            'is_weekend':record.is_weekend,
+            'is_holiday': record.is_holiday,
             # Calculate late minutes from check-in time if status is 'late'
             'late_minutes': 0 if not record.check_in or record.status != 'late' else 0,
             'note': record.notes
