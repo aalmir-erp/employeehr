@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Edit User - {{ user.username }}{% endblock %}
+
+{% block content %}
+<div class="col-md-8 mx-auto">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-pencil me-2"></i>
+                Edit User: {{ user.username }}
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('admin.edit_user', user_id=user.id) }}">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username*</label>
+                    <input type="text" class="form-control" id="username" name="username" value="{{ user.username }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email Address*</label>
+                    <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">User Role</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="is_admin" id="role_user" value="0" {% if not user.is_admin %}checked{% endif %}>
+                        <label class="form-check-label" for="role_user">
+                            Regular User
+                        </label>
+                        <div class="form-text">Can view attendance records and reports</div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="is_admin" id="role_admin" value="1" {% if user.is_admin %}checked{% endif %}>
+                        <label class="form-check-label" for="role_admin">
+                            Administrator
+                        </label>
+                        <div class="form-text">Full access to all system features</div>
+                    </div>
+                </div>
+                
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if user.is_active %}checked{% endif %}>
+                    <label class="form-check-label" for="is_active">Active Account</label>
+                    <div class="form-text">Inactive accounts cannot log in</div>
+                </div>
+                
+                <div class="card bg-light mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">Account Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <strong>Created on:</strong>
+                                <div>{{ user.created_at.strftime('%Y-%m-%d') }}</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <strong>Last Login:</strong>
+                                <div>
+                                    {% if user.last_login %}
+                                        {{ user.last_login.strftime('%Y-%m-%d %H:%M:%S') }}
+                                    {% else %}
+                                        Never
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#resetPasswordModal">
+                            <i class="bi bi-key"></i> Reset Password
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mt-4 d-flex justify-content-between">
+                    <a href="{{ url_for('admin.users') }}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Users
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ url_for('admin.reset_user_password') }}" method="post">
+                <input type="hidden" name="user_id" value="{{ user.id }}">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">Reset Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to reset the password for user <strong>{{ user.username }}</strong>?</p>
+                    <div class="mb-3">
+                        <label for="new_password" class="form-label">New Password</label>
+                        <input type="text" class="form-control" id="new_password" name="new_password">
+                        <div class="form-text">Leave blank to generate a random password</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">Reset Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Generate random password
+        $('#generatePassword').on('click', function() {
+            var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            var password = '';
+            for (var i = 0; i < 10; i++) {
+                password += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            $('#new_password').val(password);
+        });
+    });
+</script>
+{% endblock %}

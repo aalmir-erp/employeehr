@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+
+{% block title %}AI Assistant Configuration | Admin{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-4">AI Assistant Configuration</h1>
+
+    {% include 'partials/flash_messages.html' %}
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">AI Integration Settings</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('admin.update_ai_config') }}">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header">General Settings</div>
+                            <div class="card-body">
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="ai_enabled" name="ai_enabled" 
+                                        {% if system_config.ai_enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="ai_enabled">Enable AI Assistant</label>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="ai_provider" class="form-label">AI Provider</label>
+                                    <select class="form-select" id="ai_provider" name="ai_provider">
+                                        <option value="openai" {% if system_config.ai_provider == 'openai' %}selected{% endif %}>OpenAI</option>
+                                        <option value="azure" {% if system_config.ai_provider == 'azure' %}selected{% endif %}>Azure OpenAI</option>
+                                        <option value="anthropic" {% if system_config.ai_provider == 'anthropic' %}selected{% endif %}>Anthropic</option>
+                                        <option value="cohere" {% if system_config.ai_provider == 'cohere' %}selected{% endif %}>Cohere</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="ai_model" class="form-label">AI Model</label>
+                                    <select class="form-select" id="ai_model" name="ai_model">
+                                        <option value="gpt-4o" {% if system_config.ai_model == 'gpt-4o' %}selected{% endif %}>GPT-4o</option>
+                                        <option value="gpt-4-turbo" {% if system_config.ai_model == 'gpt-4-turbo' %}selected{% endif %}>GPT-4 Turbo</option>
+                                        <option value="gpt-3.5-turbo" {% if system_config.ai_model == 'gpt-3.5-turbo' %}selected{% endif %}>GPT-3.5 Turbo</option>
+                                        <option value="claude-3-opus" {% if system_config.ai_model == 'claude-3-opus' %}selected{% endif %}>Claude 3 Opus</option>
+                                        <option value="claude-3-sonnet" {% if system_config.ai_model == 'claude-3-sonnet' %}selected{% endif %}>Claude 3 Sonnet</option>
+                                        <option value="command-r" {% if system_config.ai_model == 'command-r' %}selected{% endif %}>Cohere Command R</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="ai_api_key" class="form-label">API Key</label>
+                                    <input type="password" class="form-control" id="ai_api_key" name="ai_api_key" 
+                                        value="{{ system_config.ai_api_key or '' }}" placeholder="••••••••">
+                                    <div class="form-text">API key for the selected AI provider</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header">Feature Configuration</div>
+                            <div class="card-body">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="enable_employee_assistant" name="enable_employee_assistant" 
+                                        {% if system_config.enable_employee_assistant %}checked{% endif %}>
+                                    <label class="form-check-label" for="enable_employee_assistant">
+                                        Enable Employee Assistant
+                                    </label>
+                                    <div class="form-text">Allow employees to use AI assistant for basic questions</div>
+                                </div>
+                                
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="enable_report_insights" name="enable_report_insights" 
+                                        {% if system_config.enable_report_insights %}checked{% endif %}>
+                                    <label class="form-check-label" for="enable_report_insights">
+                                        Enable Report Insights
+                                    </label>
+                                    <div class="form-text">Generate AI-powered insights for attendance reports</div>
+                                </div>
+                                
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="enable_anomaly_detection" name="enable_anomaly_detection" 
+                                        {% if system_config.enable_anomaly_detection %}checked{% endif %}>
+                                    <label class="form-check-label" for="enable_anomaly_detection">
+                                        Enable Anomaly Detection
+                                    </label>
+                                    <div class="form-text">Use AI to detect unusual attendance patterns</div>
+                                </div>
+                                
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="enable_predictive_scheduling" name="enable_predictive_scheduling" 
+                                        {% if system_config.enable_predictive_scheduling %}checked{% endif %}>
+                                    <label class="form-check-label" for="enable_predictive_scheduling">
+                                        Enable Predictive Scheduling
+                                    </label>
+                                    <div class="form-text">Use AI to suggest optimal shift schedules</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mb-3">
+                    <div class="card-header">Advanced Settings</div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="max_tokens" class="form-label">Max Response Length (tokens)</label>
+                                    <input type="number" class="form-control" id="max_tokens" name="max_tokens" 
+                                        value="{{ system_config.max_tokens or 1000 }}">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="temperature" class="form-label">Temperature (0.0 - 1.0)</label>
+                                    <input type="number" class="form-control" id="temperature" name="temperature" 
+                                        value="{{ system_config.temperature or 0.7 }}" step="0.1" min="0" max="1">
+                                    <div class="form-text">Higher values make output more creative, lower values more deterministic</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="prompt_template" class="form-label">System Prompt Template</label>
+                                    <textarea class="form-control" id="prompt_template" name="prompt_template" rows="5">{{ system_config.prompt_template or 'You are an AI assistant for MIR AMS (Attendance Management System). You help employees and managers with attendance-related queries in a helpful, accurate, and concise manner. Always maintain professionalism and prioritize data privacy.' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Save AI Configuration</button>
+                <button type="button" class="btn btn-outline-secondary" id="test-ai">Test AI Connection</button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">AI Usage Statistics</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h5>Total Queries</h5>
+                            <h2>{{ system_config.ai_total_queries or 0 }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h5>Monthly Tokens</h5>
+                            <h2>{{ system_config.ai_monthly_tokens or 0 }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h5>Success Rate</h5>
+                            <h2>{{ (system_config.ai_success_rate or 0)|round(1) }}%</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Provider change updates available models
+    document.getElementById('ai_provider').addEventListener('change', function() {
+        const provider = this.value;
+        const modelSelect = document.getElementById('ai_model');
+        
+        // Clear current options
+        modelSelect.innerHTML = '';
+        
+        // Add new options based on provider
+        if (provider === 'openai') {
+            addOption(modelSelect, 'gpt-4o', 'GPT-4o');
+            addOption(modelSelect, 'gpt-4-turbo', 'GPT-4 Turbo');
+            addOption(modelSelect, 'gpt-3.5-turbo', 'GPT-3.5 Turbo');
+        } else if (provider === 'azure') {
+            addOption(modelSelect, 'gpt-4', 'GPT-4');
+            addOption(modelSelect, 'gpt-35-turbo', 'GPT-3.5 Turbo');
+        } else if (provider === 'anthropic') {
+            addOption(modelSelect, 'claude-3-opus', 'Claude 3 Opus');
+            addOption(modelSelect, 'claude-3-sonnet', 'Claude 3 Sonnet');
+            addOption(modelSelect, 'claude-3-haiku', 'Claude 3 Haiku');
+        } else if (provider === 'cohere') {
+            addOption(modelSelect, 'command-r', 'Command R');
+            addOption(modelSelect, 'command', 'Command');
+        }
+    });
+    
+    function addOption(select, value, text) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = text;
+        select.appendChild(option);
+    }
+    
+    // Test AI connection
+    document.getElementById('test-ai').addEventListener('click', function() {
+        const provider = document.getElementById('ai_provider').value;
+        const model = document.getElementById('ai_model').value;
+        const apiKey = document.getElementById('ai_api_key').value;
+        
+        if (!apiKey) {
+            alert('Please enter an API key to test the connection.');
+            return;
+        }
+        
+        alert(`This would test the connection to ${provider} using the ${model} model in a real implementation.`);
+    });
+});
+</script>
+{% endblock %}

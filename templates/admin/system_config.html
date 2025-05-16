@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block title %}System Configuration | Admin{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-4">System Configuration</h1>
+
+    {% include 'partials/flash_messages.html' %}
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">General System Settings</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('admin.update_system_config') }}">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">Weekend Configuration</div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Default Weekend Days</label>
+                                    <div class="form-text mb-2">These days will be considered weekends for all employees by default unless overridden by shift or employee-specific settings.</div>
+                                    
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="weekend_days" value="0" id="monday" {% if 0 in system_config.weekend_days %}checked{% endif %}>
+                                        <label class="form-check-label" for="monday">Monday</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="weekend_days" value="1" id="tuesday" {% if 1 in system_config.weekend_days %}checked{% endif %}>
+                                        <label class="form-check-label" for="tuesday">Tuesday</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="weekend_days" value="2" id="wednesday" {% if 2 in system_config.weekend_days %}checked{% endif %}>
+                                        <label class="form-check-label" for="wednesday">Wednesday</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="weekend_days" value="3" id="thursday" {% if 3 in system_config.weekend_days %}checked{% endif %}>
+                                        <label class="form-check-label" for="thursday">Thursday</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="weekend_days" value="4" id="friday" {% if 4 in system_config.weekend_days %}checked{% endif %}>
+                                        <label class="form-check-label" for="friday">Friday</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="weekend_days" value="5" id="saturday" {% if 5 in system_config.weekend_days %}checked{% endif %}>
+                                        <label class="form-check-label" for="saturday">Saturday</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="weekend_days" value="6" id="sunday" {% if 6 in system_config.weekend_days %}checked{% endif %}>
+                                        <label class="form-check-label" for="sunday">Sunday</label>
+                                    </div>
+                                </div>
+                                <div class="text-muted small">For more detailed weekend configuration, use the <a href="{{ url_for('admin.weekend_config') }}">Weekend Configuration</a> page.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">Default Settings</div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="default_shift" class="form-label">Default Shift</label>
+                                    <select class="form-select" id="default_shift" name="default_shift_id">
+                                        <option value="">No Default Shift</option>
+                                        <!-- Add shift options here -->
+                                    </select>
+                                    <div class="form-text">Default shift for new employees</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="minimum_break_duration" class="form-label">Minimum Break Duration (minutes)</label>
+                                    <input type="number" class="form-control" id="minimum_break_duration" name="minimum_break_duration" value="{{ system_config.minimum_break_duration or 15 }}">
+                                    <div class="form-text">Minimum duration for a period to be considered a break</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="maximum_break_duration" class="form-label">Maximum Break Duration (minutes)</label>
+                                    <input type="number" class="form-control" id="maximum_break_duration" name="maximum_break_duration" value="{{ system_config.maximum_break_duration or 300 }}">
+                                    <div class="form-text">Maximum duration for a period to be automatically considered a break</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Save System Configuration</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0">Advanced Settings</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">Data Management</div>
+                        <div class="card-body">
+                            <p>Manage database and system data.</p>
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                                <a href="{{ url_for('admin.index') }}" class="btn btn-outline-primary">
+                                    <i class="bi bi-database-fill"></i> Database Management
+                                </a>
+                                <a href="{{ url_for('admin.index') }}" class="btn btn-outline-danger">
+                                    <i class="bi bi-trash"></i> Clear Test Data
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">System Maintenance</div>
+                        <div class="card-body">
+                            <p>Perform system maintenance and optimization tasks.</p>
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                                <a href="{{ url_for('admin.index') }}" class="btn btn-outline-warning">
+                                    <i class="bi bi-speedometer"></i> System Diagnostics
+                                </a>
+                                <a href="{{ url_for('admin.index') }}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-arrow-clockwise"></i> Clear Cache
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

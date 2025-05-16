@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Export Bonus Data{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('bonus.hr_dashboard') }}">HR Bonus Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('bonus.hr_review') }}">Review</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('bonus.view_submission', submission_id=submission.id) }}">View Submission</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Export</li>
+                </ol>
+            </nav>
+            <h1 class="mb-3">Export Bonus Data to Odoo</h1>
+            <p class="lead">
+                Department: <strong>{{ submission.department }}</strong> | 
+                Period: <strong>{{ submission.period.name }}</strong>
+            </p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Employee Data for Export</h4>
+                </div>
+                <div class="card-body">
+                    {% if employee_data %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Odoo ID</th>
+                                    <th>Department</th>
+                                    <th>Bonus Points</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for employee in employee_data %}
+                                <tr>
+                                    <td>{{ employee.name }}</td>
+                                    <td>{{ employee.odoo_id }}</td>
+                                    <td>{{ employee.department }}</td>
+                                    <td>{{ "%.1f"|format(employee.bonus_points) }}</td>
+                                    <td>
+                                        <span class="badge bg-info">Ready</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        No employee data found for export. Ensure all employees have Odoo IDs assigned.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Export Controls</h4>
+                </div>
+                <div class="card-body">
+                    <p>This will export the bonus evaluation data to Odoo for payroll processing.</p>
+                    
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Note:</strong> Exported data will be sent to the following Odoo destination:
+                        <code>{{ submission.department }} / {{ submission.period.name }}</code>
+                    </div>
+                    
+                    {% if employee_data %}
+                    <button type="button" id="exportButton" class="btn btn-primary w-100 mt-3">
+                        <i class="bi bi-upload me-2"></i> Export to Odoo
+                    </button>
+                    {% else %}
+                    <button type="button" class="btn btn-primary w-100 mt-3" disabled>
+                        <i class="bi bi-upload me-2"></i> Export to Odoo
+                    </button>
+                    <small class="text-muted">No data available for export</small>
+                    {% endif %}
+                    
+                    <a href="{{ url_for('bonus.view_submission', submission_id=submission.id) }}" class="btn btn-outline-secondary w-100 mt-3">
+                        <i class="bi bi-arrow-left me-2"></i> Back to Submission
+                    </a>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Export Summary</h4>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Total Employees
+                            <span class="badge bg-primary rounded-pill">{{ employee_data|length }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Average Score
+                            {% set total_score = 0 %}
+                            {% for employee in employee_data %}
+                                {% set total_score = total_score + employee.bonus_points %}
+                            {% endfor %}
+                            <span class="badge bg-info rounded-pill">
+                                {% if employee_data|length > 0 %}
+                                    {{ "%.1f"|format(total_score / employee_data|length) }}
+                                {% else %}
+                                    0.0
+                                {% endif %}
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Confirmation Modal -->
+<div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exportModalLabel">Confirm Export</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to export this data to Odoo?</p>
+                <p>This action will send bonus data for <strong>{{ employee_data|length }}</strong> employees to the Odoo system.</p>
+                
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Warning:</strong> This data will be used for payroll calculations. Please verify all information is correct before proceeding.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="confirmExport" class="btn btn-primary">
+                    Confirm Export
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Progress Modal -->
+<div class="modal fade" id="exportProgressModal" tabindex="-1" aria-labelledby="exportProgressModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exportProgressModalLabel">Exporting Data</h5>
+            </div>
+            <div class="modal-body text-center">
+                <div class="mb-3">
+                    <i class="bi bi-arrow-repeat fs-1 text-primary"></i>
+                </div>
+                <p>Exporting bonus data to Odoo. Please wait...</p>
+                <div class="progress">
+                    <div id="exportProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                </div>
+                <p id="exportStatus" class="mt-3">Preparing data...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Success Modal -->
+<div class="modal fade" id="exportSuccessModal" tabindex="-1" aria-labelledby="exportSuccessModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exportSuccessModalLabel">Export Successful</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="mb-3">
+                    <i class="bi bi-check-circle-fill fs-1 text-success"></i>
+                </div>
+                <p>The bonus data has been successfully exported to Odoo.</p>
+                <p>Total employees processed: <strong>{{ employee_data|length }}</strong></p>
+            </div>
+            <div class="modal-footer">
+                <a href="{{ url_for('bonus.hr_review') }}" class="btn btn-primary">Return to Reviews</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const exportButton = document.getElementById('exportButton');
+        const confirmExportButton = document.getElementById('confirmExport');
+        
+        if (exportButton) {
+            exportButton.addEventListener('click', function() {
+                const exportModal = new bootstrap.Modal(document.getElementById('exportModal'));
+                exportModal.show();
+            });
+        }
+        
+        if (confirmExportButton) {
+            confirmExportButton.addEventListener('click', function() {
+                // Hide confirmation modal
+                const exportModal = document.getElementById('exportModal');
+                bootstrap.Modal.getInstance(exportModal).hide();
+                
+                // Show progress modal
+                const progressModal = new bootstrap.Modal(document.getElementById('exportProgressModal'));
+                progressModal.show();
+                
+                // Simulate export process (in a real implementation, this would be an AJAX call)
+                const progressBar = document.getElementById('exportProgressBar');
+                const statusText = document.getElementById('exportStatus');
+                let progress = 0;
+                
+                // Simulate a 3-step export process
+                const interval = setInterval(function() {
+                    progress += 25;
+                    progressBar.style.width = progress + '%';
+                    
+                    if (progress === 25) {
+                        statusText.textContent = 'Connecting to Odoo...';
+                    } else if (progress === 50) {
+                        statusText.textContent = 'Sending employee data...';
+                    } else if (progress === 75) {
+                        statusText.textContent = 'Verifying import...';
+                    } else if (progress >= 100) {
+                        clearInterval(interval);
+                        statusText.textContent = 'Export complete!';
+                        
+                        // Hide progress modal and show success modal after a short delay
+                        setTimeout(function() {
+                            bootstrap.Modal.getInstance(document.getElementById('exportProgressModal')).hide();
+                            const successModal = new bootstrap.Modal(document.getElementById('exportSuccessModal'));
+                            successModal.show();
+                        }, 500);
+                    }
+                }, 800);
+            });
+        }
+    });
+</script>
+{% endblock %}

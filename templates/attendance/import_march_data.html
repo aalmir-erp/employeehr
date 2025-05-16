@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block title %}Import March Data{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Import March Attendance Data</h5>
+        </div>
+        <div class="card-body">
+            <p>
+                This page allows you to import March 2025 attendance data from the sample CSV file.
+                The sample file contains attendance punches for day and night shift employees.
+            </p>
+            
+            <form action="{{ url_for('attendance.import_march_data') }}" method="post">
+                <div class="mb-3">
+                    <label for="device_id" class="form-label">Select Device for Import</label>
+                    <select class="form-select" id="device_id" name="device_id" required>
+                        <option value="">-- Select Device --</option>
+                        {% for device in devices %}
+                        <option value="{{ device.id }}">{{ device.name }} ({{ device.device_type }})</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Select the device that will be associated with the imported logs</div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <h5>File to Import: rptViewer (1).csv</h5>
+                    <p>The file contains attendance logs for March 2025 with the following details:</p>
+                    <ul>
+                        <li>Employee: KHAMIS (ID: 129)</li>
+                        <li>Department: Cleaner/Misc</li>
+                        <li>Includes both day and night shift entries</li>
+                    </ul>
+                </div>
+                
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload"></i> Import March Data
+                    </button>
+                    <a href="{{ url_for('attendance.index') }}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Attendance
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

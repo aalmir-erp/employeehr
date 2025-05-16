@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}ERP API Configuration{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">ERP API Configuration</h4>
+                </div>
+                <div class="card-body">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    <form method="POST" action="{{ url_for('admin.save_erp_config') }}">
+                        {{ form.hidden_tag() }}
+                        <div class="mb-3">
+                            <label for="api_url" class="form-label">API URL</label>
+                            <input type="text" class="form-control" id="api_url" name="api_url" value="{{ config.api_url or 'https://erp.mir.ae:4082' }}" required>
+                            <div class="form-text">The base URL for the ERP API</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username" value="{{ config.username }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" name="password" value="{{ config.password }}">
+                            <div class="form-text">Leave blank to keep existing password</div>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="auto_sync" name="auto_sync" {% if config.auto_sync %}checked{% endif %}>
+                            <label class="form-check-label" for="auto_sync">Auto Sync</label>
+                            <div class="form-text">Automatically sync data with ERP on a schedule</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="sync_interval_hours" class="form-label">Sync Interval (hours)</label>
+                            <input type="number" class="form-control" id="sync_interval_hours" name="sync_interval_hours" value="{{ config.sync_interval_hours or 24 }}" min="1" max="168">
+                        </div>
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-primary">Save Configuration</button>
+                            <a href="{{ url_for('admin.test_erp_connection') }}" class="btn btn-secondary">Test Connection</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

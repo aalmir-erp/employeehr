@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Supervisor Bonus Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="mb-3">Bonus Dashboard</h1>
+            <p class="lead">Manage bonus evaluations for your department: <strong>{{ department }}</strong></p>
+        </div>
+    </div>
+
+    <!-- Active Evaluation Periods -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Active Evaluation Periods</h4>
+                </div>
+                <div class="card-body">
+                    {% if active_periods %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Period Name</th>
+                                    <th>Date Range</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for period in active_periods %}
+                                <tr>
+                                    <td>{{ period.name }}</td>
+                                    <td>{{ period.start_date|format_date }} - {{ period.end_date|format_date }}</td>
+                                    <td>
+                                        <span class="badge {% if period.status == 'open' %}bg-success{% else %}bg-info{% endif %}">
+                                            {{ period.status }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% set has_submission = false %}
+                                        {% for submission in submissions %}
+                                            {% if submission.period_id == period.id %}
+                                                {% set has_submission = true %}
+                                                {% if submission.status == 'draft' %}
+                                                    <a href="{{ url_for('bonus.edit_submission', submission_id=submission.id) }}" class="btn btn-sm btn-warning">
+                                                        Continue Draft
+                                                    </a>
+                                                {% else %}
+                                                    <a href="{{ url_for('bonus.view_submission', submission_id=submission.id) }}" class="btn btn-sm btn-info">
+                                                        View Submission
+                                                    </a>
+                                                {% endif %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        {% if not has_submission and period.status == 'open' %}
+                                            <a href="{{ url_for('bonus.supervisor_submit', period_id=period.id) }}" class="btn btn-sm btn-primary">
+                                                Start New Submission
+                                            </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle me-2"></i> No active evaluation periods available at this time.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Your Submissions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Your Submissions</h4>
+                </div>
+                <div class="card-body">
+                    {% if submissions %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Period</th>
+                                    <th>Date Submitted</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for submission in submissions %}
+                                <tr>
+                                    <td>{{ submission.period.name }}</td>
+                                    <td>
+                                        {% if submission.submitted_at %}
+                                            {{ submission.submitted_at|format_date }}
+                                        {% else %}
+                                            Not yet submitted
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge 
+                                        {% if submission.status == 'draft' %}bg-warning
+                                        {% elif submission.status == 'submitted' %}bg-info
+                                        {% elif submission.status == 'approved' %}bg-success
+                                        {% elif submission.status == 'rejected' %}bg-danger
+                                        {% endif %}">
+                                            {{ submission.status }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if submission.status == 'draft' or submission.status == 'rejected' %}
+                                        <a href="{{ url_for('bonus.edit_submission', submission_id=submission.id) }}" class="btn btn-sm btn-primary">
+                                            Edit
+                                        </a>
+                                        {% else %}
+                                        <a href="{{ url_for('bonus.view_submission', submission_id=submission.id) }}" class="btn btn-sm btn-info">
+                                            View
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle me-2"></i> You haven't created any bonus submissions yet.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Department Employees -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Department Employees</h4>
+                </div>
+                <div class="card-body">
+                    {% if employees %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Employee ID</th>
+                                    <th>Position</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for employee in employees %}
+                                <tr>
+                                    <td>{{ employee.name }}</td>
+                                    <td>{{ employee.employee_id }}</td>
+                                    <td>{{ employee.position }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle me-2"></i> No active employees in your department.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

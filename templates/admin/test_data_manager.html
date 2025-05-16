@@ -1,0 +1,495 @@
+{% extends "base.html" %}
+
+{% block title %}Test Data Manager{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Test Data Manager</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info" role="alert">
+                        <h4 class="alert-heading"><i class="bi bi-info-circle"></i> About Test Data Manager</h4>
+                        <p>This tool allows you to generate comprehensive test data for the MIR AMS system. It will:</p>
+                        <ul>
+                            <li>Clear all existing employee and attendance data</li>
+                            <li>Create test employees with different settings</li>
+                            <li>Generate shift assignments over a date range</li>
+                            <li>Create varied attendance logs (normal, late, missing, overtime, etc.)</li>
+                            <li>Process logs into attendance records</li>
+                        </ul>
+                        <p class="mb-0"><strong>Warning:</strong> This will delete all existing employee data, logs, and records. Use only in development/testing environments.</p>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Test Data Actions</h6>
+                            <form action="{{ url_for('admin.setup_test_data') }}" method="post" id="testDataForm">
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="start_date" class="form-label">Start Date</label>
+                                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="end_date" class="form-label">End Date</label>
+                                        <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date }}">
+                                    </div>
+                                </div>
+                                
+                                <div class="d-grid gap-2">
+                                    <div class="btn-group mb-3">
+                                        <button type="submit" class="btn btn-danger" id="resetAndGenerateBtn" name="action" value="reset_and_generate">
+                                            <i class="bi bi-arrow-clockwise"></i> Reset & Generate
+                                        </button>
+                                        <button type="submit" class="btn btn-outline-primary" id="generateWithoutResetBtn" name="action" value="generate_only">
+                                            <i class="bi bi-database-fill-gear"></i> Generate Only
+                                        </button>
+                                    </div>
+                                    
+                                    <button type="submit" class="btn btn-outline-secondary" id="resetOnlyBtn" name="action" value="reset_only">
+                                        <i class="bi bi-trash"></i> Reset Database
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Progress</h6>
+                            <div id="progressContainer" style="display:none;">
+                                <div class="progress mb-3">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" id="progressBar" style="width: 0%"></div>
+                                </div>
+                                <div id="progressText" class="small text-muted">Preparing...</div>
+                            </div>
+                            <div id="resultContainer" class="border rounded p-3 bg-light" style="min-height: 150px; max-height: 250px; overflow-y: auto;">
+                                <p class="text-muted small">Operation results will appear here...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">AI Assistant</h5>
+                </div>
+                <div class="card-body" id="aiAssistantContainer">
+                    <div id="aiDisabledMessage" style="display: none;">
+                        <div class="alert alert-warning">
+                            <h5><i class="bi bi-robot"></i> AI Assistant is not enabled</h5>
+                            <p>The AI Assistant allows you to use natural language commands to generate or delete test data.</p>
+                            <a href="{{ url_for('admin.ai_assistant_config') }}" class="btn btn-primary">
+                                <i class="bi bi-gear"></i> Configure AI Assistant
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div id="aiEnabledInterface" style="display: none;">
+                        <div class="mb-3">
+                            <p>Ask the AI Assistant to generate or delete test data using natural language.</p>
+                            <div class="input-group mb-3">
+                                <input type="text" id="aiCommandInput" class="form-control" 
+                                       placeholder="E.g., 'Create test data for 5 employees with night shifts in June 2025'">
+                                <button class="btn btn-primary" type="button" id="sendTextCommandBtn">
+                                    <i class="bi bi-send"></i> Send
+                                </button>
+                                <button class="btn btn-outline-secondary" type="button" id="recordVoiceCommandBtn">
+                                    <i class="bi bi-mic"></i> Voice
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="confirmationDialog" style="display: none;" class="alert alert-warning mb-3">
+                            <p id="confirmationMessage">Are you sure you want to proceed with this action?</p>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-danger" id="confirmActionBtn">
+                                    <i class="bi bi-check-circle"></i> Confirm
+                                </button>
+                                <button class="btn btn-secondary" id="cancelActionBtn">
+                                    <i class="bi bi-x-circle"></i> Cancel
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="aiResponseContainer" class="border rounded p-3 mb-3 bg-light" style="min-height: 100px; max-height: 200px; overflow-y: auto;">
+                            <p class="text-muted small">AI Assistant responses will appear here...</p>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">Powered by OpenAI</small>
+                            <a href="{{ url_for('admin.ai_assistant_config') }}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-gear"></i> AI Settings
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">Odoo Integration</h5>
+                </div>
+                <div class="card-body">
+                    <p>Manage employee synchronization with your Odoo ERP instance.</p>
+                    <a href="{{ url_for('admin.odoo_config') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-gear"></i> Configure Odoo Integration
+                    </a>
+                    <form method="post" action="{{ url_for('admin.sync_employees') }}" class="d-inline">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-arrow-repeat"></i> Sync Employees from Odoo
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Current Status</h5>
+                </div>
+                <div class="card-body">
+                    <p>Quick overview of current test data:</p>
+                    <ul class="list-group">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Employees
+                            <span class="badge bg-primary rounded-pill" id="employeeCount">-</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Attendance Logs
+                            <span class="badge bg-primary rounded-pill" id="logCount">-</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Processed Records
+                            <span class="badge bg-primary rounded-pill" id="recordCount">-</span>
+                        </li>
+                    </ul>
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="refreshStatusBtn">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh Status
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Initialize today's date for the date pickers
+        const today = new Date();
+        const firstDayMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDayMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        
+        // Format dates for the input fields
+        if (!$('#start_date').val()) {
+            $('#start_date').val(firstDayMonth.toISOString().slice(0, 10));
+        }
+        if (!$('#end_date').val()) {
+            $('#end_date').val(lastDayMonth.toISOString().slice(0, 10));
+        }
+        
+        // Show progress indication when generating test data
+        $('#testDataForm').on('submit', function() {
+            // Show progress container
+            $('#progressContainer').show();
+            $('#resultContainer').html('<p class="text-muted">Operation in progress...</p>');
+            
+            // Start the progress animation
+            let progress = 0;
+            const progressBar = $('#progressBar');
+            const progressText = $('#progressText');
+            
+            const updateProgress = () => {
+                const steps = [
+                    { value: 10, text: "Resetting database..." },
+                    { value: 20, text: "Creating test employees..." },
+                    { value: 40, text: "Creating shift assignments..." },
+                    { value: 70, text: "Generating attendance logs..." },
+                    { value: 90, text: "Processing attendance records..." },
+                    { value: 100, text: "Completed!" }
+                ];
+                
+                let currentStep = 0;
+                
+                const interval = setInterval(() => {
+                    if (currentStep >= steps.length) {
+                        clearInterval(interval);
+                        return;
+                    }
+                    
+                    const step = steps[currentStep];
+                    progressBar.css('width', step.value + '%');
+                    progressBar.attr('aria-valuenow', step.value);
+                    progressText.text(step.text);
+                    
+                    currentStep++;
+                    
+                    // If we're at the last step, pause longer
+                    if (currentStep === steps.length - 1) {
+                        setTimeout(() => {
+                            // Will be overridden by flash messages on page reload
+                            progressText.text("Reloading page...");
+                        }, 1000);
+                    }
+                }, 1500);
+            };
+            
+            updateProgress();
+            
+            // Return true to allow the form to submit
+            return true;
+        });
+        
+        // Function to refresh status counts
+        const refreshStatus = () => {
+            $.ajax({
+                url: '/api/test-data-status',
+                method: 'GET',
+                success: function(data) {
+                    $('#employeeCount').text(data.employees || 0);
+                    $('#logCount').text(data.logs || 0);
+                    $('#recordCount').text(data.records || 0);
+                    
+                    // Update AI assistant interface based on enabled status
+                    if (data.ai_assistant_enabled) {
+                        $('#aiDisabledMessage').hide();
+                        $('#aiEnabledInterface').show();
+                    } else {
+                        $('#aiDisabledMessage').show();
+                        $('#aiEnabledInterface').hide();
+                    }
+                },
+                error: function() {
+                    alert('Failed to refresh status. Please try again.');
+                }
+            });
+        };
+        
+        // Refresh status on button click
+        $('#refreshStatusBtn').on('click', refreshStatus);
+        
+        // Initial status refresh
+        refreshStatus();
+        
+        // AI Assistant functionality
+        let pendingCommand = null;
+        
+        // Text command processing
+        $('#sendTextCommandBtn').on('click', function() {
+            const commandText = $('#aiCommandInput').val().trim();
+            if (!commandText) {
+                return;
+            }
+            
+            processAiCommand(commandText);
+        });
+        
+        // Also process command on Enter key
+        $('#aiCommandInput').on('keypress', function(e) {
+            if (e.which === 13) {
+                const commandText = $(this).val().trim();
+                if (commandText) {
+                    processAiCommand(commandText);
+                }
+                e.preventDefault();
+            }
+        });
+        
+        // Voice command processing
+        $('#recordVoiceCommandBtn').on('click', function() {
+            // Check if browser supports audio recording
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                $('#aiResponseContainer').html('<div class="alert alert-danger">Your browser does not support voice commands.</div>');
+                return;
+            }
+            
+            // Update UI to show recording status
+            const $button = $(this);
+            $button.addClass('btn-danger').removeClass('btn-outline-secondary');
+            $button.html('<i class="bi bi-record-fill"></i> Recording...');
+            $('#aiResponseContainer').html('<p class="text-muted">Listening... speak your command.</p>');
+            
+            // Start recording
+            let mediaRecorder;
+            let audioChunks = [];
+            
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    mediaRecorder = new MediaRecorder(stream);
+                    
+                    mediaRecorder.addEventListener("dataavailable", event => {
+                        audioChunks.push(event.data);
+                    });
+                    
+                    mediaRecorder.addEventListener("stop", () => {
+                        // Reset button
+                        $button.removeClass('btn-danger').addClass('btn-outline-secondary');
+                        $button.html('<i class="bi bi-mic"></i> Voice');
+                        
+                        // Create audio blob and send to server
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        
+                        // Show processing message
+                        $('#aiResponseContainer').html('<p class="text-muted">Processing audio...</p>');
+                        
+                        // Create form data and send audio
+                        const formData = new FormData();
+                        formData.append('audio', audioBlob);
+                        
+                        // Send to server for transcription
+                        $.ajax({
+                            url: '/api/ai-assistant/audio-command',
+                            type: 'POST',
+                            data: formData,
+                            processData: false,
+                            contentType: false,
+                            success: function(response) {
+                                if (response.success) {
+                                    const transcription = response.transcription;
+                                    $('#aiCommandInput').val(transcription);
+                                    $('#aiResponseContainer').html(`<p>Transcribed: "${transcription}"</p>`);
+                                    
+                                    // Process the transcribed command
+                                    processAiCommand(transcription);
+                                } else {
+                                    $('#aiResponseContainer').html(`<div class="alert alert-danger">${response.error || 'Failed to process audio'}</div>`);
+                                }
+                            },
+                            error: function() {
+                                $('#aiResponseContainer').html('<div class="alert alert-danger">Failed to process audio. Please try again.</div>');
+                            }
+                        });
+                        
+                        // Stop all tracks
+                        stream.getTracks().forEach(track => track.stop());
+                    });
+                    
+                    // Start recording (stop after 10 seconds max)
+                    mediaRecorder.start();
+                    setTimeout(() => {
+                        if (mediaRecorder.state === 'recording') {
+                            mediaRecorder.stop();
+                        }
+                    }, 10000);
+                    
+                    // Add click event to stop recording early
+                    $button.on('click.stopRecording', function() {
+                        if (mediaRecorder && mediaRecorder.state === 'recording') {
+                            mediaRecorder.stop();
+                        }
+                        $button.off('click.stopRecording');
+                    });
+                })
+                .catch(error => {
+                    console.error("Error accessing microphone:", error);
+                    $button.removeClass('btn-danger').addClass('btn-outline-secondary');
+                    $button.html('<i class="bi bi-mic"></i> Voice');
+                    $('#aiResponseContainer').html('<div class="alert alert-danger">Failed to access microphone. Please check permissions.</div>');
+                });
+        });
+        
+        // Process AI command
+        function processAiCommand(commandText, confirmation = false) {
+            // Show processing message
+            $('#aiResponseContainer').html('<p class="text-muted">Processing command...</p>');
+            
+            // Prepare the request data
+            const requestData = {
+                command: commandText,
+                confirmation: confirmation
+            };
+            
+            // Send command to server
+            $.ajax({
+                url: '/api/ai-assistant/process-command',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(requestData),
+                success: function(response) {
+                    if (response.success) {
+                        // Check if confirmation is needed
+                        if (response.needs_confirmation) {
+                            // Store the command for confirmation
+                            pendingCommand = commandText;
+                            
+                            // Show confirmation dialog
+                            $('#confirmationMessage').text(response.confirmation_message);
+                            $('#confirmationDialog').show();
+                        } else {
+                            // Show success message
+                            $('#confirmationDialog').hide();
+                            $('#aiResponseContainer').html(`
+                                <div class="alert alert-success">
+                                    <h5><i class="bi bi-check-circle"></i> Success</h5>
+                                    <p>${response.message || 'Command executed successfully'}</p>
+                                </div>
+                            `);
+                            
+                            // Clear the input
+                            $('#aiCommandInput').val('');
+                            
+                            // Refresh status after successful operation
+                            setTimeout(refreshStatus, 1000);
+                        }
+                    } else {
+                        // Show error message
+                        $('#confirmationDialog').hide();
+                        $('#aiResponseContainer').html(`
+                            <div class="alert alert-danger">
+                                <h5><i class="bi bi-exclamation-triangle"></i> Error</h5>
+                                <p>${response.error || 'Failed to process command'}</p>
+                            </div>
+                        `);
+                    }
+                },
+                error: function(xhr) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        $('#aiResponseContainer').html(`
+                            <div class="alert alert-danger">
+                                <h5><i class="bi bi-exclamation-triangle"></i> Error</h5>
+                                <p>${response.error || 'Server error'}</p>
+                            </div>
+                        `);
+                    } catch (e) {
+                        $('#aiResponseContainer').html(`
+                            <div class="alert alert-danger">
+                                <h5><i class="bi bi-exclamation-triangle"></i> Error</h5>
+                                <p>Failed to process command. Please try again.</p>
+                            </div>
+                        `);
+                    }
+                }
+            });
+        }
+        
+        // Confirm action button
+        $('#confirmActionBtn').on('click', function() {
+            if (pendingCommand) {
+                processAiCommand(pendingCommand, true);
+                pendingCommand = null;
+            }
+        });
+        
+        // Cancel action button
+        $('#cancelActionBtn').on('click', function() {
+            $('#confirmationDialog').hide();
+            pendingCommand = null;
+            $('#aiResponseContainer').html('<p class="text-muted">Command canceled.</p>');
+        });
+    });
+</script>
+{% endblock %}

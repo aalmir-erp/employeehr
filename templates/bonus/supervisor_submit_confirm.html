@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Start Bonus Submission{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('bonus.supervisor_dashboard') }}">Bonus Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Start Submission</li>
+                </ol>
+            </nav>
+            <h1 class="mb-3">Start Bonus Submission</h1>
+            <p class="lead">Create a new bonus evaluation submission for your department.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Submission Details</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('bonus.supervisor_submit', period_id=period.id) }}">
+                        <div class="mb-4">
+                            <h5>Department</h5>
+                            <p class="lead">{{ department }}</p>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h5>Evaluation Period</h5>
+                            <p class="lead">{{ period.name }} ({{ period.start_date|format_date }} - {{ period.end_date|format_date }})</p>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Note:</strong> Once you start this submission, you'll need to evaluate all active employees in your department across all evaluation criteria.
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('bonus.supervisor_dashboard') }}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Start Evaluation</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Process Overview</h5>
+                </div>
+                <div class="card-body">
+                    <ol class="list-group list-group-numbered mb-0">
+                        <li class="list-group-item d-flex">
+                            <div>
+                                <strong>Start Submission</strong>
+                                <p class="mb-0 text-muted">Create a draft submission</p>
+                            </div>
+                        </li>
+                        <li class="list-group-item d-flex">
+                            <div>
+                                <strong>Complete Evaluations</strong>
+                                <p class="mb-0 text-muted">Rate each employee on all criteria</p>
+                            </div>
+                        </li>
+                        <li class="list-group-item d-flex">
+                            <div>
+                                <strong>Submit for Review</strong>
+                                <p class="mb-0 text-muted">Send completed evaluations to HR</p>
+                            </div>
+                        </li>
+                        <li class="list-group-item d-flex">
+                            <div>
+                                <strong>HR Approval</strong>
+                                <p class="mb-0 text-muted">HR reviews and finalizes</p>
+                            </div>
+                        </li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

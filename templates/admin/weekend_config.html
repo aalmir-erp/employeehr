@@ -1,0 +1,480 @@
+{% extends 'base.html' %}
+
+{% block title %}Weekend Configuration | Admin{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-4">Weekend Configuration</h1>
+
+    {% include 'partials/flash_messages.html' %}
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Current Weekend Configuration</h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle-fill me-2"></i>
+                <strong>Weekend Configuration Priority:</strong>
+                <ol class="mb-0">
+                    <li>Employee-specific weekend days (highest priority)</li>
+                    <li>Shift-specific weekend days (middle priority)</li>
+                    <li>System-wide default weekend days (lowest priority)</li>
+                </ol>
+            </div>
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-header">System Default Weekend Days</div>
+                        <div class="card-body">
+                            <p><strong>Current Setting:</strong> <span id="system-weekend-days"></span></p>
+                            <p class="text-muted small">Lowest priority. Used when no other weekend settings are defined.</p>
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#systemWeekendModal">
+                                <i class="bi bi-pencil"></i> Edit System Defaults
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-header">Shift-specific Weekend Days</div>
+                        <div class="card-body">
+                            <div id="shift-weekend-days">
+                                <div class="text-center">
+                                    <div class="spinner-border spinner-border-sm" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    Loading shift configurations...
+                                </div>
+                            </div>
+                            <p class="text-muted small mt-2">Medium priority. Used when employee has no specific weekend days.</p>
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#shiftWeekendModal">
+                                <i class="bi bi-pencil"></i> Edit Shift Weekends
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-header">Employee-specific Weekend Days</div>
+                        <div class="card-body">
+                            <select class="form-select mb-2" id="employee-selector">
+                                <option value="">Select an employee...</option>
+                                {% for employee in employees %}
+                                <option value="{{ employee.id }}">{{ employee.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <div id="employee-weekend-days">
+                                <p class="text-muted">Select an employee to view their weekend configuration.</p>
+                            </div>
+                            <p class="text-muted small">Highest priority. Overrides both system and shift settings.</p>
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#employeeWeekendModal" id="edit-employee-btn" disabled>
+                                <i class="bi bi-pencil"></i> Edit Employee Weekends
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0">Fix Weekend Configuration</h5>
+        </div>
+        <div class="card-body">
+            <p>If weekend flags are not displaying correctly in attendance records, use this tool to fix them.</p>
+            <form id="fix-weekend-form" method="POST" action="{{ url_for('admin.fix_weekend') }}">
+                <div class="mb-3">
+                    <label for="shift-id" class="form-label">Shift (Optional)</label>
+                    <select class="form-select" id="shift-id" name="shift_id">
+                        <option value="">All Shifts</option>
+                        {% for shift in shifts %}
+                        <option value="{{ shift.id }}">{{ shift.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Leave blank to update all employees across all shifts.</div>
+                </div>
+                <button type="submit" class="btn btn-warning">Fix Weekend Flags</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Employee Weekend Modal -->
+<div class="modal fade" id="employeeWeekendModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Employee Weekend Days</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="employee-weekend-form" method="POST" action="{{ url_for('admin.update_employee_weekend_config') }}">
+                    <input type="hidden" id="modal-employee-id" name="employee_id">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Employee Weekend Days</label>
+                        <div class="form-text mb-2">These days will be considered weekends for this specific employee.</div>
+                        
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="0" id="emp-monday">
+                            <label class="form-check-label" for="emp-monday">Monday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="1" id="emp-tuesday">
+                            <label class="form-check-label" for="emp-tuesday">Tuesday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="2" id="emp-wednesday">
+                            <label class="form-check-label" for="emp-wednesday">Wednesday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="3" id="emp-thursday">
+                            <label class="form-check-label" for="emp-thursday">Thursday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="4" id="emp-friday">
+                            <label class="form-check-label" for="emp-friday">Friday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="5" id="emp-saturday">
+                            <label class="form-check-label" for="emp-saturday">Saturday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="6" id="emp-sunday">
+                            <label class="form-check-label" for="emp-sunday">Sunday</label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="emp-use-default" name="use_default">
+                        <label class="form-check-label" for="emp-use-default">
+                            Use shift/system defaults (no override)
+                        </label>
+                        <div class="form-text">
+                            Check this if you want to use the shift-specific or system-wide weekend settings instead of employee-specific settings.
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="employee-weekend-form" class="btn btn-primary">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Shift Weekend Modal -->
+<div class="modal fade" id="shiftWeekendModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Shift Weekend Days</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="shift-weekend-form" method="POST" action="{{ url_for('admin.update_shift_weekend_config') }}">
+                    <div class="mb-3">
+                        <label for="shift-select" class="form-label">Select Shift</label>
+                        <select class="form-select" id="shift-select" name="shift_id" required>
+                            <option value="">-- Select Shift --</option>
+                            {% for shift in shifts %}
+                            <option value="{{ shift.id }}">{{ shift.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Shift Weekend Days</label>
+                        <div class="form-text mb-2">These days will be considered weekends for all employees with this shift.</div>
+                        
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="0" id="shift-monday">
+                            <label class="form-check-label" for="shift-monday">Monday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="1" id="shift-tuesday">
+                            <label class="form-check-label" for="shift-tuesday">Tuesday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="2" id="shift-wednesday">
+                            <label class="form-check-label" for="shift-wednesday">Wednesday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="3" id="shift-thursday">
+                            <label class="form-check-label" for="shift-thursday">Thursday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="4" id="shift-friday">
+                            <label class="form-check-label" for="shift-friday">Friday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="5" id="shift-saturday">
+                            <label class="form-check-label" for="shift-saturday">Saturday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="6" id="shift-sunday">
+                            <label class="form-check-label" for="shift-sunday">Sunday</label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="shift-use-default" name="use_default">
+                        <label class="form-check-label" for="shift-use-default">
+                            Use system defaults (no override)
+                        </label>
+                        <div class="form-text">
+                            Check this if you want to use the system-wide weekend settings instead of shift-specific settings.
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="shift-weekend-form" class="btn btn-primary">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Weekend Modal -->
+<div class="modal fade" id="systemWeekendModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit System Default Weekend Days</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="system-weekend-form" method="POST" action="{{ url_for('admin.update_system_weekend_config') }}">
+                    <div class="mb-3">
+                        <label class="form-label">System Default Weekend Days</label>
+                        <div class="form-text mb-2">These days will be considered weekends for all employees by default unless overridden by shift or employee-specific settings.</div>
+                        
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="0" id="sys-monday">
+                            <label class="form-check-label" for="sys-monday">Monday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="1" id="sys-tuesday">
+                            <label class="form-check-label" for="sys-tuesday">Tuesday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="2" id="sys-wednesday">
+                            <label class="form-check-label" for="sys-wednesday">Wednesday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="3" id="sys-thursday">
+                            <label class="form-check-label" for="sys-thursday">Thursday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="4" id="sys-friday">
+                            <label class="form-check-label" for="sys-friday">Friday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="5" id="sys-saturday">
+                            <label class="form-check-label" for="sys-saturday">Saturday</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekend_days" value="6" id="sys-sunday">
+                            <label class="form-check-label" for="sys-sunday">Sunday</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="system-weekend-form" class="btn btn-primary">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Day names mapping
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    
+    // Fetch weekend configuration data
+    fetch('{{ url_for("admin.api_weekend_config") }}')
+        .then(response => response.json())
+        .then(data => {
+            // System weekend days
+            const systemWeekendDays = data.system_weekend_days;
+            document.getElementById('system-weekend-days').textContent = systemWeekendDays.map(day => dayNames[day]).join(', ');
+            
+            // Update system weekend modal checkboxes
+            systemWeekendDays.forEach(day => {
+                document.getElementById(`sys-${dayNames[day].toLowerCase()}`).checked = true;
+            });
+            
+            // Shift weekend days
+            const shiftsContainer = document.getElementById('shift-weekend-days');
+            shiftsContainer.innerHTML = '';
+            const shiftSelect = document.getElementById('shift-id');
+            
+            if (Object.keys(data.shift_weekend_configs).length === 0) {
+                shiftsContainer.innerHTML = '<p>No shifts have configured weekend days.</p>';
+            } else {
+                const shiftList = document.createElement('ul');
+                shiftList.className = 'list-group';
+                
+                Object.entries(data.shift_weekend_configs).forEach(([shiftId, shiftData]) => {
+                    // Add to shift list
+                    const item = document.createElement('li');
+                    item.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    
+                    const shiftName = document.createElement('span');
+                    shiftName.textContent = shiftData.name;
+                    
+                    const weekendDays = document.createElement('span');
+                    weekendDays.className = 'badge bg-primary rounded-pill';
+                    weekendDays.textContent = shiftData.weekend_days.map(day => dayNames[day]).join(', ');
+                    
+                    item.appendChild(shiftName);
+                    item.appendChild(weekendDays);
+                    shiftList.appendChild(item);
+                });
+                
+                shiftsContainer.appendChild(shiftList);
+            }
+        });
+    
+    // Handle employee selection
+    document.getElementById('employee-selector').addEventListener('change', function() {
+        const employeeId = this.value;
+        const editEmployeeBtn = document.getElementById('edit-employee-btn');
+        
+        if (!employeeId) {
+            document.getElementById('employee-weekend-days').innerHTML = `
+                <p class="text-muted">Select an employee to view their weekend configuration.</p>
+            `;
+            editEmployeeBtn.disabled = true;
+            return;
+        }
+        
+        // Enable edit button
+        editEmployeeBtn.disabled = false;
+        
+        // Set employee ID in modal form
+        document.getElementById('modal-employee-id').value = employeeId;
+        
+        const employeeWeekendDays = document.getElementById('employee-weekend-days');
+        employeeWeekendDays.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                Loading employee configuration...
+            </div>
+        `;
+        
+        fetch(`{{ url_for("admin.api_weekend_config") }}?employee_id=${employeeId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (!data.employee_weekend_days) {
+                    employeeWeekendDays.innerHTML = '<p>Employee not found.</p>';
+                    return;
+                }
+                
+                const empData = data.employee_weekend_days;
+                
+                let html = `
+                    <div class="mb-2">
+                        <strong>Name:</strong> ${empData.name}
+                    </div>
+                `;
+                
+                if (empData.weekend_days && empData.weekend_days.length) {
+                    html += `
+                        <div class="mb-2">
+                            <strong>Employee Weekend Days:</strong> 
+                            ${empData.weekend_days.map(day => dayNames[day]).join(', ')}
+                        </div>
+                    `;
+                    
+                    // Update employee weekend modal checkboxes
+                    document.querySelectorAll('#employeeWeekendModal input[name="weekend_days"]').forEach(checkbox => {
+                        checkbox.checked = empData.weekend_days.includes(parseInt(checkbox.value));
+                    });
+                    document.getElementById('emp-use-default').checked = false;
+                } else {
+                    html += `
+                        <div class="mb-2">
+                            <strong>Employee Weekend Days:</strong> <span class="text-muted">Not set</span>
+                        </div>
+                    `;
+                    
+                    // Update employee weekend modal checkboxes
+                    document.querySelectorAll('#employeeWeekendModal input[name="weekend_days"]').forEach(checkbox => {
+                        checkbox.checked = false;
+                    });
+                    document.getElementById('emp-use-default').checked = true;
+                }
+                
+                html += `
+                    <div class="mb-2">
+                        <strong>Shift ID:</strong> ${empData.shift_id || 'None'}
+                    </div>
+                    
+                    <div class="mb-2">
+                        <strong>Effective Weekend Days:</strong> 
+                        ${empData.effective_weekend_days.map(day => dayNames[day]).join(', ')}
+                    </div>
+                    
+                    <div class="alert ${empData.today_is_weekend ? 'alert-warning' : 'alert-success'} mt-3">
+                        Today is ${empData.today_is_weekend ? 'a weekend' : 'not a weekend'} day for this employee
+                    </div>
+                `;
+                
+                employeeWeekendDays.innerHTML = html;
+            });
+    });
+    
+    // Handle shift selection in modal
+    document.getElementById('shift-select').addEventListener('change', function() {
+        const shiftId = this.value;
+        if (!shiftId) return;
+        
+        fetch('{{ url_for("admin.api_weekend_config") }}')
+            .then(response => response.json())
+            .then(data => {
+                const shiftData = data.shift_weekend_configs[shiftId];
+                
+                if (shiftData && shiftData.weekend_days) {
+                    // Update shift weekend modal checkboxes
+                    document.querySelectorAll('#shiftWeekendModal input[name="weekend_days"]').forEach(checkbox => {
+                        checkbox.checked = shiftData.weekend_days.includes(parseInt(checkbox.value));
+                    });
+                    document.getElementById('shift-use-default').checked = false;
+                } else {
+                    // Clear checkboxes if no data
+                    document.querySelectorAll('#shiftWeekendModal input[name="weekend_days"]').forEach(checkbox => {
+                        checkbox.checked = false;
+                    });
+                    document.getElementById('shift-use-default').checked = true;
+                }
+            });
+    });
+    
+    // Handle "use default" checkboxes in modals
+    document.getElementById('emp-use-default').addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('#employeeWeekendModal input[name="weekend_days"]');
+        checkboxes.forEach(cb => {
+            cb.disabled = this.checked;
+            if (this.checked) cb.checked = false;
+        });
+    });
+    
+    document.getElementById('shift-use-default').addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('#shiftWeekendModal input[name="weekend_days"]');
+        checkboxes.forEach(cb => {
+            cb.disabled = this.checked;
+            if (this.checked) cb.checked = false;
+        });
+    });
+});
+</script>
+{% endblock %}

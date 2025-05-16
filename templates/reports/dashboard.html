@@ -1,0 +1,1114 @@
+{% extends 'base.html' %}
+
+{% block title %}Attendance Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header with title and export options -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h2><i class="bi bi-speedometer2"></i> Attendance Dashboard</h2>
+            <p class="text-muted">Comprehensive attendance metrics and employee reports</p>
+        </div>
+        <div class="col-md-6 text-end">
+            <div class="btn-group">
+                <button class="btn btn-outline-primary dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-download"></i> Export
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="exportDropdown">
+                    <li><a class="dropdown-item" href="#" onclick="exportReport('csv')"><i class="bi bi-filetype-csv"></i> CSV</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportReport('excel')"><i class="bi bi-filetype-xlsx"></i> Excel</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportReport('pdf')"><i class="bi bi-filetype-pdf"></i> PDF</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="#" onclick="printReport()"><i class="bi bi-printer"></i> Print</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters panel -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-funnel"></i> Report Filters</h5>
+                <button class="btn btn-sm btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#filterPanel" aria-expanded="true" aria-controls="filterPanel">
+                    <i class="bi bi-chevron-up"></i>
+                </button>
+            </div>
+        </div>
+        <div class="collapse show" id="filterPanel">
+            <div class="card-body">
+                <form id="dashboardFilters" method="GET" class="row g-3">
+                    <!-- Date Range -->
+                    <div class="col-md-4">
+                        <label class="form-label">Date Range</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-calendar-range"></i></span>
+                            <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date.isoformat() }}">
+                            <span class="input-group-text">to</span>
+                            <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date.isoformat() }}">
+                        </div>
+                    </div>
+                    
+                    <!-- Department Filter -->
+                    <div class="col-md-2">
+                        <label for="department" class="form-label">Department</label>
+                        <select class="form-select" id="department" name="department">
+                            <option value="all" {% if selected_department == 'all' %}selected{% endif %}>All Departments</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept }}" {% if dept == selected_department %}selected{% endif %}>{{ dept }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Employee Filter -->
+                    <div class="col-md-3">
+                        <label for="employee_ids" class="form-label">Employees</label>
+                        <select class="form-select employee-select" id="employee_ids" name="employee_ids" multiple data-placeholder="All Employees">
+                            {% for emp in all_employees %}
+                            <option value="{{ emp.id }}" {% if emp.id|string in selected_employee_ids %}selected{% endif %}>
+                                {{ emp.name }} ({{ emp.employee_code }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Status Filter -->
+                    <div class="col-md-3">
+                        <label for="status" class="form-label">Status</label>
+                        <div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="status_present" name="status[]" value="present" {% if 'present' in selected_statuses %}checked{% endif %}>
+                                <label class="form-check-label" for="status_present">Present</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="status_absent" name="status[]" value="absent" {% if 'absent' in selected_statuses %}checked{% endif %}>
+                                <label class="form-check-label" for="status_absent">Absent</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="status_late" name="status[]" value="late" {% if 'late' in selected_statuses %}checked{% endif %}>
+                                <label class="form-check-label" for="status_late">Late</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="status_early_out" name="status[]" value="early_out" {% if 'early_out' in selected_statuses %}checked{% endif %}>
+                                <label class="form-check-label" for="status_early_out">Early Out</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Filter buttons -->
+                    <div class="col-md-12 d-flex justify-content-end">
+                        <button type="button" class="btn btn-outline-secondary me-2" onclick="resetFilters()">
+                            <i class="bi bi-x-circle"></i> Reset
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search"></i> Apply Filters
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stats overview -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50">Present Days</h6>
+                            <h3 class="mb-0">{{ statistics.present }}</h3>
+                        </div>
+                        <div class="display-4">
+                            <i class="bi bi-person-check"></i>
+                        </div>
+                    </div>
+                    <div class="progress mt-3" style="height: 8px;">
+                        <div class="progress-bar bg-white" role="progressbar" style="width: {{ statistics.present_percent }}%"></div>
+                    </div>
+                    <div class="text-white-50 small mt-1">{{ statistics.present_percent }}% of total days</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50">Absent Days</h6>
+                            <h3 class="mb-0">{{ statistics.absent }}</h3>
+                        </div>
+                        <div class="display-4">
+                            <i class="bi bi-person-x"></i>
+                        </div>
+                    </div>
+                    <div class="progress mt-3" style="height: 8px;">
+                        <div class="progress-bar bg-white" role="progressbar" style="width: {{ statistics.absent_percent }}%"></div>
+                    </div>
+                    <div class="text-white-50 small mt-1">{{ statistics.absent_percent }}% of total days</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted">Late Arrivals</h6>
+                            <h3 class="mb-0">{{ statistics.late }}</h3>
+                        </div>
+                        <div class="display-4">
+                            <i class="bi bi-clock-history"></i>
+                        </div>
+                    </div>
+                    <div class="progress mt-3" style="height: 8px;">
+                        <div class="progress-bar bg-dark" role="progressbar" style="width: {{ statistics.late_percent }}%"></div>
+                    </div>
+                    <div class="text-muted small mt-1">{{ statistics.late_percent }}% of total attendance</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50">Total Overtime</h6>
+                            <h3 class="mb-0">{{ statistics.total_overtime|round(1) }}h</h3>
+                        </div>
+                        <div class="display-4">
+                            <i class="bi bi-hourglass-split"></i>
+                        </div>
+                    </div>
+                    <div class="progress mt-3" style="height: 8px;">
+                        <div class="progress-bar bg-white" role="progressbar" style="width: 100%"></div>
+                    </div>
+                    <div class="text-white-50 small mt-1">{{ statistics.avg_overtime|round(1) }} hrs/employee</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <div class="col-md-7">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Daily Attendance Trend</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="attendanceTrendChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Attendance Distribution</h5>
+                </div>
+                <div class="card-body d-flex justify-content-center align-items-center">
+                    <canvas id="attendanceDistributionChart" height="230"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Attendance Summary Table with Drill-down -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-table"></i> Employee Attendance Summary</h5>
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-download"></i> Export
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="{{ url_for('reports.export_employee_summary', format='csv') }}?start_date={{ start_date.isoformat() }}&end_date={{ end_date.isoformat() }}"><i class="bi bi-filetype-csv"></i> CSV</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('reports.export_employee_summary', format='excel') }}?start_date={{ start_date.isoformat() }}&end_date={{ end_date.isoformat() }}"><i class="bi bi-filetype-xlsx"></i> Excel</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="{{ url_for('reports.export_employee_summary', format='odoo') }}?start_date={{ start_date.isoformat() }}&end_date={{ end_date.isoformat() }}"><i class="bi bi-box"></i> Odoo Format</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped datatable" id="employeeSummaryTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Employee</th>
+                            <th>Department</th>
+                            <th>Present</th>
+                            <th>Absent</th>
+                            <th>Late</th>
+                            <th>Early Out</th>
+                            <th>Missing In/Out</th>
+                            <th>Work Hours</th>
+                            <th>Overtime</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for emp_summary in employee_summary %}
+                        <tr data-employee-id="{{ emp_summary.employee.id }}">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-initials bg-primary text-white">{{ emp_summary.employee.name[:2].upper() }}</div>
+                                    <div class="ms-2">
+                                        <div class="fw-bold">{{ emp_summary.employee.name }}</div>
+                                        <div class="text-muted small">{{ emp_summary.employee.employee_code }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ emp_summary.employee.department or 'Unassigned' }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-success rounded-pill">{{ emp_summary.present_days }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-danger rounded-pill">{{ emp_summary.absent_days }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-warning text-dark rounded-pill">{{ emp_summary.late_count }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-info text-dark rounded-pill">{{ emp_summary.early_out_count }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary rounded-pill">{{ emp_summary.missing_count }}</span>
+                            </td>
+                            <td class="text-center">{{ emp_summary.total_hours|round(1) }}</td>
+                            <td class="text-center">{{ emp_summary.overtime_hours|round(1) }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-primary" onclick="showEmployeeDetails({{ emp_summary.employee.id }})">
+                                        <i class="bi bi-calendar-week"></i> Details
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="window.location.href='{{ url_for('reports.employee', employee_id=emp_summary.employee.id) }}'">
+                                        <i class="bi bi-person-lines-fill"></i> Profile
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Employee Detail Modal -->
+<div class="modal fade" id="employeeDetailModal" tabindex="-1" aria-labelledby="employeeDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="employeeDetailModalLabel">Employee Attendance Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="employeeDetailContent">
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="printEmployeeDetailBtn">
+                    <i class="bi bi-printer"></i> Print
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Day Detail Modal -->
+<div class="modal fade" id="dayDetailModal" tabindex="-1" aria-labelledby="dayDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dayDetailModalLabel">Day Attendance Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="dayDetailContent">
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.avatar-initials {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+.attendance-cell {
+    cursor: pointer;
+}
+.attendance-cell.present {
+    background-color: rgba(40, 167, 69, 0.15);
+}
+.attendance-cell.absent {
+    background-color: rgba(220, 53, 69, 0.15);
+}
+.attendance-cell.late {
+    background-color: rgba(255, 193, 7, 0.15);
+}
+.attendance-cell.early-out {
+    background-color: rgba(23, 162, 184, 0.15);
+}
+.attendance-cell.missing {
+    background-color: rgba(108, 117, 125, 0.15);
+}
+.attendance-calendar th {
+    text-align: center;
+    font-weight: normal;
+    padding: 5px;
+}
+.attendance-calendar td {
+    text-align: center;
+    padding: 5px;
+}
+.attendance-calendar td:hover {
+    opacity: 0.8;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize date pickers with default range
+        const startDate = document.getElementById('start_date');
+        const endDate = document.getElementById('end_date');
+        
+        // Initialize Select2 for employee dropdown
+        if ($.fn.select2) {
+            $('#employee_ids').select2({
+                theme: 'bootstrap4',
+                placeholder: "Select employees",
+                allowClear: true
+            });
+            
+            $('#department').select2({
+                theme: 'bootstrap4',
+                minimumResultsForSearch: -1
+            });
+        }
+        
+        // Initialize DataTable for employee summary
+        if ($.fn.DataTable) {
+            // Destroy existing DataTable instance if it exists
+            const table = $('#employeeSummaryTable').DataTable();
+            if (table) {
+                table.destroy();
+            }
+            
+            // Initialize a new DataTable instance
+            $('#employeeSummaryTable').DataTable({
+                pageLength: 10,
+                responsive: true,
+                dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                     '<"row"<"col-sm-12"tr>>' +
+                     '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                language: {
+                    search: "_INPUT_",
+                    searchPlaceholder: "Search employees...",
+                    lengthMenu: "Show _MENU_ entries",
+                    info: "Showing _START_ to _END_ of _TOTAL_ entries",
+                    infoEmpty: "Showing 0 to 0 of 0 entries",
+                    infoFiltered: "(filtered from _MAX_ total entries)"
+                }
+            });
+        }
+        
+        // Initialize Charts
+        initializeCharts();
+    });
+    
+    function resetFilters() {
+        // Reset dates to current period
+        document.getElementById('start_date').value = '{{ start_date.isoformat() }}';
+        document.getElementById('end_date').value = '{{ end_date.isoformat() }}';
+        
+        // Reset department
+        document.getElementById('department').value = 'all';
+        if ($.fn.select2) {
+            $('#department').trigger('change');
+        }
+        
+        // Reset employee selection
+        $('#employee_ids').val(null).trigger('change');
+        
+        // Reset status checkboxes
+        document.getElementById('status_present').checked = false;
+        document.getElementById('status_absent').checked = false;
+        document.getElementById('status_late').checked = false;
+        document.getElementById('status_early_out').checked = false;
+        
+        // Submit form
+        document.getElementById('dashboardFilters').submit();
+    }
+    
+    function initializeCharts() {
+        // Attendance Distribution Chart
+        const distributionCtx = document.getElementById('attendanceDistributionChart').getContext('2d');
+        
+        new Chart(distributionCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Present', 'Absent', 'Late', 'Early Out', 'Missing'],
+                datasets: [{
+                    data: [
+                        {{ statistics.present }},
+                        {{ statistics.absent }},
+                        {{ statistics.late }},
+                        {{ statistics.early_out }},
+                        {{ statistics.missing }}
+                    ],
+                    backgroundColor: [
+                        '#28a745',  // Present - Success
+                        '#dc3545',  // Absent - Danger
+                        '#ffc107',  // Late - Warning
+                        '#17a2b8',  // Early Out - Info
+                        '#6c757d'   // Missing - Secondary
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                cutout: '65%',
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = Math.round((value / total) * 100);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Daily Trend Chart
+        const trendCtx = document.getElementById('attendanceTrendChart').getContext('2d');
+        
+        new Chart(trendCtx, {
+            type: 'line',
+            data: {
+                labels: {{ trend_dates|tojson }},
+                datasets: [
+                    {
+                        label: 'Present',
+                        data: {{ trend_present|tojson }},
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Absent',
+                        data: {{ trend_absent|tojson }},
+                        borderColor: '#dc3545',
+                        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Late',
+                        data: {{ trend_late|tojson }},
+                        borderColor: '#ffc107',
+                        backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function showEmployeeDetails(employeeId) {
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('employeeDetailModal'));
+        modal.show();
+        
+        // Fetch the employee details
+        fetch(`/reports/api/employee_attendance/${employeeId}?start_date=${document.getElementById('start_date').value}&end_date=${document.getElementById('end_date').value}`)
+            .then(response => response.json())
+            .then(data => {
+                // Fill the modal content
+                const contentDiv = document.getElementById('employeeDetailContent');
+                contentDiv.innerHTML = createEmployeeDetailContent(data);
+                
+                // Add event listeners to attendance cells
+                document.querySelectorAll('.attendance-cell').forEach(cell => {
+                    cell.addEventListener('click', function() {
+                        const date = this.getAttribute('data-date');
+                        const employeeId = this.getAttribute('data-employee-id');
+                        showDayDetail(employeeId, date);
+                    });
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching employee details:', error);
+                document.getElementById('employeeDetailContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Failed to load employee details. Please try again.
+                    </div>
+                `;
+            });
+    }
+    
+    function createEmployeeDetailContent(data) {
+        const employee = data.employee;
+        const records = data.records;
+        const summary = data.summary;
+        
+        let html = `
+            <div class="border-bottom pb-3 mb-3">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-initials bg-primary text-white" style="width: 48px; height: 48px; font-size: 1.2rem;">
+                        ${employee.name.substring(0, 2).toUpperCase()}
+                    </div>
+                    <div class="ms-3">
+                        <h4 class="mb-0">${employee.name}</h4>
+                        <div><span class="text-muted">ID:</span> ${employee.employee_code} | <span class="text-muted">Department:</span> ${employee.department || 'Unassigned'}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mb-4">
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-light h-100">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted mb-2">Present Days</h6>
+                            <h3 class="mb-0 text-success">${summary.present_days}</h3>
+                            <div class="small">${summary.present_percent}% of total</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-light h-100">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted mb-2">Absent Days</h6>
+                            <h3 class="mb-0 text-danger">${summary.absent_days}</h3>
+                            <div class="small">${summary.absent_percent}% of total</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-light h-100">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted mb-2">Total Hours</h6>
+                            <h3 class="mb-0">${summary.total_hours.toFixed(1)}</h3>
+                            <div class="small">${summary.avg_hours.toFixed(1)} avg per day</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-light h-100">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted mb-2">Overtime</h6>
+                            <h3 class="mb-0 text-primary">${summary.overtime_hours.toFixed(1)}</h3>
+                            <div class="small">${summary.overtime_percent}% of work time</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <h5>Attendance Calendar</h5>
+                <p class="text-muted small">Click on any date to view detailed check-in/out records.</p>
+                <div class="table-responsive">
+                    <table class="table table-bordered attendance-calendar">
+                        <thead>
+                            <tr>
+                                <th>Mon</th>
+                                <th>Tue</th>
+                                <th>Wed</th>
+                                <th>Thu</th>
+                                <th>Fri</th>
+                                <th>Sat</th>
+                                <th>Sun</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+        
+        // Generate calendar weeks
+        const weeks = generateCalendarWeeks(records);
+        weeks.forEach(week => {
+            html += '<tr>';
+            week.forEach(day => {
+                if (day) {
+                    const record = records.find(r => r.date === day.date);
+                    let cellClass = 'attendance-cell';
+                    let cellContent = day.day;
+                    let statusIcon = '';
+                    
+                    if (record) {
+                        cellClass += ` ${record.status}`;
+                        
+                        if (record.status === 'present') {
+                            statusIcon = '<i class="bi bi-check-circle-fill text-success"></i>';
+                        } else if (record.status === 'absent') {
+                            statusIcon = '<i class="bi bi-x-circle-fill text-danger"></i>';
+                        } else if (record.status === 'late') {
+                            statusIcon = '<i class="bi bi-exclamation-circle-fill text-warning"></i>';
+                        } else if (record.status === 'early-out') {
+                            statusIcon = '<i class="bi bi-arrow-left-circle-fill text-info"></i>';
+                        } else if (record.status === 'missing') {
+                            statusIcon = '<i class="bi bi-question-circle-fill text-secondary"></i>';
+                        }
+                        
+                        cellContent = `
+                            <div>${day.day}</div>
+                            <div>${statusIcon}</div>
+                            <div class="small">${record.work_hours ? record.work_hours.toFixed(1) + 'h' : '-'}</div>
+                        `;
+                    } else {
+                        cellClass += ' text-muted';
+                    }
+                    
+                    html += `<td class="${cellClass}" data-date="${day.date}" data-employee-id="${employee.id}">${cellContent}</td>`;
+                } else {
+                    html += '<td></td>';
+                }
+            });
+            html += '</tr>';
+        });
+        
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div>
+                <h5>Attendance Records</h5>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Check In</th>
+                                <th>Check Out</th>
+                                <th>Work Hours</th>
+                                <th>Overtime</th>
+                                <th>Late (min)</th>
+                                <th>Note</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+        
+        // Sort records by date in descending order
+        const sortedRecords = [...records].sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        sortedRecords.forEach(record => {
+            let statusBadge = '';
+            
+            if (record.status === 'present') {
+                statusBadge = '<span class="badge bg-success">Present</span>';
+            } else if (record.status === 'absent') {
+                statusBadge = '<span class="badge bg-danger">Absent</span>';
+            } else if (record.status === 'late') {
+                statusBadge = '<span class="badge bg-warning text-dark">Late</span>';
+            } else if (record.status === 'early-out') {
+                statusBadge = '<span class="badge bg-info text-dark">Early Out</span>';
+            } else if (record.status === 'missing') {
+                statusBadge = '<span class="badge bg-secondary">Missing</span>';
+            }
+            
+            html += `
+                <tr class="attendance-cell" data-date="${record.date}" data-employee-id="${employee.id}">
+                    <td>${formatDate(record.date)}</td>
+                    <td>${statusBadge}</td>
+                    <td>${record.check_in || '-'}</td>
+                    <td>${record.check_out || '-'}</td>
+                    <td>${record.work_hours ? record.work_hours.toFixed(1) : '-'}</td>
+                    <td>${record.overtime_hours ? record.overtime_hours.toFixed(1) : '-'}</td>
+                    <td>${record.late_minutes || '-'}</td>
+                    <td>${record.note || '-'}</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        
+        return html;
+    }
+    
+    function showDayDetail(employeeId, date) {
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('dayDetailModal'));
+        modal.show();
+        
+        // Update modal title
+        document.getElementById('dayDetailModalLabel').textContent = `Attendance Detail - ${formatDate(date)}`;
+        
+        // Fetch the day details
+        fetch(`/reports/api/day_attendance/${employeeId}?date=${date}`)
+            .then(response => response.json())
+            .then(data => {
+                // Fill the modal content
+                const contentDiv = document.getElementById('dayDetailContent');
+                contentDiv.innerHTML = createDayDetailContent(data);
+            })
+            .catch(error => {
+                console.error('Error fetching day details:', error);
+                document.getElementById('dayDetailContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Failed to load day details. Please try again.
+                    </div>
+                `;
+            });
+    }
+    
+    function createDayDetailContent(data) {
+        const employee = data.employee;
+        const record = data.record;
+        const logs = data.logs;
+        const shift = data.shift;
+        
+        let html = `
+            <div class="border-bottom pb-3 mb-3">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-initials bg-primary text-white" style="width: 40px; height: 40px;">
+                        ${employee.name.substring(0, 2).toUpperCase()}
+                    </div>
+                    <div class="ms-3">
+                        <h5 class="mb-0">${employee.name}</h5>
+                        <div class="text-muted small">${employee.employee_code} | ${employee.department || 'Unassigned'}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6 class="mb-3">Day Summary</h6>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                    Date
+                                    <span>${formatDate(record.date)}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                    Status
+                                    <span>${getStatusBadge(record.status)}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                    Work Hours
+                                    <span class="badge bg-primary rounded-pill">${record.work_hours ? record.work_hours.toFixed(1) : 0} hrs</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                    Overtime
+                                    <span class="badge bg-success rounded-pill">${record.overtime_hours ? record.overtime_hours.toFixed(1) : 0} hrs</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                    Late Minutes
+                                    <span class="badge bg-warning text-dark rounded-pill">${record.late_minutes || 0} min</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6 class="mb-3">Shift Information</h6>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                    Shift
+                                    <span>${shift ? shift.name : 'Default'}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                    Expected Start
+                                    <span>${shift ? shift.start_time : '9:00 AM'}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                    Expected End
+                                    <span>${shift ? shift.end_time : '6:00 PM'}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                    Break Duration
+                                    <span>${shift ? shift.break_duration : '1'} hr</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                    Expected Hours
+                                    <span>${shift ? shift.expected_hours : '8'} hrs</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <h6>Attendance Logs</h6>
+            <p class="text-muted small">All punch in/out events for this day</p>
+            
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Time</th>
+                            <th>Type</th>
+                            <th>Device</th>
+                            <th>Note</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        if (logs && logs.length > 0) {
+            logs.forEach((log, index) => {
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${log.timestamp}</td>
+                        <td>${log.log_type === 'in' ? '<span class="badge bg-primary">IN</span>' : '<span class="badge bg-secondary">OUT</span>'}</td>
+                        <td>${log.device_name || '-'}</td>
+                        <td>${log.note || '-'}</td>
+                    </tr>
+                `;
+            });
+        } else {
+            html += `
+                <tr>
+                    <td colspan="5" class="text-center">No attendance logs found for this day</td>
+                </tr>
+            `;
+        }
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+            
+            <h6 class="mt-4">Overtime Calculation</h6>
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <div>
+                            <strong>Total Work Time:</strong>
+                            <span class="ms-2">${record.work_hours ? record.work_hours.toFixed(1) : 0} hours</span>
+                        </div>
+                        <div>
+                            <strong>Expected Work Time:</strong>
+                            <span class="ms-2">${shift ? shift.expected_hours : '8'} hours</span>
+                        </div>
+                    </div>
+                    
+                    <div class="progress mb-3" style="height: 25px;">
+                        <div class="progress-bar" role="progressbar" style="width: ${calculateWorkPercentage(record.work_hours, shift ? shift.expected_hours : 8)}%;" 
+                            aria-valuenow="${record.work_hours || 0}" aria-valuemin="0" aria-valuemax="${shift ? shift.expected_hours : 8}">
+                            ${record.work_hours ? record.work_hours.toFixed(1) : 0}h
+                        </div>
+                        <div class="progress-bar bg-success" role="progressbar" style="width: ${calculateOvertimePercentage(record.work_hours, record.overtime_hours, shift ? shift.expected_hours : 8)}%;" 
+                            aria-valuenow="${record.overtime_hours || 0}" aria-valuemin="0" aria-valuemax="${shift ? shift.expected_hours : 8}">
+                            ${record.overtime_hours ? record.overtime_hours.toFixed(1) : 0}h
+                        </div>
+                    </div>
+                    
+                    <div class="small text-muted mt-2">
+                        ${getOvertimeDescription(record, shift)}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        return html;
+    }
+    
+    function formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+    }
+    
+    function getStatusBadge(status) {
+        if (status === 'present') {
+            return '<span class="badge bg-success">Present</span>';
+        } else if (status === 'absent') {
+            return '<span class="badge bg-danger">Absent</span>';
+        } else if (status === 'late') {
+            return '<span class="badge bg-warning text-dark">Late</span>';
+        } else if (status === 'early-out') {
+            return '<span class="badge bg-info text-dark">Early Out</span>';
+        } else if (status === 'missing') {
+            return '<span class="badge bg-secondary">Missing</span>';
+        }
+        return '<span class="badge bg-secondary">Unknown</span>';
+    }
+    
+    function calculateWorkPercentage(workHours, expectedHours) {
+        if (!workHours) return 0;
+        if (workHours <= expectedHours) {
+            return (workHours / expectedHours) * 100;
+        }
+        return (expectedHours / expectedHours) * 100; // 100%
+    }
+    
+    function calculateOvertimePercentage(workHours, overtimeHours, expectedHours) {
+        if (!workHours || !overtimeHours) return 0;
+        return (overtimeHours / expectedHours) * 100;
+    }
+    
+    function getOvertimeDescription(record, shift) {
+        if (!record.overtime_hours || record.overtime_hours <= 0) {
+            return 'No overtime hours calculated for this day.';
+        }
+        
+        const expectedHours = shift ? shift.expected_hours : 8;
+        return `Overtime is calculated as any hours worked beyond the expected ${expectedHours} hours. 
+                This employee worked ${record.work_hours.toFixed(1)} hours, which includes 
+                ${record.overtime_hours.toFixed(1)} hours of overtime.`;
+    }
+    
+    function generateCalendarWeeks(records) {
+        // This is a simplified version - in a real implementation,
+        // you would parse the date range and generate an actual calendar view
+        // For now, let's just create a sample 4-week calendar
+        
+        const weeks = [];
+        const daysInWeek = 7;
+        
+        // Sort records by date
+        const sortedRecords = [...records].sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        if (sortedRecords.length === 0) {
+            // Return empty calendar if no records
+            return Array(4).fill().map(() => Array(7).fill(null));
+        }
+        
+        // Get first and last date
+        const firstDate = new Date(sortedRecords[0].date);
+        const lastDate = new Date(sortedRecords[sortedRecords.length - 1].date);
+        
+        // Calculate start of first week (Monday)
+        const startDay = new Date(firstDate);
+        startDay.setDate(startDay.getDate() - (startDay.getDay() === 0 ? 6 : startDay.getDay() - 1));
+        
+        // Generate weeks
+        let currentDay = new Date(startDay);
+        let weekDays = [];
+        
+        while (currentDay <= lastDate || weekDays.length > 0) {
+            if (weekDays.length === daysInWeek) {
+                weeks.push(weekDays);
+                weekDays = [];
+            }
+            
+            if (currentDay > lastDate && weekDays.length === 0) {
+                break;
+            }
+            
+            if (currentDay.getMonth() === firstDate.getMonth() || currentDay <= lastDate) {
+                weekDays.push({
+                    date: currentDay.toISOString().split('T')[0],
+                    day: currentDay.getDate()
+                });
+            } else {
+                weekDays.push(null);
+            }
+            
+            currentDay.setDate(currentDay.getDate() + 1);
+        }
+        
+        // Fill last week if needed
+        if (weekDays.length > 0) {
+            while (weekDays.length < daysInWeek) {
+                weekDays.push(null);
+            }
+            weeks.push(weekDays);
+        }
+        
+        return weeks;
+    }
+    
+    function exportReport(format) {
+        // Get current filter values
+        const startDate = document.getElementById('start_date').value;
+        const endDate = document.getElementById('end_date').value;
+        const department = document.getElementById('department').value;
+        const employeeIds = $('#employee_ids').val() || [];
+        
+        // Build export URL with current filters
+        let url = `/reports/export?format=${format}&start_date=${startDate}&end_date=${endDate}`;
+        
+        if (department !== 'all') {
+            url += `&department=${department}`;
+        }
+        
+        if (employeeIds.length > 0) {
+            employeeIds.forEach(id => {
+                url += `&employee_ids=${id}`;
+            });
+        }
+        
+        // Redirect to export URL
+        window.location.href = url;
+    }
+    
+    function printReport() {
+        window.print();
+    }
+</script>
+{% endblock %}

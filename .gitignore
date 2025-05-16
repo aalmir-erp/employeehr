@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+.env/
+env/
+ENV/
+
+# Flask
+instance/
+.webassets-cache
+
+# SQLAlchemy
+*.db
+*.sqlite
+
+# Environment Variables
+.env
+.flaskenv
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Log files
+*.log
+logs/
+log/
+
+# Replit specific
+.replit
+replit.nix
+.config/
+
+# Other
+*.bak
+*.tmp
+*~

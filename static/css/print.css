@@ -1,0 +1,127 @@
+/* Print Styles for MIR AMS */
+
+@media print {
+    /* Hide elements not needed for printing */
+    header, 
+    footer, 
+    nav,
+    .sidebar,
+    .no-print,
+    .btn,
+    input[type="submit"],
+    input[type="button"],
+    button {
+        display: none !important;
+    }
+    
+    /* Main content takes full width */
+    .col-md-9 {
+        width: 100% !important;
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+    
+    /* Hide the sidebar */
+    .col-md-3 {
+        display: none !important;
+    }
+    
+    /* Ensure white background and black text */
+    body {
+        background-color: white !important;
+        color: black !important;
+        font-size: 12pt;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    /* Ensure cards print properly */
+    .card {
+        border: 1px solid #ddd !important;
+        box-shadow: none !important;
+        margin-bottom: 15px !important;
+    }
+    
+    .card-header {
+        background-color: #f8f9fa !important;
+        border-bottom: 1px solid #ddd !important;
+        color: black !important;
+    }
+    
+    /* Adjust table for printing */
+    .table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+    
+    .table th,
+    .table td {
+        background-color: white !important;
+        color: black !important;
+        border: 1px solid #ddd !important;
+        padding: 8px !important;
+    }
+    
+    /* Status badges with borders instead of colors */
+    .badge {
+        color: black !important;
+        background-color: white !important;
+        border: 1px solid #ddd !important;
+        padding: 3px 6px !important;
+        font-weight: normal !important;
+    }
+    
+    /* Chart size */
+    canvas {
+        max-width: 100% !important;
+        height: auto !important;
+    }
+    
+    /* Page breaks */
+    .page-break {
+        page-break-before: always;
+    }
+    
+    /* Show URLs for links in printed documents */
+    a[href]:after {
+        content: " (" attr(href) ")";
+        font-size: 90%;
+    }
+    
+    /* Don't show URLs for internal links */
+    a[href^="#"]:after,
+    a[href^="javascript:"]:after {
+        content: "";
+    }
+    
+    /* Adjust columns for printing */
+    .row {
+        display: block !important;
+    }
+    
+    .col-md-6 {
+        width: 100% !important;
+        float: none !important;
+        page-break-inside: avoid;
+    }
+    
+    /* Force charts to show */
+    .card-body {
+        page-break-inside: avoid;
+    }
+    
+    /* Hide select components for print */
+    .select2-container,
+    .dataTables_filter,
+    .dataTables_length,
+    .dataTables_paginate {
+        display: none !important;
+    }
+    
+    /* Ensure tables don't overflow */
+    .dataTables_wrapper {
+        min-height: 200px;
+        overflow-x: visible !important;
+    }
+}

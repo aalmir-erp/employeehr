@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}Reports Dashboard{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-bar-chart me-2"></i>
+                Reports Dashboard
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-4">
+                <!-- Daily Report Card -->
+                <div class="col-md-6 col-lg-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="bi bi-calendar-date display-4 text-primary"></i>
+                            <h4 class="mt-3">Daily Report</h4>
+                            <p>View attendance data for a specific day</p>
+                            <a href="{{ url_for('reports.daily') }}" class="btn btn-primary">
+                                <i class="bi bi-calendar-check"></i> View Daily Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Weekly Report Card -->
+                <div class="col-md-6 col-lg-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="bi bi-calendar-week display-4 text-success"></i>
+                            <h4 class="mt-3">Weekly Report</h4>
+                            <p>View attendance data for a week</p>
+                            <a href="{{ url_for('reports.weekly') }}" class="btn btn-success">
+                                <i class="bi bi-calendar-week"></i> View Weekly Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Monthly Report Card -->
+                <div class="col-md-6 col-lg-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="bi bi-calendar-month display-4 text-info"></i>
+                            <h4 class="mt-3">Monthly Report</h4>
+                            <p>View attendance data for a month</p>
+                            <a href="{{ url_for('reports.monthly') }}" class="btn btn-info">
+                                <i class="bi bi-calendar-month"></i> View Monthly Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Employee Report Card -->
+                <div class="col-md-6 col-lg-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="bi bi-person-badge display-4 text-warning"></i>
+                            <h4 class="mt-3">Employee Report</h4>
+                            <p>View attendance data by employee</p>
+                            <a href="#" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#selectEmployeeModal">
+                                <i class="bi bi-person-badge"></i> View Employee Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Second row of reports -->
+            <div class="row g-4 mt-3">
+                <!-- Absent Report Card -->
+                <div class="col-md-6 col-lg-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="bi bi-exclamation-triangle display-4 text-danger"></i>
+                            <h4 class="mt-3">Absent Report</h4>
+                            <p>Track employee absences and patterns</p>
+                            <a href="{{ url_for('reports.absent') }}" class="btn btn-danger">
+                                <i class="bi bi-calendar-x"></i> View Absent Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Overtime Report Card -->
+                <div class="col-md-6 col-lg-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="bi bi-clock-history display-4 text-primary"></i>
+                            <h4 class="mt-3">Overtime Report</h4>
+                            <p>View overtime hours and statistics</p>
+                            <a href="{{ url_for('overtime.report') }}" class="btn btn-primary">
+                                <i class="bi bi-clock"></i> View Overtime Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Late Arrivals Report Card -->
+                <div class="col-md-6 col-lg-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="bi bi-hourglass-split display-4 text-warning"></i>
+                            <h4 class="mt-3">Late Arrivals</h4>
+                            <p>View late arrivals statistics by department</p>
+                            <a href="{{ url_for('reports.daily') }}?status=late" class="btn btn-warning">
+                                <i class="bi bi-alarm"></i> View Late Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Detailed Analytics Card -->
+                <div class="col-md-6 col-lg-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="bi bi-graph-up display-4 text-success"></i>
+                            <h4 class="mt-3">Detailed Analytics</h4>
+                            <p>Enhanced statistics and performance metrics</p>
+                            <a href="{{ url_for('reports.monthly') }}" class="btn btn-success">
+                                <i class="bi bi-bar-chart-line"></i> View Analytics
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Additional Report Options -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">Export Options</h5>
+                        </div>
+                        <div class="card-body">
+                            <form action="{{ url_for('reports.export_csv') }}" method="get" class="row g-3 align-items-end">
+                                <div class="col-md-3">
+                                    <label for="start_date" class="form-label">Start Date</label>
+                                    <input type="date" class="form-control" id="start_date" name="start_date" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="end_date" class="form-label">End Date</label>
+                                    <input type="date" class="form-control" id="end_date" name="end_date" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="report_type" class="form-label">Report Type</label>
+                                    <select class="form-select" id="report_type" name="type" required>
+                                        <option value="daily">Daily Attendance</option>
+                                        <option value="monthly">Monthly Attendance</option>
+                                        <option value="absent">Absent Employees</option>
+                                        <option value="late">Late Arrivals</option>
+                                        <option value="overtime">Overtime Report</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="bi bi-download"></i> Export to CSV
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Select Employee Modal -->
+<div class="modal fade" id="selectEmployeeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Select Employee</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="employeeReportForm" method="get" action="{{ url_for('reports.employee', employee_id=0) }}">
+                    <div class="mb-3">
+                        <label for="employee_select" class="form-label">Select Employee</label>
+                        <select class="form-select" id="employee_select" name="employee_id" required>
+                            <option value="">-- Select Employee --</option>
+                            {% for employee in employees %}
+                            <option value="{{ employee.id }}">{{ employee.name }} ({{ employee.employee_code }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="start_date_modal" class="form-label">Start Date</label>
+                                <input type="date" class="form-control" id="start_date_modal" name="start_date">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="end_date_modal" class="form-label">End Date</label>
+                                <input type="date" class="form-control" id="end_date_modal" name="end_date">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="viewEmployeeReportBtn">View Report</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Set default dates
+        const today = new Date();
+        
+        // Format date as YYYY-MM-DD
+        function formatDate(date) {
+            const d = new Date(date);
+            let month = '' + (d.getMonth() + 1);
+            let day = '' + d.getDate();
+            const year = d.getFullYear();
+            
+            if (month.length < 2) month = '0' + month;
+            if (day.length < 2) day = '0' + day;
+            
+            return [year, month, day].join('-');
+        }
+        
+        // Set default start date (1 month ago)
+        const startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - 1);
+        $('#start_date').val(formatDate(startDate));
+        $('#start_date_modal').val(formatDate(startDate));
+        
+        // Set default end date (today)
+        $('#end_date').val(formatDate(today));
+        $('#end_date_modal').val(formatDate(today));
+        
+        // Employee report form submission
+        $('#viewEmployeeReportBtn').on('click', function() {
+            const employeeId = $('#employee_select').val();
+            if (!employeeId) {
+                alert('Please select an employee');
+                return;
+            }
+            
+            // Update form action with correct employee ID
+            const formAction = $('#employeeReportForm').attr('action');
+            const newAction = formAction.replace('/0', '/' + employeeId);
+            $('#employeeReportForm').attr('action', newAction);
+            
+            // Submit form
+            $('#employeeReportForm').submit();
+        });
+    });
+</script>
+{% endblock %}

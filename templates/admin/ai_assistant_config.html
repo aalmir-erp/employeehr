@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}AI Assistant Configuration{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.index') }}">Admin</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">AI Assistant Configuration</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">AI Assistant Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('admin.ai_assistant_config') }}">
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="ai_assistant_enabled" name="ai_assistant_enabled" 
+                                       {% if config and config.ai_assistant_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="ai_assistant_enabled">Enable AI Assistant</label>
+                            </div>
+                            <div class="form-text text-muted">
+                                When enabled, the AI Assistant will be available to handle natural language commands for test data management.
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="openai_api_key" class="form-label">OpenAI API Key</label>
+                            <input type="password" class="form-control" id="openai_api_key" name="openai_api_key" 
+                                   placeholder="sk-..." value="{{ config.openai_api_key if config else '' }}">
+                            <div class="form-text text-muted">
+                                Enter your OpenAI API key. This is required for the AI assistant to function.
+                                <a href="https://platform.openai.com/api-keys" target="_blank">Get an API key from OpenAI</a>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="ai_model" class="form-label">AI Model</label>
+                            <select class="form-select" id="ai_model" name="ai_model">
+                                {% for model in ai_models %}
+                                <option value="{{ model.value }}" 
+                                        {% if config and config.ai_model == model.value %}selected{% endif %}>
+                                    {{ model.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text text-muted">
+                                Select the OpenAI model to use for processing commands.
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Save Configuration
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">About AI Assistant</h5>
+                </div>
+                <div class="card-body">
+                    <p>The AI Assistant allows you to use natural language to:</p>
+                    <ul>
+                        <li>Generate test data with specific parameters</li>
+                        <li>Delete specific types of test data</li>
+                        <li>Perform complex operations with simple commands</li>
+                    </ul>
+                    
+                    <h6 class="mt-4">Example Commands:</h6>
+                    <ul class="list-group mb-3">
+                        <li class="list-group-item">"Create test data for 5 employees with night shifts in June 2025"</li>
+                        <li class="list-group-item">"Delete all test attendance logs"</li>
+                        <li class="list-group-item">"Generate attendance data with overtime scenarios for weekend work"</li>
+                    </ul>
+                    
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> Your OpenAI API key is stored securely but will incur charges on your OpenAI account when the assistant is used.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

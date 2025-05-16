@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Dashboard{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-calendar-check me-2"></i>
+                Attendance Dashboard - {{ date.strftime('%A, %B %d, %Y') }}
+            </h5>
+        </div>
+        <div class="card-body">
+            <!-- Statistics Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-success text-white h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-person-check me-2"></i> Present</h5>
+                            <h3>{{ present_count }}</h3>
+                            <p class="mb-0">{{ '{:.1f}'.format(present_count / total_employees * 100 if total_employees else 0) }}% of workforce</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-danger text-white h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-person-x me-2"></i> Absent</h5>
+                            <h3>{{ absent_count }}</h3>
+                            <p class="mb-0">{{ '{:.1f}'.format(absent_count / total_employees * 100 if total_employees else 0) }}% of workforce</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-warning text-dark h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-clock-history me-2"></i> Late</h5>
+                            <h3>{{ late_count }}</h3>
+                            <p class="mb-0">{{ '{:.1f}'.format(late_count / total_employees * 100 if total_employees else 0) }}% of workforce</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-info text-white h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-hourglass-split me-2"></i> Pending</h5>
+                            <h3>{{ pending_count }}</h3>
+                            <p class="mb-0">{{ '{:.1f}'.format(pending_count / total_employees * 100 if total_employees else 0) }}% of workforce</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card border-primary">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Quick Actions</h5>
+                        </div>
+                        <div class="card-body d-flex flex-wrap gap-2">
+                            <a href="{{ url_for('attendance.daily') }}" class="btn btn-outline-primary">
+                                <i class="bi bi-calendar-date me-1"></i> Daily View
+                            </a>
+                            <a href="{{ url_for('attendance.manual_entry') }}" class="btn btn-outline-primary">
+                                <i class="bi bi-pencil-square me-1"></i> Manual Entry
+                            </a>
+                            <a href="{{ url_for('attendance.raw_logs') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-list-ul me-1"></i> Raw Logs
+                            </a>
+                            <a href="{{ url_for('reports.daily') }}" class="btn btn-outline-success">
+                                <i class="bi bi-file-earmark-text me-1"></i> Generate Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Attendance Table -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Today's Attendance</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="attendanceTable">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Code</th>
+                                    <th>Department</th>
+                                    <th>Check In</th>
+                                    <th>Check Out</th>
+                                    <th>Status</th>
+                                    <th>Work Hours</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in records %}
+                                <tr>
+                                    <td>{{ record.employee.name }}</td>
+                                    <td>{{ record.employee.employee_code }}</td>
+                                    <td>{{ record.employee.department or 'N/A' }}</td>
+                                    <td>
+                                        {% if record.check_in %}
+                                            {{ record.check_in.strftime('%H:%M:%S') }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if record.check_out %}
+                                            {{ record.check_out.strftime('%H:%M:%S') }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge status-badge
+                                            {% if record.status == 'present' %}bg-success
+                                            {% elif record.status == 'absent' %}bg-danger
+                                            {% elif record.status == 'late' %}bg-warning
+                                            {% elif record.status == 'half-day' %}bg-info
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ record.status|capitalize }}
+                                        </span>
+                                    </td>
+                                    <td>{{ record.work_hours|round(1) }}</td>
+                                    <td>
+                                        <a href="{{ url_for('attendance.employee_attendance', employee_id=record.employee.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="8" class="text-center">No attendance records for today</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Check if the table has any rows before initializing DataTable
+        if ($('#attendanceTable tbody tr').length > 0) {
+            $('#attendanceTable').DataTable({
+                "order": [[0, "asc"]],
+                "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]],
+                "language": {
+                    "search": "Filter:"
+                }
+            });
+        } else {
+            // Don't initialize DataTable if there are no rows
+            console.log('No data in attendanceTable, skipping DataTable initialization');
+        }
+    });
+</script>
+{% endblock %}

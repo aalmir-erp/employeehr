@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+
+{% block title %}Add Overtime Rule{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">Add New Overtime Rule</h1>
+        <div>
+            <a href="{{ url_for('overtime.rules') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Rules
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Rule Configuration</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('overtime.add_rule') }}">
+                <!-- Basic Info -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="border-bottom pb-2 mb-3">Basic Information</h6>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Rule Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <input type="text" class="form-control" id="description" name="description">
+                            <small class="text-muted">Optional description of the rule's purpose</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="priority" class="form-label">Priority <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="priority" name="priority" value="10" min="1" required>
+                            <small class="text-muted">Higher priority rules are applied first (1-100)</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="departments" class="form-label">Applicable Departments</label>
+                            <select class="form-select select2" id="departments" name="departments">
+                                <option value="">All Departments</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept }}">{{ dept }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Leave blank to apply to all departments</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Time Thresholds -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="border-bottom pb-2 mb-3">Time Thresholds</h6>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="daily_regular_hours" class="form-label">Daily Regular Hours <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="daily_regular_hours" name="daily_regular_hours" 
+                                  step="0.5" min="0" max="24" value="8" required>
+                            <small class="text-muted">Regular hours before overtime starts (e.g., 8 hours)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Multipliers -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="border-bottom pb-2 mb-3">Overtime Multipliers</h6>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="apply_on_weekday" name="apply_on_weekday" checked>
+                            <label class="form-check-label" for="apply_on_weekday">
+                                Apply on Weekdays
+                            </label>
+                        </div>
+                        <div class="mb-3">
+                            <label for="weekday_multiplier" class="form-label">Weekday Multiplier</label>
+                            <input type="number" class="form-control" id="weekday_multiplier" name="weekday_multiplier" 
+                                  step="0.1" min="1" max="10" value="1.5">
+                            <small class="text-muted">Overtime pay multiplier for weekdays (Mon-Fri)</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="apply_on_weekend" name="apply_on_weekend" checked>
+                            <label class="form-check-label" for="apply_on_weekend">
+                                Apply on Weekends
+                            </label>
+                        </div>
+                        <div class="mb-3">
+                            <label for="weekend_multiplier" class="form-label">Weekend Multiplier</label>
+                            <input type="number" class="form-control" id="weekend_multiplier" name="weekend_multiplier" 
+                                  step="0.1" min="1" max="10" value="2.0">
+                            <small class="text-muted">Overtime pay multiplier for weekends (Sat-Sun)</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="apply_on_holiday" name="apply_on_holiday" checked>
+                            <label class="form-check-label" for="apply_on_holiday">
+                                Apply on Holidays
+                            </label>
+                        </div>
+                        <div class="mb-3">
+                            <label for="holiday_multiplier" class="form-label">Holiday Multiplier</label>
+                            <input type="number" class="form-control" id="holiday_multiplier" name="holiday_multiplier" 
+                                  step="0.1" min="1" max="10" value="2.5">
+                            <small class="text-muted">Overtime pay multiplier for public holidays</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Night Shift -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="border-bottom pb-2 mb-3">Night Shift Differential</h6>
+                        <p class="small text-muted mb-3">Configure additional multiplier for night shift hours (leave blank to disable)</p>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="night_shift_start_time" class="form-label">Night Shift Start Time</label>
+                            <input type="time" class="form-control" id="night_shift_start_time" name="night_shift_start_time" value="22:00">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="night_shift_end_time" class="form-label">Night Shift End Time</label>
+                            <input type="time" class="form-control" id="night_shift_end_time" name="night_shift_end_time" value="06:00">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="night_shift_multiplier" class="form-label">Night Shift Multiplier</label>
+                            <input type="number" class="form-control" id="night_shift_multiplier" name="night_shift_multiplier" 
+                                  step="0.1" min="1" max="5" value="1.2">
+                            <small class="text-muted">Additional multiplier for night shift hours</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Maximum Limits -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="border-bottom pb-2 mb-3">Maximum Overtime Limits</h6>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="max_daily_overtime" class="form-label">Max Daily Overtime</label>
+                            <input type="number" class="form-control" id="max_daily_overtime" name="max_daily_overtime" 
+                                  step="0.5" min="0" value="4">
+                            <small class="text-muted">Maximum hours of overtime per day</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="max_weekly_overtime" class="form-label">Max Weekly Overtime</label>
+                            <input type="number" class="form-control" id="max_weekly_overtime" name="max_weekly_overtime" 
+                                  step="1" min="0" value="15">
+                            <small class="text-muted">Maximum hours of overtime per week</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="max_monthly_overtime" class="form-label">Max Monthly Overtime</label>
+                            <input type="number" class="form-control" id="max_monthly_overtime" name="max_monthly_overtime" 
+                                  step="1" min="0" value="36">
+                            <small class="text-muted">Maximum hours of overtime per month</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Validity Period -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="border-bottom pb-2 mb-3">Rule Validity Period</h6>
+                        <p class="small text-muted mb-3">Optional period when this rule is valid (leave blank for unlimited)</p>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="valid_from" class="form-label">Valid From</label>
+                            <input type="date" class="form-control" id="valid_from" name="valid_from">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="valid_until" class="form-label">Valid Until</label>
+                            <input type="date" class="form-control" id="valid_until" name="valid_until">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submission -->
+                <div class="row">
+                    <div class="col-12 text-end">
+                        <a href="{{ url_for('overtime.rules') }}" class="btn btn-outline-secondary me-2">Cancel</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> Create Rule
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Initialize Select2
+    $('.select2').select2({
+        theme: 'bootstrap-5',
+        width: '100%'
+    });
+});
+</script>
+{% endblock %}

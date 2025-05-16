@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Break Time Detection Test{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Break Time Detection Test Results</h1>
+    
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Test 1: Direct Database Storage</h5>
+                </div>
+                <div class="card-body">
+                    {% if direct_test %}
+                        <p><strong>Record ID:</strong> {{ direct_test.id }}</p>
+                        <p><strong>Date:</strong> {{ direct_test.date }}</p>
+                        <p><strong>Check-in:</strong> {{ direct_test.check_in }}</p>
+                        <p><strong>Check-out:</strong> {{ direct_test.check_out }}</p>
+                        <p><strong>Break Start:</strong> {{ direct_test.break_start }}</p>
+                        <p><strong>Break End:</strong> {{ direct_test.break_end }}</p>
+                        <p><strong>Break Duration:</strong> {{ direct_test.break_duration }} hours</p>
+                        <p class="mt-3">
+                            {% if direct_test.break_start and direct_test.break_end %}
+                                <span class="badge bg-success">SUCCESS: Break times stored correctly</span>
+                            {% else %}
+                                <span class="badge bg-danger">FAILURE: Break times not stored correctly</span>
+                            {% endif %}
+                        </p>
+                    {% else %}
+                        <p>No record created for direct test.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Test 2: Log Processing Detection</h5>
+                </div>
+                <div class="card-body">
+                    {% if log_test %}
+                        <p><strong>Record ID:</strong> {{ log_test.id }}</p>
+                        <p><strong>Date:</strong> {{ log_test.date }}</p>
+                        <p><strong>Check-in:</strong> {{ log_test.check_in }}</p>
+                        <p><strong>Check-out:</strong> {{ log_test.check_out }}</p>
+                        <p><strong>Break Start:</strong> {{ log_test.break_start }}</p>
+                        <p><strong>Break End:</strong> {{ log_test.break_end }}</p>
+                        <p><strong>Break Duration:</strong> {{ log_test.break_duration }} hours</p>
+                        <p class="mt-3">
+                            {% if log_test.break_start and log_test.break_end %}
+                                <span class="badge bg-success">SUCCESS: Break times detected and stored correctly</span>
+                            {% else %}
+                                <span class="badge bg-danger">FAILURE: Break times not detected or stored correctly</span>
+                            {% endif %}
+                        </p>
+                    {% else %}
+                        <p>No record created for log processing test.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Processing Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Records Created:</strong> {{ records_created }}</p>
+                    <p><strong>Logs Processed:</strong> {{ logs_processed }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <a href="{{ url_for('attendance.index') }}" class="btn btn-primary">Back to Attendance Dashboard</a>
+        <a href="{{ url_for('attendance.test_break_detection') }}" class="btn btn-warning">Run Test Again</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Add Attendance Device{% endblock %}
+
+{% block content %}
+<div class="col-md-8 mx-auto">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-plus-circle me-2"></i>
+                Add New Attendance Device
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('devices.add') }}">
+                <div class="mb-3">
+                    <label for="name" class="form-label">Device Name*</label>
+                    <input type="text" class="form-control" id="name" name="name" required>
+                    <div class="form-text">A descriptive name for this device (e.g., "Main Entrance Scanner")</div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="device_id" class="form-label">Device ID*</label>
+                    <input type="text" class="form-control" id="device_id" name="device_id" required>
+                    <div class="form-text">Unique identifier for this device (e.g., serial number)</div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="device_type" class="form-label">Device Type*</label>
+                    <select class="form-select" id="device_type" name="device_type" required>
+                        <option value="">Select Device Type</option>
+                        <option value="zkteco">ZKTeco Biometric (U280/U160)</option>
+                        <option value="biometric">Other Biometric Device</option>
+                        <option value="rfid">RFID Card Reader</option>
+                        <option value="facial">Facial Recognition</option>
+                        <option value="qr">QR Code Scanner</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <div class="form-text">For ZKTeco devices, provide the IP address and port (usually 4370)</div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="location" class="form-label">Location</label>
+                    <input type="text" class="form-control" id="location" name="location">
+                    <div class="form-text">Where this device is physically located</div>
+                </div>
+                
+                <div class="row mb-3 connection-fields">
+                    <div class="col-md-6">
+                        <label for="ip_address" class="form-label">IP Address / Host URL</label>
+                        <input type="text" class="form-control" id="ip_address" name="ip_address" placeholder="192.168.1.100 or erp.mir.ae">
+                        <div class="form-text">You can use a hostname or IP address</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="port" class="form-label">Port</label>
+                        <input type="number" class="form-control" id="port" name="port" placeholder="4370">
+                        <div class="form-text">ZKTeco devices typically use port 4370</div>
+                    </div>
+                </div>
+                
+                <div class="mb-3 api-key-field">
+                    <label for="api_key" class="form-label">API Key / Access Token</label>
+                    <input type="text" class="form-control" id="api_key" name="api_key">
+                    <div class="form-text">Used for secure communication with the device</div>
+                </div>
+                
+                <div class="mt-4 d-flex justify-content-between">
+                    <a href="{{ url_for('devices.index') }}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Cancel
+                    </a>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-save"></i> Add Device
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Show/hide fields based on device type
+        $('#device_type').change(function() {
+            updateDeviceFormFields($(this).val());
+        });
+        
+        // Function to update form fields based on device type
+        function updateDeviceFormFields(deviceType) {
+            // Always reset form fields
+            $('#port').val('');
+            
+            if (deviceType === 'zkteco') {
+                // For ZKTeco devices, show IP and port fields, set default port to 4370
+                $('.connection-fields').show();
+                $('#port').val('4370');
+                // API key is not needed for ZKTeco - it uses direct socket connection
+                $('.api-key-field').hide();
+            } else if (deviceType === 'biometric' || deviceType === 'facial' || deviceType === 'rfid') {
+                $('.connection-fields').show();
+                $('.api-key-field').show();
+            } else if (deviceType === 'qr') {
+                $('.connection-fields').hide();
+                $('.api-key-field').show();
+            } else {
+                $('.connection-fields').show();
+                $('.api-key-field').show();
+            }
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+
+{% block title %}Process Attendance Logs{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h2 mb-3">Process Unprocessed Attendance Logs</h1>
+            <p class="lead">This tool will process all unprocessed attendance logs and create attendance records with enhanced shift analysis.</p>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Processing Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <h5>Unprocessed Logs</h5>
+                                <a href="{{ url_for('attendance.raw_logs', processed='0') }}" class="text-decoration-none">
+                                    <h2 class="display-6 text-primary">{{ stats.unprocessed_logs|default(0) }}</h2>
+                                    <small class="text-muted">Click to view unprocessed logs</small>
+                                </a>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <h5>Total Logs</h5>
+                                <a href="{{ url_for('attendance.raw_logs') }}" class="text-decoration-none">
+                                    <h2 class="display-6 text-primary">{{ stats.total_logs|default(0) }}</h2>
+                                    <small class="text-muted">Click to view all logs</small>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="card-title mb-0">Actions</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('attendance.process_all_logs') }}">
+                        <p>Ready to process {{ stats.unprocessed_logs|default(0) }} unprocessed logs?</p>
+                        <button type="submit" class="btn btn-primary" {% if stats.unprocessed_logs == 0 %}disabled{% endif %}>
+                            <i class="bi bi-cpu"></i> Process All Logs
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if results %}
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card border-success shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">Processing Results</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-success">
+                        <h5><i class="bi bi-check-circle-fill"></i> Processing Complete</h5>
+                        <p>
+                            Successfully processed 
+                            <a href="{{ url_for('attendance.raw_logs', processed='1') }}" class="alert-link">{{ results.logs_processed }} logs</a> 
+                            and created 
+                            <a href="{{ url_for('attendance.daily') }}" class="alert-link">{{ results.records_created }} new attendance records</a>.
+                        </p>
+                        {% if results.overtime_processed is defined %}
+                        <p>
+                            Calculated overtime for 
+                            <a href="{{ url_for('overtime.report') }}" class="alert-link">{{ results.overtime_processed }} attendance records</a>.
+                        </p>
+                        {% endif %}
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header">Enhanced Analysis</div>
+                                <div class="card-body">
+                                    <ul class="list-group list-group-flush">
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            Shift type identification
+                                            <span class="badge bg-success rounded-pill"><i class="bi bi-check"></i></span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            Break time detection
+                                            <span class="badge bg-success rounded-pill"><i class="bi bi-check"></i></span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            Overtime calculation
+                                            <span class="badge bg-success rounded-pill"><i class="bi bi-check"></i></span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">View Results</div>
+                                <div class="card-body">
+                                    <div class="d-grid gap-2">
+                                        <a href="{{ url_for('attendance.daily') }}" class="btn btn-outline-primary">
+                                            <i class="bi bi-calendar-day"></i> Daily Attendance
+                                        </a>
+                                        <a href="{{ url_for('attendance.raw_logs') }}" class="btn btn-outline-secondary">
+                                            <i class="bi bi-list-columns"></i> Raw Logs
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">Enhanced Shift Analysis Features</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title"><i class="bi bi-sun"></i> Shift Classification</h5>
+                                    <p class="card-text">Automatically classifies shifts as day, afternoon, or night based on check-in time.</p>
+                                    <ul class="list-unstyled">
+                                        <li><small class="text-muted">Day: 6:00 AM - 11:59 AM</small></li>
+                                        <li><small class="text-muted">Afternoon: 12:00 PM - 5:59 PM</small></li>
+                                        <li><small class="text-muted">Night: 6:00 PM - 5:59 AM</small></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title"><i class="bi bi-cup-hot"></i> Break Detection</h5>
+                                    <p class="card-text">Intelligently detects breaks by analyzing check-in/out patterns throughout the day.</p>
+                                    <ul class="list-unstyled">
+                                        <li><small class="text-muted">Detects break patterns from multiple punches</small></li>
+                                        <li><small class="text-muted">Applies standard 1-hour break for long shifts</small></li>
+                                        <li><small class="text-muted">Flags excessive breaks (> 1.5 hours)</small></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title"><i class="bi bi-clock-history"></i> Overtime Analysis</h5>
+                                    <p class="card-text">Automatically calculates overtime hours based on standard 8-hour workday.</p>
+                                    <ul class="list-unstyled">
+                                        <li><small class="text-muted">Calculates net work hours after breaks</small></li>
+                                        <li><small class="text-muted">Identifies overtime (hours > 8)</small></li>
+                                        <li><small class="text-muted">Supports weekend/holiday differentials</small></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

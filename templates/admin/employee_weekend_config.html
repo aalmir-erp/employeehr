@@ -1,0 +1,490 @@
+{% extends 'base.html' %}
+
+{% block title %}Employee Weekend Configuration | Admin{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-4">Employee Weekend Configuration</h1>
+
+    {% include 'partials/flash_messages.html' %}
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Assign Weekend Days to Employees</h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle-fill me-2"></i>
+                <strong>Weekend Configuration Priority:</strong>
+                <ol class="mb-0">
+                    <li>Employee-specific weekend days (highest priority)</li>
+                    <li>Shift-specific weekend days (middle priority)</li>
+                    <li>System-wide default weekend days (lowest priority): {{ system_config.weekend_days|map('int')|list|map('replace', 0, 'Monday')|map('replace', 1, 'Tuesday')|map('replace', 2, 'Wednesday')|map('replace', 3, 'Thursday')|map('replace', 4, 'Friday')|map('replace', 5, 'Saturday')|map('replace', 6, 'Sunday')|join(', ') }}</li>
+                </ol>
+            </div>
+            
+            <form method="POST" action="{{ url_for('admin.update_employee_weekend_config') }}" class="mt-4">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="employee_id" class="form-label">Select Employee</label>
+                            <select class="form-select" id="employee_id" name="employee_id" required>
+                                <option value="">-- Select Employee --</option>
+                                {% for employee in employees %}
+                                <option value="{{ employee.id }}" 
+                                    data-weekend-days="{{ employee.weekend_days|tojson if employee.weekend_days else '[]' }}" 
+                                    data-effective-weekend-days="{{ employee.effective_weekend_days|tojson if employee.effective_weekend_days else '[]' }}"
+                                    data-shift-id="{{ employee.current_shift_id or '' }}">
+                                    {{ employee.name }} {% if employee.department %}({{ employee.department }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Employee Weekend Days</label>
+                            <div class="form-text mb-2">These days will be considered weekends for this specific employee, overriding shift and system settings.</div>
+                            
+                            <div class="form-check">
+                                <input class="form-check-input weekend-day" type="checkbox" name="weekend_days" value="0" id="monday">
+                                <label class="form-check-label" for="monday">Monday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input weekend-day" type="checkbox" name="weekend_days" value="1" id="tuesday">
+                                <label class="form-check-label" for="tuesday">Tuesday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input weekend-day" type="checkbox" name="weekend_days" value="2" id="wednesday">
+                                <label class="form-check-label" for="wednesday">Wednesday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input weekend-day" type="checkbox" name="weekend_days" value="3" id="thursday">
+                                <label class="form-check-label" for="thursday">Thursday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input weekend-day" type="checkbox" name="weekend_days" value="4" id="friday">
+                                <label class="form-check-label" for="friday">Friday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input weekend-day" type="checkbox" name="weekend_days" value="5" id="saturday">
+                                <label class="form-check-label" for="saturday">Saturday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input weekend-day" type="checkbox" name="weekend_days" value="6" id="sunday">
+                                <label class="form-check-label" for="sunday">Sunday</label>
+                            </div>
+                            
+                            <div class="form-check mt-3">
+                                <input class="form-check-input" type="checkbox" id="use_default" checked>
+                                <label class="form-check-label" for="use_default">
+                                    Use shift/system defaults (no override)
+                                </label>
+                                <div class="form-text">
+                                    Check this if you want to use the shift-specific or system-wide weekend settings instead of employee-specific settings.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Save Weekend Configuration</button>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header">Current Configuration Info</div>
+                            <div class="card-body">
+                                <div id="employee-info">
+                                    <p class="text-muted">Select an employee to view their configuration.</p>
+                                </div>
+                                
+                                <div id="shift-info" class="mt-3 d-none">
+                                    <h6>Current Shift</h6>
+                                    <div id="shift-details">
+                                        <p class="text-muted">Loading shift information...</p>
+                                    </div>
+                                </div>
+                                
+                                <div id="current-weekend-info" class="mt-3 d-none">
+                                    <h6>Current Effective Weekend Days</h6>
+                                    <div id="current-weekend-days">
+                                        <p class="text-muted">Loading weekend information...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0">Bulk Weekend Assignment</h5>
+        </div>
+        <div class="card-body">
+            <p>Use this to quickly assign the same weekend days to multiple employees.</p>
+            
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <strong>Warning:</strong> This will override individual weekend settings for all selected employees.
+            </div>
+            
+            <form method="POST" action="{{ url_for('admin.bulk_update_weekend_config') }}" class="mt-3">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Select Employees</label>
+                        <div class="card" style="max-height: 300px; overflow-y: auto;">
+                            <div class="card-body p-2">
+                                <div class="mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="select-all-employees">
+                                        <label class="form-check-label" for="select-all-employees">
+                                            <strong>Select All Employees</strong>
+                                        </label>
+                                    </div>
+                                </div>
+                                <hr class="my-2">
+                                {% for employee in employees %}
+                                <div class="form-check">
+                                    <input class="form-check-input bulk-employee" type="checkbox" name="bulk_employee_ids" value="{{ employee.id }}" id="bulk-employee-{{ employee.id }}">
+                                    <label class="form-check-label" for="bulk-employee-{{ employee.id }}">
+                                        {{ employee.name }} {% if employee.department %}({{ employee.department }}){% endif %}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label">Weekend Days to Assign</label>
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="form-check">
+                                    <input class="form-check-input bulk-weekend-day" type="checkbox" name="bulk_weekend_days" value="0" id="bulk-monday">
+                                    <label class="form-check-label" for="bulk-monday">Monday</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input bulk-weekend-day" type="checkbox" name="bulk_weekend_days" value="1" id="bulk-tuesday">
+                                    <label class="form-check-label" for="bulk-tuesday">Tuesday</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input bulk-weekend-day" type="checkbox" name="bulk_weekend_days" value="2" id="bulk-wednesday">
+                                    <label class="form-check-label" for="bulk-wednesday">Wednesday</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input bulk-weekend-day" type="checkbox" name="bulk_weekend_days" value="3" id="bulk-thursday">
+                                    <label class="form-check-label" for="bulk-thursday">Thursday</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input bulk-weekend-day" type="checkbox" name="bulk_weekend_days" value="4" id="bulk-friday">
+                                    <label class="form-check-label" for="bulk-friday">Friday</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input bulk-weekend-day" type="checkbox" name="bulk_weekend_days" value="5" id="bulk-saturday">
+                                    <label class="form-check-label" for="bulk-saturday">Saturday</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input bulk-weekend-day" type="checkbox" name="bulk_weekend_days" value="6" id="bulk-sunday">
+                                    <label class="form-check-label" for="bulk-sunday">Sunday</label>
+                                </div>
+                                
+                                <div class="form-check mt-3">
+                                    <input class="form-check-input" type="checkbox" id="bulk-use-default" name="bulk_use_default" checked>
+                                    <label class="form-check-label" for="bulk-use-default">
+                                        Reset to use shift/system defaults
+                                    </label>
+                                    <div class="form-text">
+                                        Check this to remove employee-specific weekend days and use shift/system defaults instead.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-warning">Apply Bulk Weekend Assignment</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Day names mapping
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    
+    // Initialize shift data
+    const shifts = {{ shifts|map(attribute='id')|map('string')|map('tojson')|list|tojson|safe }};
+    const shiftNames = {{ shifts|map(attribute='name')|list|tojson|safe }};
+    // Process shift weekend days with JavaScript to handle null values
+    const shiftWeekendDaysRaw = [];
+    {% for shift in shifts %}
+        {% if shift.weekend_days %}
+        shiftWeekendDaysRaw.push({{ shift.weekend_days|tojson|safe }});
+        {% else %}
+        shiftWeekendDaysRaw.push([]);
+        {% endif %}
+    {% endfor %}
+    
+    // System defaults
+    const systemWeekendDays = {{ system_config.weekend_days|tojson if system_config.weekend_days else '[5, 6]' }};
+    
+    // Handle employee selection
+    document.getElementById('employee_id').addEventListener('change', function() {
+        const employeeId = this.value;
+        console.log("Employee selected with ID:", employeeId);
+        
+        if (!employeeId) {
+            clearEmployeeInfo();
+            return;
+        }
+        
+        // Direct update for debugging - show info is working
+        document.getElementById('employee-info').innerHTML = '<p>Loading employee info...</p>';
+        
+        try {
+            // Get selected option and all relevant data
+            const selectedOption = this.options[this.selectedIndex];
+            console.log("Selected option:", selectedOption);
+            
+            if (!selectedOption) {
+                console.error("No selected option found");
+                return;
+            }
+            
+            const employeeName = selectedOption.text;
+            console.log("Employee name:", employeeName);
+            
+            // Safely parse JSON attributes
+            let employeeWeekendDays = [];
+            let effectiveWeekendDays = [];
+            
+            try {
+                employeeWeekendDays = JSON.parse(selectedOption.dataset.weekendDays || '[]');
+                effectiveWeekendDays = JSON.parse(selectedOption.dataset.effectiveWeekendDays || '[]');
+            } catch (e) {
+                console.error("Error parsing weekend days:", e);
+            }
+            
+            const shiftId = selectedOption.dataset.shiftId || null;
+            
+            // Display in the console for debugging
+            console.log('Employee Weekend Days:', employeeWeekendDays);
+            console.log('Effective Weekend Days:', effectiveWeekendDays);
+            
+            // Set basic employee info directly
+            document.getElementById('employee-info').innerHTML = `
+                <h6>Employee Information</h6>
+                <p><strong>Name:</strong> ${employeeName}</p>
+                <p><strong>Employee-specific Weekend Days:</strong> 
+                    ${employeeWeekendDays.length > 0 ? employeeWeekendDays.map(day => dayNames[day]).join(', ') : '<span class="text-muted">Not set (using shift or system defaults)</span>'}
+                </p>
+            `;
+            
+            // Update weekend day checkboxes with employee-specific weekend days (not effective ones)
+            updateWeekendCheckboxes(employeeWeekendDays);
+            
+            // Update shift info
+            if (shiftId) {
+                const shiftIndex = shifts.indexOf(shiftId);
+                if (shiftIndex !== -1) {
+                    const shiftName = shiftNames[shiftIndex];
+                    const shiftWeekend = shiftWeekendDaysRaw[shiftIndex] || [];
+                    
+                    document.getElementById('shift-info').classList.remove('d-none');
+                    document.getElementById('shift-details').innerHTML = `
+                        <p><strong>Shift Name:</strong> ${shiftName}</p>
+                        <p><strong>Shift-specific Weekend Days:</strong> 
+                            ${shiftWeekend.length > 0 ? shiftWeekend.map(day => dayNames[day]).join(', ') : '<span class="text-muted">Not set (using system defaults)</span>'}
+                        </p>
+                    `;
+                }
+            } else {
+                document.getElementById('shift-info').classList.add('d-none');
+            }
+            
+            // Show current effective weekend days
+            document.getElementById('current-weekend-info').classList.remove('d-none');
+            document.getElementById('current-weekend-days').innerHTML = `
+                <p><strong>Currently Applied Weekend Days:</strong> 
+                    ${effectiveWeekendDays.length > 0 ? effectiveWeekendDays.map(day => dayNames[day]).join(', ') : '<span class="text-muted">No weekend days set</span>'}
+                </p>
+                
+                <div class="alert alert-info mt-2">
+                    <i class="bi bi-info-circle me-2"></i>
+                    These are the actual weekend days that apply to this employee after considering all configuration levels.
+                </div>
+            `;
+        } catch (e) {
+            console.error("Error in employee selection handler:", e);
+            document.getElementById('employee-info').innerHTML = '<p class="text-danger">Error loading employee information. See console for details.</p>';
+        }
+    });
+    
+    // Handle "use default" checkbox
+    document.getElementById('use_default').addEventListener('change', function() {
+        const weekendCheckboxes = document.querySelectorAll('.weekend-day');
+        
+        if (this.checked) {
+            // Disable all weekend checkboxes if using default
+            weekendCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+                checkbox.disabled = true;
+            });
+        } else {
+            // Enable checkboxes
+            weekendCheckboxes.forEach(checkbox => {
+                checkbox.disabled = false;
+            });
+            
+            // Set checkboxes to current employee weekend days if available
+            const employeeId = document.getElementById('employee_id').value;
+            if (employeeId) {
+                const selectedOption = document.getElementById('employee_id').options[document.getElementById('employee_id').selectedIndex];
+                const weekendDays = JSON.parse(selectedOption.dataset.weekendDays);
+                updateWeekendCheckboxes(weekendDays, false);
+            }
+        }
+    });
+    
+    // Select all employees checkbox
+    document.getElementById('select-all-employees').addEventListener('change', function() {
+        document.querySelectorAll('.bulk-employee').forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+    });
+    
+    // Handle bulk use default checkbox
+    document.getElementById('bulk-use-default').addEventListener('change', function() {
+        const bulkWeekendCheckboxes = document.querySelectorAll('.bulk-weekend-day');
+        
+        if (this.checked) {
+            // Disable all weekend checkboxes if using default
+            bulkWeekendCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+                checkbox.disabled = true;
+            });
+        } else {
+            // Enable checkboxes
+            bulkWeekendCheckboxes.forEach(checkbox => {
+                checkbox.disabled = false;
+            });
+        }
+    });
+    
+    // Helper functions
+    function clearEmployeeInfo() {
+        document.getElementById('employee-info').innerHTML = `
+            <p class="text-muted">Select an employee to view their configuration.</p>
+        `;
+        document.getElementById('shift-info').classList.add('d-none');
+        document.getElementById('current-weekend-info').classList.add('d-none');
+        
+        // Reset checkboxes
+        document.querySelectorAll('.weekend-day').forEach(checkbox => {
+            checkbox.checked = false;
+            checkbox.disabled = true;
+        });
+    }
+    
+    function updateWeekendCheckboxes(weekendDays, disable = true) {
+        document.querySelectorAll('.weekend-day').forEach(checkbox => {
+            const day = parseInt(checkbox.value);
+            checkbox.checked = weekendDays.includes(day);
+            checkbox.disabled = disable;
+        });
+        
+        // Update "use default" checkbox
+        const useDefaultCheckbox = document.getElementById('use_default');
+        useDefaultCheckbox.checked = weekendDays.length === 0 || disable;
+    }
+    
+    function updateEmployeeInfo(employeeId, weekendDays, shiftId, serverEffectiveWeekendDays) {
+        // Get employee name
+        const employeeName = document.getElementById('employee_id').options[document.getElementById('employee_id').selectedIndex].text;
+        
+        // Update employee info section
+        document.getElementById('employee-info').innerHTML = `
+            <h6>Employee Information</h6>
+            <p><strong>Name:</strong> ${employeeName}</p>
+            <p><strong>Employee-specific Weekend Days:</strong> 
+                ${weekendDays.length > 0 ? weekendDays.map(day => dayNames[day]).join(', ') : '<span class="text-muted">Not set (using shift or system defaults)</span>'}
+            </p>
+        `;
+        
+        // Update shift info
+        if (shiftId) {
+            const shiftIndex = shifts.indexOf(shiftId);
+            if (shiftIndex !== -1) {
+                const shiftName = shiftNames[shiftIndex];
+                const shiftWeekend = shiftWeekendDaysRaw[shiftIndex] || [];
+                
+                document.getElementById('shift-info').classList.remove('d-none');
+                document.getElementById('shift-details').innerHTML = `
+                    <p><strong>Shift Name:</strong> ${shiftName}</p>
+                    <p><strong>Shift-specific Weekend Days:</strong> 
+                        ${shiftWeekend.length > 0 ? shiftWeekend.map(day => dayNames[day]).join(', ') : '<span class="text-muted">Not set (using system defaults)</span>'}
+                    </p>
+                `;
+            }
+        } else {
+            document.getElementById('shift-info').classList.add('d-none');
+        }
+        
+        // Use server-provided effective weekend days if available, otherwise calculate client-side
+        let effectiveWeekendDays = [];
+        
+        if (serverEffectiveWeekendDays && serverEffectiveWeekendDays.length > 0) {
+            // Use server-provided effective weekend days (most accurate)
+            effectiveWeekendDays = serverEffectiveWeekendDays;
+            console.log("Using server-provided effective weekend days:", effectiveWeekendDays);
+        } else {
+            // Fall back to client-side calculation
+            if (weekendDays.length > 0) {
+                // Employee-specific weekend days (highest priority)
+                effectiveWeekendDays = weekendDays;
+            } else if (shiftId) {
+                // Shift-specific weekend days (middle priority)
+                const shiftIndex = shifts.indexOf(shiftId);
+                if (shiftIndex !== -1) {
+                    const shiftWeekend = shiftWeekendDaysRaw[shiftIndex] || [];
+                    if (shiftWeekend.length > 0) {
+                        effectiveWeekendDays = shiftWeekend;
+                    }
+                }
+            }
+            
+            // If no employee or shift-specific days, use system defaults
+            if (effectiveWeekendDays.length === 0) {
+                effectiveWeekendDays = systemWeekendDays;
+            }
+            console.log("Using client-calculated effective weekend days:", effectiveWeekendDays);
+        }
+        
+        // Show current effective weekend days
+        document.getElementById('current-weekend-info').classList.remove('d-none');
+        document.getElementById('current-weekend-days').innerHTML = `
+            <p><strong>Effective Weekend Days:</strong> ${effectiveWeekendDays.map(day => dayNames[day]).join(', ')}</p>
+            <div class="alert ${weekendDays.length > 0 ? 'alert-primary' : 'alert-secondary'} mt-2">
+                <small>
+                    <strong>Source:</strong> 
+                    ${weekendDays.length > 0 ? 'Employee-specific setting' : 
+                      (shiftId && JSON.parse(shiftWeekendDays[shifts.indexOf(shiftId)]).length > 0 ? 'Shift-specific setting' : 'System-wide default')}
+                </small>
+            </div>
+        `;
+    }
+    
+    // Initialize "use default" and disable checkboxes
+    document.querySelectorAll('.weekend-day').forEach(checkbox => {
+        checkbox.disabled = true;
+    });
+    
+    // Initialize bulk "use default" and disable checkboxes
+    document.querySelectorAll('.bulk-weekend-day').forEach(checkbox => {
+        checkbox.disabled = true;
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Device - {{ device.name }}{% endblock %}
+
+{% block content %}
+<div class="col-md-8 mx-auto">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-pencil me-2"></i>
+                Edit Device: {{ device.name }}
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('devices.edit', device_id=device.id) }}">
+                <div class="mb-3">
+                    <label for="name" class="form-label">Device Name*</label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ device.name }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="device_type" class="form-label">Device Type*</label>
+                    <select class="form-select" id="device_type" name="device_type" required>
+                        <option value="biometric" {% if device.device_type == 'biometric' %}selected{% endif %}>Biometric (Fingerprint)</option>
+                        <option value="rfid" {% if device.device_type == 'rfid' %}selected{% endif %}>RFID Card Reader</option>
+                        <option value="facial" {% if device.device_type == 'facial' %}selected{% endif %}>Facial Recognition</option>
+                        <option value="qr" {% if device.device_type == 'qr' %}selected{% endif %}>QR Code Scanner</option>
+                        <option value="other" {% if device.device_type == 'other' %}selected{% endif %}>Other</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="location" class="form-label">Location</label>
+                    <input type="text" class="form-control" id="location" name="location" value="{{ device.location or '' }}">
+                </div>
+                
+                <div class="row mb-3 connection-fields">
+                    <div class="col-md-6">
+                        <label for="ip_address" class="form-label">IP Address</label>
+                        <input type="text" class="form-control" id="ip_address" name="ip_address" value="{{ device.ip_address or '' }}" placeholder="192.168.1.100">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="port" class="form-label">Port</label>
+                        <input type="number" class="form-control" id="port" name="port" value="{{ device.port or '' }}" placeholder="80">
+                    </div>
+                </div>
+                
+                <div class="mb-3 api-key-field">
+                    <label for="api_key" class="form-label">API Key / Access Token</label>
+                    <input type="text" class="form-control" id="api_key" name="api_key" placeholder="Leave blank to keep current API key">
+                    <div class="form-text">Leave blank to keep the current API key</div>
+                </div>
+                
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if device.is_active %}checked{% endif %}>
+                    <label class="form-check-label" for="is_active">Active</label>
+                    <div class="form-text">Inactive devices won't be checked or used for attendance</div>
+                </div>
+                
+                <div class="card bg-light mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">Device Status Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <strong>Current Status:</strong>
+                                <div>
+                                    <span class="badge 
+                                        {% if device.status == 'online' %}bg-success
+                                        {% elif device.status == 'offline' %}bg-danger
+                                        {% else %}bg-warning{% endif %}">
+                                        {{ device.status|capitalize }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Last Ping:</strong>
+                                <div>
+                                    {% if device.last_ping %}
+                                        {{ device.last_ping.strftime('%Y-%m-%d %H:%M:%S') }}
+                                    {% else %}
+                                        Never
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Device ID:</strong>
+                                <div>{{ device.device_id }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4 d-flex justify-content-between">
+                    <a href="{{ url_for('devices.index') }}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Devices
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Show/hide fields based on device type
+        $('#device_type').change(function() {
+            updateDeviceFormFields($(this).val());
+        }).change(); // Trigger on page load
+        
+        // Function to update form fields based on device type
+        function updateDeviceFormFields(deviceType) {
+            if (deviceType === 'biometric' || deviceType === 'facial' || deviceType === 'rfid') {
+                $('.connection-fields').show();
+                $('.api-key-field').show();
+            } else if (deviceType === 'qr') {
+                $('.connection-fields').hide();
+                $('.api-key-field').show();
+            } else {
+                $('.connection-fields').show();
+                $('.api-key-field').show();
+            }
+        }
+    });
+</script>
+{% endblock %}

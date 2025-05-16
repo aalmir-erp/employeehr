@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Holiday Management{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-calendar-event me-2"></i>
+                Holiday Management
+            </h5>
+            <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addHolidayModal">
+                <i class="bi bi-plus-circle"></i> Add Holiday
+            </button>
+        </div>
+        <div class="card-body">
+            <!-- Filter Form -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">Filter Holidays</h6>
+                            <button type="button" class="btn btn-sm btn-outline-light" id="toggle-filters">
+                                <i class="bi bi-funnel"></i> Toggle Filters
+                            </button>
+                        </div>
+                        <div class="card-body" id="filter-panel">
+                            <form method="get" action="{{ url_for('shifts.holidays') }}" class="row g-3">
+                                <div class="col-md-4">
+                                    <label for="year" class="form-label">Year</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-calendar-year"></i></span>
+                                        <select class="form-select" id="year" name="year">
+                                            {% for y in range(current_year - 2, current_year + 3) %}
+                                                <option value="{{ y }}" {% if selected_year == y %}selected{% endif %}>{{ y }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="employee_id" class="form-label">Holiday Type</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-people"></i></span>
+                                        <select class="form-select" id="employee_id" name="employee_id">
+                                            <option value="">All Holidays</option>
+                                            <option value="company" {% if selected_employee_id == 'company' %}selected{% endif %}>Company-wide Only</option>
+                                            <option value="employee" {% if selected_employee_id == 'employee' %}selected{% endif %}>Employee-specific Only</option>
+                                            <optgroup label="Specific Employee">
+                                                {% for employee in employees %}
+                                                    <option value="{{ employee.id }}" {% if selected_employee_id|string == employee.id|string %}selected{% endif %}>
+                                                        {{ employee.name }}
+                                                    </option>
+                                                {% endfor %}
+                                            </optgroup>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="is_recurring" class="form-label">Recurring Type</label>
+                                    <select class="form-select" id="is_recurring" name="is_recurring">
+                                        <option value="">All Types</option>
+                                        <option value="1" {% if selected_recurring == '1' %}selected{% endif %}>Recurring Only</option>
+                                        <option value="0" {% if selected_recurring == '0' %}selected{% endif %}>One-time Only</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="bi bi-search"></i> Apply Filters
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Holidays Table -->
+            <div class="table-responsive">
+                <table class="table table-hover" id="holidaysTable">
+                    <thead>
+                        <tr>
+                            <th>Holiday Name</th>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Employee</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for holiday in holidays %}
+                        <tr>
+                            <td>{{ holiday.name }}</td>
+                            <td>{{ holiday.date.strftime('%Y-%m-%d') }} ({{ holiday.date.strftime('%A') }})</td>
+                            <td>
+                                <span class="badge {% if holiday.is_recurring %}bg-info{% else %}bg-secondary{% endif %}">
+                                    {{ 'Recurring' if holiday.is_recurring else 'One-time' }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if holiday.is_employee_specific %}
+                                    {{ holiday.employee.name }}
+                                {% else %}
+                                    <span class="badge bg-primary">Company-wide</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <form method="post" action="{{ url_for('shifts.delete_holiday', holiday_id=holiday.id) }}" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Holiday">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center">No holidays found for the selected criteria</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-4">
+                <a href="{{ url_for('shifts.scheduler') }}" class="btn btn-secondary">
+                    <i class="bi bi-calendar-week"></i> Shift Scheduler
+                </a>
+                <a href="{{ url_for('shifts.index') }}" class="btn btn-secondary ms-2">
+                    <i class="bi bi-clock"></i> Shift Management
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Holiday Modal -->
+<div class="modal fade" id="addHolidayModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{{ url_for('shifts.add_holiday') }}">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Add Holiday</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="holiday_name" class="form-label">Holiday Name*</label>
+                        <input type="text" class="form-control" id="holiday_name" name="name" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="holiday_date" class="form-label">Date*</label>
+                        <input type="date" class="form-control" id="holiday_date" name="date" required>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="holiday_is_recurring" name="is_recurring">
+                        <label class="form-check-label" for="holiday_is_recurring">Recurring (yearly)</label>
+                        <div class="form-text">This holiday will recur every year on the same date</div>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="is_employee_specific" name="is_employee_specific">
+                        <label class="form-check-label" for="is_employee_specific">Employee-specific Holiday</label>
+                        <div class="form-text">Check this if the holiday applies only to a specific employee</div>
+                    </div>
+                    
+                    <div class="mb-3" id="employee_selection" style="display: none;">
+                        <label for="holiday_employee_id" class="form-label">Select Employee</label>
+                        <select class="form-select" id="holiday_employee_id" name="employee_id">
+                            <option value="">Select Employee</option>
+                            {% for employee in employees %}
+                                <option value="{{ employee.id }}">{{ employee.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Leave this blank for company-wide holidays</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Holiday</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize DataTable with responsive features
+        $('#holidaysTable').DataTable({
+            "order": [[1, "asc"]],  // Sort by date
+            "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]],
+            "language": {
+                "search": "Quick Filter:"
+            },
+            "responsive": true,
+            "columnDefs": [
+                { "orderable": false, "targets": 4 } // Don't allow sorting on action column
+            ]
+        });
+        
+        // Toggle employee selection based on checkbox
+        $('#is_employee_specific').change(function() {
+            if ($(this).is(':checked')) {
+                $('#employee_selection').show();
+                $('#holiday_employee_id').prop('required', true);
+            } else {
+                $('#employee_selection').hide();
+                $('#holiday_employee_id').prop('required', false);
+            }
+        });
+        
+        // Toggle filter panel visibility
+        $('#toggle-filters').click(function() {
+            $('#filter-panel').slideToggle('fast');
+        });
+        
+        // Set holiday date field to current date by default
+        if ($('#holiday_date').val() === '') {
+            var today = new Date();
+            var formattedDate = today.toISOString().substring(0, 10);
+            $('#holiday_date').val(formattedDate);
+        }
+        
+        // Confirm delete with a warning
+        $('form[action^="/shifts/holidays/delete/"]').submit(function(e) {
+            if (!confirm('Are you sure you want to delete this holiday? This action cannot be undone.')) {
+                e.preventDefault();
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Add New Shift{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h2 mb-3">
+                <i class="bi bi-clock me-2"></i>
+                Add New Shift
+            </h1>
+            <p class="lead">Create a new shift configuration for assigning to employees.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Shift Details</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('shifts.add_shift') }}">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Shift Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                            <div class="form-text">A descriptive name like "Day Shift" or "Night Shift"</div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="start_time" class="form-label">Start Time <span class="text-danger">*</span></label>
+                                <input type="time" class="form-control" id="start_time" name="start_time" value="08:00" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="end_time" class="form-label">End Time <span class="text-danger">*</span></label>
+                                <input type="time" class="form-control" id="end_time" name="end_time" value="17:00" required>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="break_duration" class="form-label">Break Duration (hours)</label>
+                                <input type="number" class="form-control" id="break_duration" name="break_duration" min="0" max="5" step="0.5" value="1">
+                                <div class="form-text">Time subtracted from total hours worked</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="grace_period_minutes" class="form-label">Grace Period (minutes)</label>
+                                <input type="number" class="form-control" id="grace_period_minutes" name="grace_period_minutes" min="0" max="60" value="15">
+                                <div class="form-text">Allowed time for late arrivals</div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="color_code" class="form-label">Color</label>
+                            <input type="color" class="form-control form-control-color" id="color_code" name="color_code" value="#007bff">
+                            <div class="form-text">Color used to identify this shift in the schedule</div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_active" name="is_active" checked>
+                            <label class="form-check-label" for="is_active">Active</label>
+                            <div class="form-text">Inactive shifts won't be available for new assignments</div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('shifts.index') }}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-plus-circle me-1"></i> Create Shift
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">About Shifts</h5>
+                </div>
+                <div class="card-body">
+                    <p>Shifts define when employees are expected to work.</p>
+                    <ul class="mb-0">
+                        <li>Start/end times determine expected check-in and check-out times</li>
+                        <li>Overnight shifts are automatically detected when end time is before start time</li>
+                        <li>Break duration is subtracted from total work hours</li>
+                        <li>Grace period allows for late arrivals without marking as tardy</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning">
+                    <h5 class="card-title mb-0">Tips</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>For overnight shifts (e.g., 8 PM to 6 AM), simply set start time to 20:00 and end time to 06:00</li>
+                        <li>Use distinct colors for different shifts for easier identification</li>
+                        <li>Break duration can be set in 0.5 hour increments</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

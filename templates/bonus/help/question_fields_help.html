@@ -1,0 +1,97 @@
+<!-- Question Fields Help Modal -->
+<div class="modal fade" id="questionFieldsHelpModal" tabindex="-1" aria-labelledby="questionFieldsHelpModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="questionFieldsHelpModalLabel">Understanding Bonus Questionnaire Fields</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-4">
+                    <h5>Department</h5>
+                    <p>Indicates which department this question applies to. Each department can have its own set of tailored evaluation questions.</p>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Example:</strong> Engineering, Sales, HR, Production
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h5>Question Text</h5>
+                    <p>The actual performance question that supervisors will see when evaluating employees. Questions should be clear, specific, and focused on measurable aspects of performance.</p>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Examples:</strong>
+                        <ul class="mb-0">
+                            <li>"How effective is this employee at meeting deadlines for assigned tasks?"</li>
+                            <li>"Rate the quality of this employee's work output during the evaluation period."</li>
+                            <li>"How well does this employee collaborate with team members?"</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h5>Minimum and Maximum Values</h5>
+                    <p>The range of possible scores for this question. Values can be negative to allow for penalties in scoring.</p>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Common ranges:</strong>
+                        <ul class="mb-0">
+                            <li>0 to 10 (standard positive scoring)</li>
+                            <li>-5 to 5 (allows for both penalties and rewards)</li>
+                            <li>-10 to 10 (wider range for more nuanced evaluation)</li>
+                        </ul>
+                    </div>
+                    <p class="mt-2">
+                        <strong>Note:</strong> Negative scores can be used for performance issues that actually detract from an employee's overall contribution, like missed deadlines, quality problems, or policy violations.
+                    </p>
+                </div>
+                
+                <div class="mb-4">
+                    <h5>Default Value</h5>
+                    <p>The pre-filled score that will appear when supervisors begin evaluations. This should represent a reasonable starting point for most employees.</p>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Typical defaults:</strong>
+                        <ul class="mb-0">
+                            <li>For 0-10 range: 5 (middle of the range)</li>
+                            <li>For -5 to 5 range: 0 (neutral starting point)</li>
+                            <li>For complex metrics: A value that represents average performance</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h5>Weight Factor</h5>
+                    <p>Determines how much influence this question has on the final bonus calculation. Higher weights give the question more impact on the total score.</p>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Weight examples:</strong>
+                        <ul class="mb-0">
+                            <li>1.0: Standard weight (default)</li>
+                            <li>2.0: Double impact on final score</li>
+                            <li>0.5: Half impact on final score</li>
+                        </ul>
+                    </div>
+                    <p class="mt-2">
+                        <strong>Strategic use:</strong> Weights allow you to emphasize company priorities. For example, if quality is a critical focus area, questions about quality might have weights of 1.5 or 2.0.
+                    </p>
+                </div>
+                
+                <div class="mb-4">
+                    <h5>Active Status</h5>
+                    <p>Controls whether this question appears in evaluations. Inactive questions are stored in the system but not presented to supervisors during evaluations.</p>
+                    <p>This allows you to temporarily disable questions without deleting them, which is useful for:</p>
+                    <ul>
+                        <li>Seasonal performance metrics</li>
+                        <li>Questions that need revision</li>
+                        <li>Maintaining historical data while updating evaluation criteria</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-gear me-2"></i>
+                Admin Dashboard
+            </h5>
+        </div>
+        <div class="card-body">
+            <!-- Admin Quick Actions -->
+            <div class="row mb-4 g-3">
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="bi bi-people display-4 text-primary"></i>
+                            <h4 class="mt-3">Employee Management</h4>
+                            <p>Manage employees, their profiles, and departments</p>
+                            <a href="{{ url_for('admin.employees') }}" class="btn btn-outline-primary">
+                                <i class="bi bi-person-badge"></i> Manage Employees
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="bi bi-clock display-4 text-primary"></i>
+                            <h4 class="mt-3">Shift Management</h4>
+                            <p>Configure work shifts and define schedules</p>
+                            <a href="{{ url_for('shifts.index') }}" class="btn btn-outline-primary">
+                                <i class="bi bi-clock-history"></i> Manage Shifts
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="bi bi-person-lock display-4 text-primary"></i>
+                            <h4 class="mt-3">User Accounts</h4>
+                            <p>Manage system users and their permissions</p>
+                            <a href="{{ url_for('admin.index') }}" class="btn btn-outline-primary">
+                                <i class="bi bi-people"></i> Manage Users
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- System Status -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">System Status</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <div class="card bg-success text-white">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Attendance Devices</h6>
+                                            <h3>{{ attendance_devices.total }}</h3>
+                                            <p class="mb-0">{{ attendance_devices.online }} online</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-info text-white">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Active Employees</h6>
+                                            <h3>{{ employee_stats.active }}</h3>
+                                            <p class="mb-0">{{ employee_stats.total }} total</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-warning text-dark">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Attendance Today</h6>
+                                            <h3>{{ attendance_stats.present }}</h3>
+                                            <p class="mb-0">{{ attendance_stats.percent }}% present</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-primary text-white">
+                                        <div class="card-body">
+                                            <h6 class="card-title">System Users</h6>
+                                            <h3>{{ user_stats.total }}</h3>
+                                            <p class="mb-0">{{ user_stats.admin }} administrators</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Admin Actions -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Test Data Manager</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Generate test data for development and testing purposes.</p>
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-start mb-3">
+                                <a href="{{ url_for('admin.index') }}" class="btn btn-danger">
+                                    <i class="bi bi-database-fill-gear"></i> Test Data Manager
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">Odoo Integration</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Synchronize employee data from your Odoo ERP instance.</p>
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-start mb-3">
+                                <form method="post" action="{{ url_for('admin.sync_employees') }}">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-arrow-repeat"></i> Sync Employees from Odoo
+                                    </button>
+                                </form>
+                                <a href="{{ url_for('admin.index') }}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-gear"></i> Configure Odoo Integration
+                                </a>
+                            </div>
+                            <div class="mt-3">
+                                <strong>Last Sync:</strong>
+                                <span>
+                                    {% if last_sync %}
+                                        {{ last_sync.strftime('%Y-%m-%d %H:%M:%S') }}
+                                    {% else %}
+                                        Never
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">Quick Links</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="list-group">
+                                <a href="{{ url_for('admin.system_config') }}" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-gear me-2"></i> System Configuration
+                                </a>
+                                <a href="{{ url_for('admin.weekend_config') }}" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-calendar-x me-2"></i> Weekend Configuration
+                                </a>
+                                <a href="{{ url_for('admin.overtime_eligibility') }}" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-clock-history me-2"></i> Overtime Eligibility
+                                </a>
+                                <a href="{{ url_for('admin.odoo_config') }}" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-gear-wide-connected me-2"></i> Odoo Configuration
+                                </a>
+                                <a href="{{ url_for('devices.index') }}" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-upc-scan me-2"></i> Manage Attendance Devices
+                                </a>
+                                <a href="{{ url_for('shifts.holidays') }}" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-calendar-event me-2"></i> Manage Holidays
+                                </a>
+                                <a href="{{ url_for('shifts.scheduler') }}" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-calendar-week me-2"></i> Shift Scheduler
+                                </a>
+                                <a href="{{ url_for('reports.index') }}" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-file-earmark-text me-2"></i> Generate Reports
+                                </a>
+                                <a href="{{ url_for('admin.ai_config') }}" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-robot me-2"></i> AI Assistant Configuration
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

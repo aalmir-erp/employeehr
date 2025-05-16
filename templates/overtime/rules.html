@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+
+{% block title %}Overtime Rules{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">Overtime Rules</h1>
+        <div>
+            <a href="{{ url_for('overtime.add_rule') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Add New Rule
+            </a>
+            <a href="{{ url_for('overtime.index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">All Overtime Rules</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0" id="rulesTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Priority</th>
+                            <th>Regular Hours</th>
+                            <th>Multipliers</th>
+                            <th>Night Shift</th>
+                            <th>Max OT</th>
+                            <th>Valid Period</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rule in rules %}
+                        <tr {% if not rule.is_active %}class="table-secondary"{% endif %}>
+                            <td>
+                                <strong>{{ rule.name }}</strong>
+                                {% if rule.description %}
+                                <br><small class="text-muted">{{ rule.description }}</small>
+                                {% endif %}
+                                
+                                {% if rule.departments %}
+                                <br><span class="badge bg-info">{{ rule.departments }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ rule.priority }}</td>
+                            <td>{{ rule.daily_regular_hours }}h</td>
+                            <td>
+                                <div class="d-flex flex-column">
+                                    {% if rule.apply_on_weekday %}
+                                    <span class="badge bg-primary mb-1">Weekday: {{ "%.1f"|format(rule.weekday_multiplier) }}x</span>
+                                    {% endif %}
+                                    
+                                    {% if rule.apply_on_weekend %}
+                                    <span class="badge bg-info mb-1">Weekend: {{ "%.1f"|format(rule.weekend_multiplier) }}x</span>
+                                    {% endif %}
+                                    
+                                    {% if rule.apply_on_holiday %}
+                                    <span class="badge bg-secondary">Holiday: {{ "%.1f"|format(rule.holiday_multiplier) }}x</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                {% if rule.night_shift_start_time and rule.night_shift_end_time %}
+                                <span class="badge bg-dark">
+                                    {{ rule.night_shift_start_time.strftime('%H:%M') }} - {{ rule.night_shift_end_time.strftime('%H:%M') }}
+                                    <br>{{ "%.1f"|format(rule.night_shift_multiplier) }}x
+                                </span>
+                                {% else %}
+                                <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>
+                                    Daily: {{ rule.max_daily_overtime }}h<br>
+                                    Weekly: {{ rule.max_weekly_overtime }}h<br>
+                                    Monthly: {{ rule.max_monthly_overtime }}h
+                                </small>
+                            </td>
+                            <td>
+                                {% if rule.valid_from or rule.valid_until %}
+                                <small>
+                                    {% if rule.valid_from %}
+                                    From: {{ rule.valid_from.strftime('%Y-%m-%d') }}<br>
+                                    {% endif %}
+                                    
+                                    {% if rule.valid_until %}
+                                    Until: {{ rule.valid_until.strftime('%Y-%m-%d') }}
+                                    {% endif %}
+                                </small>
+                                {% else %}
+                                <span class="text-muted">Unlimited</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if rule.is_active %}
+                                <span class="badge bg-success">Active</span>
+                                {% else %}
+                                <span class="badge bg-danger">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{{ url_for('overtime.edit_rule', rule_id=rule.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{{ url_for('overtime.toggle_rule', rule_id=rule.id) }}" class="btn btn-sm btn-outline-warning">
+                                        {% if rule.is_active %}
+                                        <i class="bi bi-pause-fill"></i>
+                                        {% else %}
+                                        <i class="bi bi-play-fill"></i>
+                                        {% endif %}
+                                    </a>
+                                    <a href="{{ url_for('overtime.delete_rule', rule_id=rule.id) }}" class="btn btn-sm btn-outline-danger" 
+                                       onclick="return confirm('Are you sure you want to delete this rule? This action cannot be undone.')">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center py-3">
+                                <p class="text-muted mb-2">No overtime rules found.</p>
+                                <a href="{{ url_for('overtime.add_rule') }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-plus-circle"></i> Add New Rule
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // First check if the table exists in the DOM
+    if ($('#rulesTable').length === 0) {
+        console.warn('Table #rulesTable not found in the DOM');
+        return;
+    }
+    
+    // Next check if it has more than one row (not just "No data" row)
+    if ($('#rulesTable tbody tr').length <= 1) {
+        console.log('No data or only one row in #rulesTable, skipping DataTable initialization');
+        return;
+    }
+    
+    // Then check if it's already been initialized as a DataTable
+    if ($.fn.dataTable.isDataTable('#rulesTable')) {
+        console.log('#rulesTable already initialized as DataTable');
+        return;
+    }
+    
+    // If we get here, it's safe to initialize
+    try {
+        $('#rulesTable').DataTable({
+            "order": [[1, "desc"]],  // Sort by priority descending
+            "columnDefs": [
+                { "orderable": false, "targets": 8 } // Disable sorting on actions column
+            ]
+        });
+    } catch (e) {
+        console.error('Error initializing DataTable for #rulesTable:', e);
+    }
+});
+</script>
+{% endblock %}

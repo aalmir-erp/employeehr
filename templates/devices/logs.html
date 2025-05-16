@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block title %}Device Logs - {{ device.name }}{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-journal-text me-2"></i>
+                Device Logs: {{ device.name }}
+            </h5>
+        </div>
+        <div class="card-body">
+            <!-- Device Info Card -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white">
+                            <h6 class="mb-0">Device Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <strong>Device ID:</strong>
+                                    <div>{{ device.device_id }}</div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <strong>Type:</strong>
+                                    <div>{{ device.device_type }}</div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <strong>IP Address:</strong>
+                                    <div>{{ device.ip_address or 'N/A' }}</div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <strong>Status:</strong>
+                                    <div>
+                                        <span class="badge 
+                                            {% if device.status == 'online' %}bg-success
+                                            {% elif device.status == 'offline' %}bg-danger
+                                            {% else %}bg-warning{% endif %}">
+                                            {{ device.status|capitalize }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <strong>Location:</strong>
+                                    <div>{{ device.location or 'N/A' }}</div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <strong>Port:</strong>
+                                    <div>{{ device.port or 'N/A' }}</div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <strong>Last Ping:</strong>
+                                    <div>
+                                        {% if device.last_ping %}
+                                            {{ device.last_ping.strftime('%Y-%m-%d %H:%M:%S') }}
+                                        {% else %}
+                                            Never
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <strong>Added On:</strong>
+                                    <div>{{ device.created_at.strftime('%Y-%m-%d') }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filter Form -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white">
+                            <h6 class="mb-0">Filter Logs</h6>
+                        </div>
+                        <div class="card-body">
+                            <form id="filterForm" method="get" action="{{ url_for('devices.logs', device_id=device.id) }}" class="row g-3">
+                                <div class="col-md-3">
+                                    <label for="log_type" class="form-label">Log Type</label>
+                                    <select class="form-select" id="log_type" name="log_type">
+                                        <option value="">All</option>
+                                        <option value="connection" {% if request.args.get('log_type') == 'connection' %}selected{% endif %}>Connection</option>
+                                        <option value="error" {% if request.args.get('log_type') == 'error' %}selected{% endif %}>Error</option>
+                                        <option value="sync" {% if request.args.get('log_type') == 'sync' %}selected{% endif %}>Sync</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="date_from" class="form-label">From Date</label>
+                                    <input type="date" class="form-control" id="date_from" name="date_from" value="{{ request.args.get('date_from', '') }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="date_to" class="form-label">To Date</label>
+                                    <input type="date" class="form-control" id="date_to" name="date_to" value="{{ request.args.get('date_to', '') }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="message" class="form-label">Message Contains</label>
+                                    <input type="text" class="form-control" id="message" name="message" value="{{ request.args.get('message', '') }}">
+                                </div>
+                                <div class="col-md-12">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-filter"></i> Apply Filters
+                                    </button>
+                                    <a href="{{ url_for('devices.logs', device_id=device.id) }}" class="btn btn-secondary ms-2">
+                                        <i class="bi bi-x-circle"></i> Clear Filters
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Logs Table -->
+            <div class="table-responsive">
+                <table class="table table-hover" id="deviceLogsTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Type</th>
+                            <th>Timestamp</th>
+                            <th>Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs.items %}
+                        <tr>
+                            <td>{{ log.id }}</td>
+                            <td>
+                                <span class="badge {% if log.log_type == 'connection' %}bg-primary{% elif log.log_type == 'error' %}bg-danger{% else %}bg-info{% endif %}">
+                                    {{ log.log_type|capitalize }}
+                                </span>
+                            </td>
+                            <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>{{ log.message }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center">No device logs found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if logs.pages > 1 %}
+            <nav aria-label="Device log pagination" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item {% if logs.page == 1 %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('devices.logs', device_id=device.id, page=logs.prev_num, **request.args) if logs.has_prev else '#' }}">
+                            <i class="bi bi-chevron-left"></i> Previous
+                        </a>
+                    </li>
+                    
+                    {% for page_num in logs.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
+                        {% if page_num %}
+                            <li class="page-item {% if logs.page == page_num %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('devices.logs', device_id=device.id, page=page_num, **request.args) }}">
+                                    {{ page_num }}
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <li class="page-item {% if logs.page == logs.pages %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('devices.logs', device_id=device.id, page=logs.next_num, **request.args) if logs.has_next else '#' }}">
+                            Next <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            {% endif %}
+            
+            <!-- Device Actions -->
+            <div class="card mt-4">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0">Device Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="d-flex gap-2">
+                                <form method="post" action="{{ url_for('devices.check_device', device_id=device.id) }}">
+                                    <button type="submit" class="btn btn-secondary">
+                                        <i class="bi bi-arrow-repeat"></i> Check Connection
+                                    </button>
+                                </form>
+                                <a href="{{ url_for('devices.troubleshoot_device', device_id=device.id) }}" class="btn btn-warning">
+                                    <i class="bi bi-tools"></i> Troubleshoot
+                                </a>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex gap-2 justify-content-md-end">
+                                <a href="{{ url_for('devices.index') }}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-arrow-left"></i> Back to Devices
+                                </a>
+                                <a href="{{ url_for('devices.edit', device_id=device.id) }}" class="btn btn-primary">
+                                    <i class="bi bi-pencil"></i> Edit Device
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Device Operations -->
+                    <div class="mt-4">
+                        <h6 class="mb-3">Device Operations</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            <form method="post" action="{{ url_for('devices.fetch_employees', device_id=device.id) }}">
+                                <button type="submit" class="btn btn-primary" {% if device.status != 'online' %}disabled{% endif %}>
+                                    <i class="bi bi-people"></i> Fetch Employees
+                                </button>
+                            </form>
+                            
+                            <form method="post" action="{{ url_for('devices.fetch_logs', device_id=device.id) }}">
+                                <button type="submit" class="btn btn-info text-white" {% if device.status != 'online' %}disabled{% endif %}>
+                                    <i class="bi bi-clock-history"></i> Fetch Attendance Logs
+                                </button>
+                            </form>
+                            
+                            <form method="post" action="{{ url_for('devices.generate_device_report', device_id=device.id) }}">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-file-earmark-bar-graph"></i> Generate Report
+                                </button>
+                            </form>
+                        </div>
+                        {% if device.status != 'online' %}
+                        <div class="alert alert-warning mt-3 mb-0">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            Device is currently offline. Some operations are disabled. 
+                            <a href="{{ url_for('devices.troubleshoot_device', device_id=device.id) }}" class="alert-link">Troubleshoot issues</a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4 d-flex justify-content-between">
+                <!-- Space for additional buttons if needed -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize DataTable with comprehensive defensive checks
+        try {
+            // Check if table exists in DOM
+            if ($('#deviceLogsTable').length === 0) {
+                console.warn('Table #deviceLogsTable not found in the DOM');
+                return;
+            }
+            
+            // Check if table has data rows
+            if ($('#deviceLogsTable tbody tr').length <= 1) {
+                console.log('No data or only one row in #deviceLogsTable, skipping DataTable initialization');
+                return;
+            }
+            
+            // Check if a single row contains the "No logs found" message
+            if ($('#deviceLogsTable tbody tr').length === 1 && 
+                $('#deviceLogsTable tbody tr td[colspan]').length > 0) {
+                console.log('#deviceLogsTable contains only "No logs" message row, skipping DataTable initialization');
+                return;
+            }
+            
+            // Check if already initialized
+            if ($.fn.dataTable.isDataTable('#deviceLogsTable')) {
+                console.log('#deviceLogsTable already initialized as DataTable');
+                return;
+            }
+            
+            // Safe to initialize
+            $('#deviceLogsTable').DataTable({
+                "paging": false,  // We're using Flask's pagination
+                "ordering": false, // We're assuming server-side sorting
+                "info": false,
+                "language": {
+                    "search": "Quick Filter:"
+                }
+            });
+        } catch (e) {
+            console.error('Error initializing DataTable for #deviceLogsTable:', e);
+        }
+        
+        // Filter form handler for date range validation
+        $('#filterForm').on('submit', function(e) {
+            var dateFrom = $('#date_from').val();
+            var dateTo = $('#date_to').val();
+            
+            if (dateFrom && dateTo && dateFrom > dateTo) {
+                e.preventDefault();
+                alert('The From Date must be earlier than or equal to the To Date');
+            }
+        });
+    });
+</script>
+{% endblock %}

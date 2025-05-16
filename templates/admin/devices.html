@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Devices Management - Attendance Management{% endblock %}
+
+{% block content %}
+<div class="col-md-3">
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5><i class="bi bi-gear"></i> Admin Menu</h5>
+        </div>
+        <div class="list-group list-group-flush">
+            <a href="{{ url_for('admin.employees') }}" class="list-group-item list-group-item-action">
+                <i class="bi bi-people"></i> Employees
+            </a>
+            <a href="{{ url_for('admin.shifts') }}" class="list-group-item list-group-item-action">
+                <i class="bi bi-clock"></i> Shifts
+            </a>
+            <a href="{{ url_for('devices.index') }}" class="list-group-item list-group-item-action active">
+                <i class="bi bi-upc-scan"></i> Devices
+            </a>
+            <a href="{{ url_for('admin.users') }}" class="list-group-item list-group-item-action">
+                <i class="bi bi-person-badge"></i> Users
+            </a>
+            <a href="{{ url_for('shifts.holidays') }}" class="list-group-item list-group-item-action">
+                <i class="bi bi-calendar-heart"></i> Holidays
+            </a>
+            <a href="{{ url_for('admin.sync_employees') }}" class="list-group-item list-group-item-action" 
+               onclick="return confirm('Are you sure you want to sync employees from Odoo?')">
+                <i class="bi bi-arrow-repeat"></i> Sync from Odoo
+            </a>
+        </div>
+    </div>
+    
+    <!-- Device Stats Card -->
+    <div class="card">
+        <div class="card-header">
+            <h5><i class="bi bi-graph-up"></i> Device Stats</h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <span>Online Devices</span>
+                    <span class="device-stats-online">{{ device_stats.online }}</span>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-success" role="progressbar" 
+                         style="width: {{ (device_stats.online / device_stats.total * 100) if device_stats.total else 0 }}%"></div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <span>Offline Devices</span>
+                    <span class="device-stats-offline">{{ device_stats.offline }}</span>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-danger" role="progressbar" 
+                         style="width: {{ (device_stats.offline / device_stats.total * 100) if device_stats.total else 0 }}%"></div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <span>Error State</span>
+                    <span class="device-stats-error">{{ device_stats.error }}</span>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-warning" role="progressbar" 
+                         style="width: {{ (device_stats.error / device_stats.total * 100) if device_stats.total else 0 }}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="col-md-9">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5><i class="bi bi-upc-scan"></i> Attendance Devices</h5>
+            <a href="{{ url_for('devices.add') }}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-circle"></i> Add Device
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover datatable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Location</th>
+                            <th>IP Address</th>
+                            <th>Status</th>
+                            <th>Last Ping</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for device in devices %}
+                        <tr>
+                            <td>{{ device.name }}</td>
+                            <td>{{ device.device_type }}</td>
+                            <td>{{ device.location or 'N/A' }}</td>
+                            <td>{{ device.ip_address or 'N/A' }}</td>
+                            <td>
+                                <span class="badge device-status bg-{{ 
+                                    'success' if device.status == 'online' else 
+                                    'danger' if device.status == 'offline' else 
+                                    'warning' if device.status == 'error' else 
+                                    'secondary' }}" data-device-id="{{ device.id }}">
+                                    {{ device.status }}
+                                </span>
+                            </td>
+                            <td class="device-last-ping" data-device-id="{{ device.id }}">
+                                {{ device.last_ping.strftime('%d-%m-%Y %H:%M') if device.last_ping else 'Never' }}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('devices.edit', device_id=device.id) }}" 
+                                       class="btn btn-outline-primary" data-bs-toggle="tooltip" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{{ url_for('devices.logs', device_id=device.id) }}" 
+                                       class="btn btn-outline-info" data-bs-toggle="tooltip" title="Logs">
+                                        <i class="bi bi-journal-text"></i>
+                                    </a>
+                                    <form method="POST" action="{{ url_for('devices.check_device', device_id=device.id) }}" style="display: inline;">
+                                        <button type="submit" class="btn btn-outline-success" data-bs-toggle="tooltip" title="Check Status">
+                                            <i class="bi bi-arrow-repeat"></i>
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('devices.delete', device_id=device.id) }}" style="display: inline;"
+                                          onsubmit="return confirm('Are you sure you want to delete this device?');">
+                                        <button type="submit" class="btn btn-outline-danger" data-bs-toggle="tooltip" title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center">No devices found. <a href="{{ url_for('devices.add') }}">Add a device</a>.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Device Type Explanation -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5><i class="bi bi-info-circle"></i> Device Types</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <h6><i class="bi bi-fingerprint"></i> Biometric</h6>
+                        <p class="text-muted">Fingerprint or facial recognition devices that connect via IP network.</p>
+                    </div>
+                    <div class="mb-3">
+                        <h6><i class="bi bi-credit-card"></i> RFID</h6>
+                        <p class="text-muted">Radio-frequency identification card readers for badge scanning.</p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <h6><i class="bi bi-phone"></i> Mobile</h6>
+                        <p class="text-muted">Mobile app-based check-in through API integration.</p>
+                    </div>
+                    <div class="mb-3">
+                        <h6><i class="bi bi-globe"></i> Web</h6>
+                        <p class="text-muted">Web-based check-in for remote employees or special cases.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/devices.js') }}"></script>
+{% endblock %}

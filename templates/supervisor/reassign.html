@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}Reassign Department Supervisor{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="mb-3">Department Supervisor Reassignment</h1>
+            <p class="lead">Use this form to reassign supervisors for departments.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Assign New Supervisor</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="supervisorForm">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.department.label(class="form-label") }}
+                            {{ form.department(class="form-select", id="departmentSelect") }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.new_supervisor.label(class="form-label") }}
+                            <select class="form-select" id="employeeSelect" name="new_supervisor">
+                                <option value="">-- Select Employee --</option>
+                                {% for employee in active_employees %}
+                                <option value="{{ employee.id }}" data-dept="{{ employee.department }}">
+                                    {{ employee.name }} ({{ employee.department }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.submit(class="btn btn-primary") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Current Department Supervisors</h4>
+                </div>
+                <div class="card-body">
+                    {% if department_supervisors %}
+                        <div class="list-group">
+                            {% for dept, supervisors in department_supervisors.items() %}
+                                <div class="list-group-item">
+                                    <h5 class="mb-1">{{ dept }}</h5>
+                                    {% if supervisors %}
+                                        <ul class="list-unstyled mb-0">
+                                            {% for supervisor in supervisors %}
+                                                <li>
+                                                    <i class="bi bi-person-badge me-2"></i>
+                                                    {{ supervisor.name }}
+                                                    <small class="text-muted">({{ supervisor.email }})</small>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <p class="text-muted mb-0">No supervisor assigned</p>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No departments with supervisors found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Filter employees based on selected department
+    const departmentSelect = document.getElementById('departmentSelect');
+    const employeeSelect = document.getElementById('employeeSelect');
+    
+    departmentSelect.addEventListener('change', function() {
+        const selectedDept = departmentSelect.value;
+        
+        // Reset employee select
+        employeeSelect.value = '';
+        
+        // Show all options initially
+        Array.from(employeeSelect.options).forEach(option => {
+            option.style.display = 'block';
+        });
+        
+        // Hide options that don't match the selected department
+        if (selectedDept) {
+            Array.from(employeeSelect.options).forEach(option => {
+                // Skip the placeholder option
+                if (option.value === '') return;
+                
+                const optionDept = option.getAttribute('data-dept');
+                if (optionDept !== selectedDept) {
+                    option.style.display = 'none';
+                }
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}User Management{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-people me-2"></i>
+                User Management
+            </h5>
+            <a href="{{ url_for('admin.add_user') }}" class="btn btn-light btn-sm">
+                <i class="bi bi-person-plus"></i> Add User
+            </a>
+        </div>
+        <div class="card-body">
+            <!-- User Statistics -->
+            <div class="row mb-4">
+                <div class="col-md-4 mb-3">
+                    <div class="card bg-primary text-white h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-people me-2"></i> Total Users</h5>
+                            <h3>{{ stats.total }}</h3>
+                            <p class="mb-0">System users</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card bg-danger text-white h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-shield-lock me-2"></i> Admins</h5>
+                            <h3>{{ stats.admin }}</h3>
+                            <p class="mb-0">{{ '{:.1f}'.format(stats.admin_percent) }}% of users</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card bg-success text-white h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-person-check me-2"></i> Active</h5>
+                            <h3>{{ stats.active }}</h3>
+                            <p class="mb-0">{{ '{:.1f}'.format(stats.active_percent) }}% of users</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Users Table -->
+            <div class="table-responsive">
+                <table class="table table-hover" id="usersTable">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Last Login</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.username }}</td>
+                            <td>{{ user.email }}</td>
+                            <td>
+                                <span class="badge {% if user.is_admin %}bg-danger{% else %}bg-info{% endif %}">
+                                    {{ 'Administrator' if user.is_admin else 'User' }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge {% if user.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ 'Active' if user.is_active else 'Inactive' }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if user.last_login %}
+                                    {{ user.last_login.strftime('%Y-%m-%d %H:%M') }}
+                                {% else %}
+                                    Never
+                                {% endif %}
+                            </td>
+                            <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" class="btn btn-sm btn-outline-primary" title="Edit User">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{{ url_for('admin.reset_password_form', user_id=user.id) }}" class="btn btn-sm btn-outline-warning" title="Reset Password">
+                                        <i class="bi bi-key"></i>
+                                    </a>
+                                    {% if not user.is_admin or current_user.id != user.id %}
+                                    <button type="button" class="btn btn-sm btn-outline-danger delete-user"
+                                           data-bs-toggle="modal" data-bs-target="#deleteUserModal"
+                                           data-user-id="{{ user.id }}"
+                                           data-username="{{ user.username }}"
+                                           title="Delete User">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center">No users found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="resetPasswordForm" method="post" action="{{ url_for('admin.reset_user_password') }}">
+                <input type="hidden" name="user_id" id="resetUserId">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">Reset User Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to reset the password for <strong id="resetUsername"></strong>?</p>
+                    <p>A temporary password will be generated and displayed once. The user will be required to change it on next login.</p>
+                    
+                    <div class="mb-3">
+                        <label for="new_password" class="form-label">New Password</label>
+                        <input type="text" class="form-control" id="new_password" name="new_password" required>
+                        <div class="form-text">Enter a new password or leave blank to generate a random one</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">Reset Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete User Modal -->
+<div class="modal fade" id="deleteUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="deleteUserForm" method="post" action="{{ url_for('admin.delete_user') }}">
+                <input type="hidden" name="user_id" id="deleteUserId">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Delete User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete the user <strong id="deleteUsername"></strong>?</p>
+                    <p class="text-danger">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Delete User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize DataTable
+        $('#usersTable').DataTable({
+            "order": [[0, "asc"]],  // Sort by username
+            "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]],
+            "language": {
+                "search": "Filter:"
+            }
+        });
+        
+        // Reset password modal setup
+        $('.reset-password').on('click', function() {
+            var userId = $(this).data('user-id');
+            var username = $(this).data('username');
+            
+            $('#resetUserId').val(userId);
+            $('#resetUsername').text(username);
+            
+            // Generate random password
+            var randomPassword = Math.random().toString(36).slice(-10);
+            $('#new_password').val(randomPassword);
+        });
+        
+        // Delete user modal setup
+        $('.delete-user').on('click', function() {
+            var userId = $(this).data('user-id');
+            var username = $(this).data('username');
+            
+            $('#deleteUserId').val(userId);
+            $('#deleteUsername').text(username);
+        });
+    });
+</script>
+{% endblock %}

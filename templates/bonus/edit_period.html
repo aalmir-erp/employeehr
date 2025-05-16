@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Evaluation Period{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('bonus.hr_dashboard') }}">HR Bonus Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('bonus.hr_periods') }}">Evaluation Periods</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Edit Period</li>
+                </ol>
+            </nav>
+            <h1 class="mb-3">Edit Evaluation Period</h1>
+            <p class="lead">Update an existing evaluation period.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('bonus.edit_period', period_id=period.id) }}">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Period Name</label>
+                            <input type="text" class="form-control" id="name" name="name" value="{{ period.name }}" required>
+                            <div class="form-text">For example: "Q1 2025", "May 2025", etc.</div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="start_date" class="form-label">Start Date</label>
+                                <input type="date" class="form-control" id="start_date" name="start_date" value="{{ period.start_date.strftime('%Y-%m-%d') }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="end_date" class="form-label">End Date</label>
+                                <input type="date" class="form-control" id="end_date" name="end_date" value="{{ period.end_date.strftime('%Y-%m-%d') }}" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="status" class="form-label">Status</label>
+                            <select class="form-select" id="status" name="status" required>
+                                <option value="open" {% if period.status == 'open' %}selected{% endif %}>Open</option>
+                                <option value="in_review" {% if period.status == 'in_review' %}selected{% endif %}>In Review</option>
+                                <option value="approved" {% if period.status == 'approved' %}selected{% endif %}>Approved</option>
+                                <option value="closed" {% if period.status == 'closed' %}selected{% endif %}>Closed</option>
+                            </select>
+                            <div class="form-text">
+                                <ul class="list-unstyled mt-2 mb-0">
+                                    <li><strong>Open</strong>: Supervisors can submit evaluations</li>
+                                    <li><strong>In Review</strong>: HR is reviewing submissions</li>
+                                    <li><strong>Approved</strong>: All submissions finalized</li>
+                                    <li><strong>Closed</strong>: Period archived</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('bonus.hr_periods') }}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Update Period</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Period Activity</h5>
+                </div>
+                <div class="card-body">
+                    <p>This period has <strong>{{ period.submissions|length }}</strong> submissions:</p>
+                    
+                    {% set draft_count = 0 %}
+                    {% set submitted_count = 0 %}
+                    {% set approved_count = 0 %}
+                    {% set rejected_count = 0 %}
+                    
+                    {% for submission in period.submissions %}
+                        {% if submission.status == 'draft' %}
+                            {% set draft_count = draft_count + 1 %}
+                        {% elif submission.status == 'submitted' %}
+                            {% set submitted_count = submitted_count + 1 %}
+                        {% elif submission.status == 'approved' %}
+                            {% set approved_count = approved_count + 1 %}
+                        {% elif submission.status == 'rejected' %}
+                            {% set rejected_count = rejected_count + 1 %}
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <ul class="list-group mt-3">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Draft
+                            <span class="badge bg-warning rounded-pill">{{ draft_count }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Submitted
+                            <span class="badge bg-info rounded-pill">{{ submitted_count }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Approved
+                            <span class="badge bg-success rounded-pill">{{ approved_count }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Rejected
+                            <span class="badge bg-danger rounded-pill">{{ rejected_count }}</span>
+                        </li>
+                    </ul>
+                    
+                    {% if period.submissions %}
+                    <div class="alert alert-warning mt-3">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Warning:</strong> Changing the status will affect existing submissions.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Form validation for dates
+        const form = document.querySelector('form');
+        const startDateInput = document.getElementById('start_date');
+        const endDateInput = document.getElementById('end_date');
+
+        form.addEventListener('submit', function(event) {
+            const startDate = new Date(startDateInput.value);
+            const endDate = new Date(endDateInput.value);
+
+            if (startDate >= endDate) {
+                alert('Start date must be before end date');
+                event.preventDefault();
+                return;
+            }
+        });
+    });
+</script>
+{% endblock %}

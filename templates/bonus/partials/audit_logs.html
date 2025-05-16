@@ -1,0 +1,61 @@
+<!-- Audit Logs for Bonus Evaluations -->
+<div class="card mt-3">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Change History</h5>
+        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#auditLogsCollapse" aria-expanded="false">
+            <i class="bi bi-chevron-down"></i>
+        </button>
+    </div>
+    <div class="collapse" id="auditLogsCollapse">
+        <div class="card-body">
+            {% if audit_logs %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date/Time</th>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>Old Value</th>
+                            <th>New Value</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in audit_logs %}
+                        <tr>
+                            <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ log.user.username if log.user else 'System' }}</td>
+                            <td>
+                                {% if log.action == 'created' %}
+                                <span class="badge bg-primary">Created</span>
+                                {% elif log.action == 'updated' %}
+                                <span class="badge bg-info">Updated</span>
+                                {% elif log.action == 'submitted' %}
+                                <span class="badge bg-success">Submitted</span>
+                                {% elif log.action == 'approved' %}
+                                <span class="badge bg-success">Approved</span>
+                                {% elif log.action == 'rejected' %}
+                                <span class="badge bg-danger">Rejected</span>
+                                {% elif log.action == 'hr_updated' %}
+                                <span class="badge bg-warning">HR Updated</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ log.action }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{% if log.old_value is not none %}{{ log.old_value }}{% endif %}</td>
+                            <td>{% if log.new_value is not none %}{{ log.new_value }}{% endif %}</td>
+                            <td>{{ log.notes }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-0">
+                No changes have been recorded for this evaluation.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

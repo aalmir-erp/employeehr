@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Employee Overtime Settings - {{ employee.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.index') }}">Admin</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.overtime_eligibility') }}">Overtime Eligibility</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ employee.name }}</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-4">Overtime Settings: {{ employee.name }}</h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Employee Details</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <th style="width: 150px;">Employee Code:</th>
+                            <td>{{ employee.employee_code }}</td>
+                        </tr>
+                        <tr>
+                            <th>Department:</th>
+                            <td>{{ employee.department or 'Not Assigned' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Position:</th>
+                            <td>{{ employee.position or 'Not Assigned' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Status:</th>
+                            <td>
+                                {% if employee.is_active %}
+                                <span class="badge bg-success">Active</span>
+                                {% else %}
+                                <span class="badge bg-danger">Inactive</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Overtime Eligibility Settings</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('admin.update_employee_overtime_eligibility', employee_id=employee.id) }}">
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="weekday_eligible" 
+                                       name="weekday_eligible" {{ 'checked' if employee.eligible_for_weekday_overtime else '' }}>
+                                <label class="form-check-label" for="weekday_eligible">
+                                    Eligible for Weekday Overtime
+                                </label>
+                            </div>
+                            <div class="form-text text-muted">Employee will be eligible for overtime on regular working days</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="weekend_eligible" 
+                                       name="weekend_eligible" {{ 'checked' if employee.eligible_for_weekend_overtime else '' }}>
+                                <label class="form-check-label" for="weekend_eligible">
+                                    Eligible for Weekend Overtime
+                                </label>
+                            </div>
+                            <div class="form-text text-muted">Employee will be eligible for overtime on weekend days</div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="holiday_eligible" 
+                                       name="holiday_eligible" {{ 'checked' if employee.eligible_for_holiday_overtime else '' }}>
+                                <label class="form-check-label" for="holiday_eligible">
+                                    Eligible for Holiday Overtime
+                                </label>
+                            </div>
+                            <div class="form-text text-muted">Employee will be eligible for overtime on holidays</div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin.overtime_eligibility') }}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Back to Overtime Settings
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

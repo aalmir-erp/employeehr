@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Shift Management{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-clock me-2"></i>
+                Shift Management
+            </h5>
+            <a href="{{ url_for('admin.add_shift') }}" class="btn btn-light btn-sm">
+                <i class="bi bi-plus-circle"></i> Add Shift
+            </a>
+        </div>
+        <div class="card-body">
+            <!-- Shifts Table -->
+            <div class="table-responsive">
+                <table class="table table-hover" id="shiftsTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 5%"></th>
+                            <th>Name</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Duration</th>
+                            <th>Break</th>
+                            <th>Grace Period</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for shift in shifts %}
+                        <tr>
+                            <td>
+                                <div class="color-preview" style="background-color: {{ shift.color_code }}; width: 20px; height: 20px; border-radius: 4px;"></div>
+                            </td>
+                            <td>{{ shift.name }}</td>
+                            <td>{{ shift.start_time.strftime('%H:%M') }}</td>
+                            <td>{{ shift.end_time.strftime('%H:%M') }}</td>
+                            <td>{{ shift.get_duration_hours() }} hrs</td>
+                            <td>
+                                {% if shift.break_duration %}
+                                    {{ shift.break_duration }} hrs
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>{{ shift.grace_period_minutes }} min</td>
+                            <td>
+                                <span class="badge {% if shift.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ 'Active' if shift.is_active else 'Inactive' }}
+                                </span>
+                                {% if shift.is_overnight %}
+                                <span class="badge bg-info ms-1">Overnight</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('admin.edit_shift', shift_id=shift.id) }}" class="btn btn-sm btn-outline-primary" title="Edit Shift">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger delete-shift" 
+                                           data-bs-toggle="modal" data-bs-target="#deleteShiftModal" 
+                                           data-shift-id="{{ shift.id }}" data-shift-name="{{ shift.name }}" title="Delete Shift (Modal)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    <a href="{{ url_for('admin.delete_shift_get', shift_id=shift.id) }}" class="btn btn-sm btn-outline-danger" 
+                                       onclick="return confirm('Are you sure you want to delete shift {{ shift.name }}?')" title="Delete Shift (Direct)">
+                                        <i class="bi bi-x-circle"></i>
+                                    </a>
+                                    <a href="{{ url_for('admin.assign_shift') }}?shift_id={{ shift.id }}" class="btn btn-sm btn-outline-success" title="Assign Employees">
+                                        <i class="bi bi-people"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center">No shifts defined yet</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="mt-4">
+                <a href="{{ url_for('shifts.scheduler') }}" class="btn btn-primary">
+                    <i class="bi bi-calendar-week"></i> Shift Scheduler
+                </a>
+                <a href="{{ url_for('admin.assign_shift') }}" class="btn btn-success ms-2">
+                    <i class="bi bi-people"></i> Assign Shifts
+                </a>
+                <a href="{{ url_for('shifts.holidays') }}" class="btn btn-info ms-2">
+                    <i class="bi bi-calendar-event"></i> Manage Holidays
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Shift Modal -->
+<div class="modal fade" id="deleteShiftModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Delete Shift</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the shift <strong id="deleteShiftName"></strong>?</p>
+                <p class="text-danger">This action cannot be undone and may affect employee assignments.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <!-- Use direct link instead of form submission -->
+                <a href="#" id="deleteShiftLink" class="btn btn-danger">Delete Shift</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize DataTable
+        $('#shiftsTable').DataTable({
+            "order": [[1, "asc"]],
+            "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]],
+            "language": {
+                "search": "Filter:"
+            }
+        });
+        
+        // Setup delete shift modal
+        $('.delete-shift').on('click', function() {
+            var shiftId = $(this).data('shift-id');
+            var shiftName = $(this).data('shift-name');
+            
+            // Update the modal content
+            $('#deleteShiftName').text(shiftName);
+            
+            // Set up the direct link to the GET deletion route
+            var deleteUrl = "/admin/shifts/delete/" + shiftId;
+            $('#deleteShiftLink').attr('href', deleteUrl);
+        });
+        
+        // Handle click on the delete button in the modal
+        $('#deleteShiftLink').on('click', function(e) {
+            // Hide the modal when clicked
+            $('#deleteShiftModal').modal('hide');
+        });
+    });
+</script>
+{% endblock %}

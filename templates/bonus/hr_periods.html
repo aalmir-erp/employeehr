@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Bonus Evaluation Periods{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('bonus.hr_dashboard') }}">HR Bonus Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Evaluation Periods</li>
+                </ol>
+            </nav>
+            <h1 class="mb-3">Bonus Evaluation Periods</h1>
+            <p class="lead">Define time periods for bonus evaluations.</p>
+            
+            <div class="card mb-4 bg-light">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-info-circle me-2"></i>About Evaluation Periods</h5>
+                    <p>Evaluation periods are specific timeframes (monthly, quarterly, or annual) during which employee performance is assessed for bonus calculations. Each period follows this workflow:</p>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-3 mb-3">
+                            <div class="card h-100 border-success">
+                                <div class="card-header bg-success text-white">
+                                    <strong>1. Open</strong>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Period is active and supervisors can submit evaluations for their department employees.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card h-100 border-info">
+                                <div class="card-header bg-info text-white">
+                                    <strong>2. In Review</strong>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">HR is reviewing department submissions. No new submissions accepted.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card h-100 border-primary">
+                                <div class="card-header bg-primary text-white">
+                                    <strong>3. Approved</strong>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">All evaluations are approved and ready for processing in Odoo.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card h-100 border-secondary">
+                                <div class="card-header bg-secondary text-white">
+                                    <strong>4. Closed</strong>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Period is complete and archived. Bonus amounts have been processed.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="row mb-4">
+        <div class="col">
+            <a href="{{ url_for('bonus.add_period') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-2"></i> Add New Period
+            </a>
+        </div>
+    </div>
+
+    <!-- Periods List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    {% if periods %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Period Name</th>
+                                    <th>Date Range</th>
+                                    <th>Status</th>
+                                    <th>Created By</th>
+                                    <th>Submissions</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for period in periods %}
+                                <tr>
+                                    <td>{{ period.name }}</td>
+                                    <td>{{ period.start_date|format_date }} - {{ period.end_date|format_date }}</td>
+                                    <td>
+                                        <span class="badge 
+                                        {% if period.status == 'open' %}bg-success
+                                        {% elif period.status == 'in_review' %}bg-info
+                                        {% elif period.status == 'approved' %}bg-primary
+                                        {% elif period.status == 'closed' %}bg-secondary
+                                        {% endif %}">
+                                            {{ period.status }}
+                                        </span>
+                                    </td>
+                                    <td>{{ period.creator.username if period.creator else 'System' }}</td>
+                                    <td>{{ period.submissions|length }}</td>
+                                    <td>
+                                        <a href="{{ url_for('bonus.edit_period', period_id=period.id) }}" class="btn btn-sm btn-primary">
+                                            Edit
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle me-2"></i> No evaluation periods have been created yet. Click the "Add New Period" button to get started.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Detailed Process Explanation -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">How the Bonus Evaluation Process Works</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5 class="mb-3">For HR Administrators:</h5>
+                            <ol class="list-group list-group-numbered mb-4">
+                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                    <div class="ms-2 me-auto">
+                                        <div class="fw-bold">Create an Evaluation Period</div>
+                                        Define a specific timeframe (month, quarter, year) for evaluations.
+                                    </div>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                    <div class="ms-2 me-auto">
+                                        <div class="fw-bold">Define Evaluation Questions</div>
+                                        Create department-specific assessment criteria with weighted values.
+                                    </div>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                    <div class="ms-2 me-auto">
+                                        <div class="fw-bold">Review Submissions</div>
+                                        Approve or reject supervisor evaluations with feedback.
+                                    </div>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                    <div class="ms-2 me-auto">
+                                        <div class="fw-bold">Process Final Bonuses</div>
+                                        Export approved evaluations to Odoo for payroll processing.
+                                    </div>
+                                </li>
+                            </ol>
+                        </div>
+                        <div class="col-md-6">
+                            <h5 class="mb-3">For Department Supervisors:</h5>
+                            <ol class="list-group list-group-numbered mb-4">
+                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                    <div class="ms-2 me-auto">
+                                        <div class="fw-bold">Access Active Period</div>
+                                        View current evaluation periods from the supervisor dashboard.
+                                    </div>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                    <div class="ms-2 me-auto">
+                                        <div class="fw-bold">Evaluate Department Employees</div>
+                                        Rate employees using department-specific criteria and scoring ranges.
+                                    </div>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                    <div class="ms-2 me-auto">
+                                        <div class="fw-bold">Submit for Approval</div>
+                                        Send completed evaluations to HR for review and processing.
+                                    </div>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                    <div class="ms-2 me-auto">
+                                        <div class="fw-bold">Address Feedback</div>
+                                        Revise rejected evaluations based on HR feedback.
+                                    </div>
+                                </li>
+                            </ol>
+                        </div>
+                    </div>
+                    <div class="alert alert-primary mt-3">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        <strong>Pro Tip:</strong> Create evaluation periods ahead of time to allow supervisors to plan their assessments. A typical schedule is monthly or quarterly evaluations with one comprehensive annual review.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+
+{% block title %}Missing Punches{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Odoo 9 inspired styling */
+    .o-card {
+        border-radius: 0;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border: 1px solid #ddd;
+    }
+    
+    .o-card-header {
+        background-color: #f5f5f5;
+        padding: 8px 16px;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .o-card-title {
+        font-size: 1.1rem;
+        font-weight: 500;
+        margin: 0;
+    }
+    
+    .o-filters {
+        background-color: #f5f5f5;
+        padding: 12px;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .o-table {
+        margin-bottom: 0;
+    }
+    
+    .o-table thead th {
+        background-color: #f9f9f9;
+        font-weight: 500;
+        border-bottom: 2px solid #ddd;
+        font-size: 0.9rem;
+    }
+    
+    .o-table tbody tr {
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .o-table tbody tr:hover {
+        background-color: #f0f8ff;
+    }
+    
+    .o-table tbody td {
+        vertical-align: middle;
+        padding: 8px 12px;
+        border-top: 1px solid #eee;
+    }
+    
+    .o-button {
+        border-radius: 0;
+        font-weight: 500;
+        padding: 6px 12px;
+    }
+    
+    .o-button-primary {
+        background-color: #875A7B;
+        border-color: #875A7B;
+    }
+    
+    .o-button-primary:hover {
+        background-color: #784C6C;
+        border-color: #784C6C;
+    }
+    
+    .o-badge {
+        border-radius: 2px;
+        font-weight: 500;
+        padding: 4px 8px;
+        font-size: 0.8rem;
+    }
+    
+    .o-tooltip {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .o-tooltip .o-tooltip-text {
+        visibility: hidden;
+        width: 200px;
+        background-color: #555;
+        color: #fff;
+        text-align: center;
+        border-radius: 3px;
+        padding: 8px;
+        position: absolute;
+        z-index: 1;
+        bottom: 125%;
+        left: 50%;
+        margin-left: -100px;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    
+    .o-tooltip .o-tooltip-text::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: #555 transparent transparent transparent;
+    }
+    
+    .o-tooltip:hover .o-tooltip-text {
+        visibility: visible;
+        opacity: 1;
+    }
+    
+    .o-filter-label {
+        font-weight: 500;
+        font-size: 0.85rem;
+        color: #555;
+        margin-bottom: 4px;
+    }
+    
+    /* Custom theme compatibility */
+    [data-bs-theme=dark] .o-card,
+    [data-bs-theme=dark] .o-card-header,
+    [data-bs-theme=dark] .o-filters {
+        background-color: #2b3035;
+        border-color: #495057;
+    }
+    
+    [data-bs-theme=dark] .o-table thead th {
+        background-color: #343a40;
+        border-bottom-color: #495057;
+    }
+    
+    [data-bs-theme=dark] .o-table tbody tr:hover {
+        background-color: #343a40;
+    }
+    
+    [data-bs-theme=dark] .o-table tbody td {
+        border-top-color: #495057;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="o-card">
+        <div class="o-card-header d-flex justify-content-between align-items-center">
+            <h5 class="o-card-title">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                Missing Punches
+            </h5>
+            <div>
+                <a href="{{ url_for('attendance.daily') }}" class="btn btn-outline-secondary o-button">
+                    <i class="bi bi-calendar-day"></i> Daily View
+                </a>
+                <a href="{{ url_for('attendance.manual_entry') }}" class="btn btn-primary o-button o-button-primary">
+                    <i class="bi bi-plus-lg"></i> Add Manual Entry
+                </a>
+            </div>
+        </div>
+        
+        <!-- Filters -->
+        <div class="o-filters">
+            <form method="get" action="{{ url_for('attendance.missing_punches') }}" id="filterForm">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="date_from" class="o-filter-label">From Date</label>
+                        <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from.strftime('%Y-%m-%d') }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date_to" class="o-filter-label">To Date</label>
+                        <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to.strftime('%Y-%m-%d') }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="department" class="o-filter-label">Department</label>
+                        <select class="form-select department-select" id="department" name="department">
+                            <option value="">All Departments</option>
+                            {% for dept in departments %}
+                                <option value="{{ dept }}" {% if selected_department == dept %}selected{% endif %}>{{ dept }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="punch_type" class="o-filter-label">Missing Punch Type</label>
+                        <select class="form-select" id="punch_type" name="punch_type">
+                            <option value="both" {% if selected_punch_type == 'both' %}selected{% endif %}>Both</option>
+                            <option value="check_in" {% if selected_punch_type == 'check_in' %}selected{% endif %}>Check In</option>
+                            <option value="check_out" {% if selected_punch_type == 'check_out' %}selected{% endif %}>Check Out</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end mt-3">
+                    <button type="submit" class="btn btn-primary o-button o-button-primary">
+                        <i class="bi bi-funnel"></i> Apply Filters
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Records Table -->
+        <div class="table-responsive">
+            <table class="table o-table datatable">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Department</th>
+                        <th>Date</th>
+                        <th>Check In</th>
+                        <th>Check Out</th>
+                        <th>Status</th>
+                        <th>Missing</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                    <tr data-record-id="{{ record.id }}">
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="ms-2">
+                                    <div>{{ record.employee.name }}</div>
+                                    <div class="text-muted small">{{ record.employee.employee_code }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ record.employee.department or 'N/A' }}</td>
+                        <td>{{ record.date.strftime('%a, %d %b %Y') }}</td>
+                        <td>
+                            {% if record.check_in %}
+                                <span class="text-success">{{ record.check_in.strftime('%H:%M') }}</span>
+                            {% else %}
+                                <span class="text-danger o-tooltip">
+                                    <i class="bi bi-exclamation-circle"></i> Missing
+                                    <span class="o-tooltip-text">Check-in time missing. Click Fix to add it.</span>
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record.check_out %}
+                                <span class="text-success">{{ record.check_out.strftime('%H:%M') }}</span>
+                            {% else %}
+                                <span class="text-danger o-tooltip">
+                                    <i class="bi bi-exclamation-circle"></i> Missing
+                                    <span class="o-tooltip-text">Check-out time missing. Click Fix to add it.</span>
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge o-badge
+                                {% if record.status == 'present' %}bg-success
+                                {% elif record.status == 'absent' %}bg-danger
+                                {% elif record.status == 'late' %}bg-warning
+                                {% elif record.status == 'half-day' %}bg-info
+                                {% else %}bg-secondary{% endif %}">
+                                {{ record.status|capitalize }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if not record.check_in and not record.check_out %}
+                                <span class="badge bg-danger o-badge">Both</span>
+                            {% elif not record.check_in %}
+                                <span class="badge bg-warning o-badge">Check In</span>
+                            {% elif not record.check_out %}
+                                <span class="badge bg-warning o-badge">Check Out</span>
+                            {% else %}
+                                <span class="badge bg-success o-badge">None</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not record.check_in %}
+                                <button type="button" class="btn btn-sm btn-outline-primary fix-punch" 
+                                        data-bs-toggle="modal" data-bs-target="#fixPunchModal"
+                                        data-record-id="{{ record.id }}"
+                                        data-employee-name="{{ record.employee.name }}"
+                                        data-record-date="{{ record.date.strftime('%Y-%m-%d') }}"
+                                        data-punch-type="check_in">
+                                    <i class="bi bi-arrow-down-circle"></i> Fix In
+                                </button>
+                            {% endif %}
+                            
+                            {% if not record.check_out %}
+                                <button type="button" class="btn btn-sm btn-outline-primary fix-punch" 
+                                        data-bs-toggle="modal" data-bs-target="#fixPunchModal"
+                                        data-record-id="{{ record.id }}"
+                                        data-employee-name="{{ record.employee.name }}"
+                                        data-record-date="{{ record.date.strftime('%Y-%m-%d') }}"
+                                        data-punch-type="check_out">
+                                    <i class="bi bi-arrow-up-circle"></i> Fix Out
+                                </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-4">
+                            <div class="d-flex flex-column align-items-center">
+                                <i class="bi bi-check-circle text-success" style="font-size: 2rem;"></i>
+                                <p class="mb-0 mt-2">No missing punches found for the selected filters</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Fix Punch Modal -->
+<div class="modal fade" id="fixPunchModal" tabindex="-1" aria-labelledby="fixPunchModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{{ url_for('attendance.missing_punches') }}">
+                <input type="hidden" name="record_id" id="recordId">
+                <input type="hidden" name="punch_type" id="punchType">
+                
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="fixPunchModalLabel">Fix Missing Punch</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Employee</label>
+                        <input type="text" class="form-control" id="employeeName" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date</label>
+                        <input type="text" class="form-control" id="recordDate" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="punchTime" class="form-label" id="punchTimeLabel">Punch Time</label>
+                        <input type="time" class="form-control" id="punchTime" name="punch_time" required>
+                        <div class="form-text mt-2 o-tooltip">
+                            <i class="bi bi-info-circle"></i> 
+                            Enter the time in 24-hour format (HH:MM)
+                            <span class="o-tooltip-text" id="punchTimeTooltip">
+                                For check-in, this is when the employee arrived.
+                                For check-out, this is when the employee left.
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary o-button o-button-primary">Save Punch Time</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // More defensive checks before initializing DataTable
+        try {
+            // Check if table exists and has rows
+            var table = $('.datatable');
+            if (table.length === 0) {
+                console.warn('No table with class .datatable found');
+                return;
+            }
+            
+            // Check if there are rows in the tbody
+            if (table.find('tbody tr').length === 0) {
+                console.log('No rows in .datatable, skipping DataTable initialization');
+                return;
+            }
+            
+            // Check if the table has already been initialized as a DataTable
+            if (!$.fn.dataTable.isDataTable('.datatable')) {
+                // Initialize DataTable with Odoo-like styling
+                table.DataTable({
+                    "order": [[2, "desc"]],  // Sort by date desc
+                    "pageLength": 25,
+                    "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]],
+                    "language": {
+                        "search": "Search:",
+                        "searchPlaceholder": "Employee name, department...",
+                        "emptyTable": "No missing punches found",
+                        "info": "Showing _START_ to _END_ of _TOTAL_ records",
+                        "lengthMenu": "Show _MENU_ records per page"
+                    },
+                    "columnDefs": [
+                        { "orderable": false, "targets": 7 }  // Disable sorting on action buttons column
+                    ]
+                });
+            }
+        } catch (e) {
+            console.error('Error initializing DataTable:', e);
+        }
+        
+        // Fix punch modal handler
+        $('.fix-punch').on('click', function() {
+            var recordId = $(this).data('record-id');
+            var employeeName = $(this).data('employee-name');
+            var recordDate = $(this).data('record-date');
+            var punchType = $(this).data('punch-type');
+            
+            // Set modal values
+            $('#recordId').val(recordId);
+            $('#employeeName').val(employeeName);
+            $('#recordDate').val(recordDate);
+            $('#punchType').val(punchType);
+            
+            // Update label and tooltip text based on punch type
+            if (punchType === 'check_in') {
+                $('#punchTimeLabel').text('Check In Time');
+                $('#punchTimeTooltip').text('Enter the time when the employee started work on this day.');
+                $('#fixPunchModalLabel').text('Fix Missing Check In');
+            } else {
+                $('#punchTimeLabel').text('Check Out Time');
+                $('#punchTimeTooltip').text('Enter the time when the employee ended work on this day.');
+                $('#fixPunchModalLabel').text('Fix Missing Check Out');
+            }
+            
+            // Focus the time input after modal shows
+            $('#fixPunchModal').on('shown.bs.modal', function() {
+                $('#punchTime').focus();
+            });
+        });
+        
+        // Auto-submit filter form when date or department changes
+        $('#date_from, #date_to, #department, #punch_type').on('change', function() {
+            $('#filterForm').submit();
+        });
+    });
+</script>
+{% endblock %}

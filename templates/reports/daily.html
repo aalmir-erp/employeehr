@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}Daily Attendance Report - Attendance Management{% endblock %}
+
+{% block content %}
+<div class="col-md-3">
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5><i class="bi bi-file-earmark-text"></i> Reports</h5>
+        </div>
+        <div class="list-group list-group-flush">
+            <a href="{{ url_for('reports.daily') }}" class="list-group-item list-group-item-action active">
+                <i class="bi bi-calendar-day"></i> Daily Report
+            </a>
+            <a href="{{ url_for('reports.weekly') }}" class="list-group-item list-group-item-action">
+                <i class="bi bi-calendar-week"></i> Weekly Report
+            </a>
+            <a href="{{ url_for('reports.monthly') }}" class="list-group-item list-group-item-action">
+                <i class="bi bi-calendar-month"></i> Monthly Report
+            </a>
+            <a href="{{ url_for('attendance.raw_logs') }}" class="list-group-item list-group-item-action">
+                <i class="bi bi-card-list"></i> Raw Logs
+            </a>
+        </div>
+    </div>
+    
+    <!-- Date & Filter Form -->
+    <div class="card">
+        <div class="card-header">
+            <h5><i class="bi bi-funnel"></i> Filter Options</h5>
+        </div>
+        <div class="card-body">
+            <form id="date_filter_form" method="GET" action="{{ url_for('reports.daily') }}">
+                <div class="mb-3">
+                    <label for="date" class="form-label">Select Date</label>
+                    <input type="date" class="form-control" id="date" name="date" value="{{ date.isoformat() }}">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="department" class="form-label">Department</label>
+                    <select class="form-select" id="department" name="department">
+                        <option value="all" {% if selected_department == 'all' %}selected{% endif %}>All Departments</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept }}" {% if selected_department == dept %}selected{% endif %}>{{ dept }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Apply Filters
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="col-md-9">
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5><i class="bi bi-calendar-day"></i> Daily Attendance Report: {{ date.strftime('%d %b %Y') }}</h5>
+            <div>
+                <button class="btn btn-outline-primary btn-sm export-report-btn" data-report-type="daily" data-date="{{ date.isoformat() }}" data-format="csv">
+                    <i class="bi bi-file-earmark-excel"></i> Export CSV
+                </button>
+                <button class="btn btn-outline-secondary btn-sm print-report-btn">
+                    <i class="bi bi-printer"></i> Print
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- Stats Summary -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-3">
+                    <div class="p-3 bg-success bg-opacity-10 rounded text-center">
+                        <div><i class="bi bi-person-check fs-3 text-success"></i></div>
+                        <h4>{{ present_count }}</h4>
+                        <p class="mb-0">Present</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-3 bg-danger bg-opacity-10 rounded text-center">
+                        <div><i class="bi bi-person-x fs-3 text-danger"></i></div>
+                        <h4>{{ absent_count }}</h4>
+                        <p class="mb-0">Absent</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-3 bg-warning bg-opacity-10 rounded text-center">
+                        <div><i class="bi bi-hourglass-split fs-3 text-warning"></i></div>
+                        <h4>{{ late_count }}</h4>
+                        <p class="mb-0">Late</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="p-3 bg-primary bg-opacity-10 rounded text-center">
+                        <div><i class="bi bi-people fs-3 text-primary"></i></div>
+                        <h4>{{ total_records }}</h4>
+                        <p class="mb-0">Total</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Attendance Chart -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <canvas id="dailyAttendanceChart" data-date="{{ date.isoformat() }}" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Summary By Department</h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <table class="table table-sm table-striped mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Department</th>
+                                        <th>Present</th>
+                                        <th>Absent</th>
+                                        <th>Late</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for dept in departments %}
+                                    <tr>
+                                        <td>{{ dept }}</td>
+                                        <td>{{ records|selectattr('employee.department', 'equalto', dept)|selectattr('status', 'equalto', 'present')|list|length }}</td>
+                                        <td>{{ records|selectattr('employee.department', 'equalto', dept)|selectattr('status', 'equalto', 'absent')|list|length }}</td>
+                                        <td>{{ records|selectattr('employee.department', 'equalto', dept)|selectattr('status', 'equalto', 'late')|list|length }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="4" class="text-center">No departments found</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Detailed Records Table -->
+            <div class="table-responsive">
+                <table class="table table-striped table-hover {% if records %}datatable{% endif %}">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Department</th>
+                            <th>Shift</th>
+                            <th>Check In</th>
+                            <th>Check Out</th>
+                            <th>Status</th>
+                            <th>Hours</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in records %}
+                        <tr>
+                            <td>{{ record.employee.employee_code }}</td>
+                            <td>
+                                <a href="{{ url_for('attendance.employee_attendance', employee_id=record.employee.id) }}">
+                                    {{ record.employee.name }}
+                                </a>
+                            </td>
+                            <td>{{ record.employee.department or 'N/A' }}</td>
+                            <td>
+                                {% if record.shift %}
+                                <span class="badge" style="background-color: {{ record.shift.color_code }}">
+                                    {{ record.shift.name }}
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary">No Shift</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ record.check_in.strftime('%H:%M') if record.check_in else '–' }}</td>
+                            <td>{{ record.check_out.strftime('%H:%M') if record.check_out else '–' }}</td>
+                            <td>
+                                <span class="badge status-badge bg-{{ 
+                                    'success' if record.status == 'present' else 
+                                    'danger' if record.status == 'absent' else 
+                                    'warning' if record.status == 'late' else 
+                                    'secondary' }}">
+                                    {{ record.status.title() }}
+                                </span>
+                            </td>
+                            <td>{{ '%.2f'|format(record.work_hours) if record.work_hours else '–' }}</td>
+                            <td>
+                                <a href="{{ url_for('attendance.employee_attendance', employee_id=record.employee.id) }}" 
+                                   class="btn btn-sm btn-outline-primary" 
+                                   data-bs-toggle="tooltip" 
+                                   title="View Details">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center">No records found for this date</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/reports.js') }}"></script>
+{% endblock %}

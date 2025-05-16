@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}WhatsApp Login{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-md-6 offset-md-3">
+            <div class="card shadow">
+                <div class="card-header text-center">
+                    <h4><i class="bi bi-whatsapp"></i> WhatsApp Login</h4>
+                </div>
+                <div class="card-body">
+                    {% if step == 'enter_phone' %}
+                    <!-- Step 1: Enter phone number -->
+                    <form method="POST" action="{{ url_for('auth.whatsapp_login') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="step" value="request_otp">
+                        
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">Phone Number</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-phone"></i></span>
+                                <input type="tel" class="form-control" id="phone" name="phone" 
+                                    placeholder="Enter your WhatsApp number (with country code)"
+                                    value="{{ phone }}" required>
+                            </div>
+                            <small class="form-text text-muted">Enter your phone number with country code (e.g., +1234567890)</small>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-send"></i> Send OTP
+                            </button>
+                            <a href="{{ url_for('auth.login') }}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Back to Login
+                            </a>
+                        </div>
+                    </form>
+                    
+                    {% elif step == 'enter_otp' %}
+                    <!-- Step 2: Enter OTP -->
+                    <form method="POST" action="{{ url_for('auth.whatsapp_login') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="step" value="verify_otp">
+                        <input type="hidden" name="phone" value="{{ phone }}">
+                        
+                        <div class="mb-4">
+                            <p class="text-center mb-3">
+                                <i class="bi bi-check-circle-fill text-success fs-1"></i>
+                            </p>
+                            <p class="text-center">We've sent a one-time password (OTP) to your WhatsApp number:</p>
+                            <p class="text-center fw-bold">{{ phone }}</p>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="otp" class="form-label">Enter 6-digit OTP</label>
+                            <input type="text" class="form-control form-control-lg text-center" 
+                                id="otp" name="otp" maxlength="6" pattern="\d{6}" 
+                                placeholder="XXXXXX" required>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-unlock"></i> Verify OTP
+                            </button>
+                            <a href="{{ url_for('auth.whatsapp_login') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-repeat"></i> Request New Code
+                            </a>
+                        </div>
+                    </form>
+                    {% endif %}
+                </div>
+                <div class="card-footer text-center">
+                    <small class="text-muted">
+                        By logging in, you agree to our terms and privacy policy.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-focus the OTP input field if present
+    document.addEventListener('DOMContentLoaded', function() {
+        const otpInput = document.getElementById('otp');
+        if (otpInput) {
+            otpInput.focus();
+        }
+    });
+</script>
+{% endblock %}

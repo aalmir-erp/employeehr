@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Add New User{% endblock %}
+
+{% block content %}
+<div class="col-md-8 mx-auto">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-person-plus me-2"></i>
+                Add New User
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('admin.add_user') }}">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username*</label>
+                    <input type="text" class="form-control" id="username" name="username" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email Address*</label>
+                    <input type="email" class="form-control" id="email" name="email" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password*</label>
+                    <input type="password" class="form-control" id="password" name="password" required>
+                    <div class="form-text">Minimum 8 characters required</div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="confirm_password" class="form-label">Confirm Password*</label>
+                    <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">User Role</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="is_admin" id="role_user" value="0" checked>
+                        <label class="form-check-label" for="role_user">
+                            Regular User
+                        </label>
+                        <div class="form-text">Can view attendance records and reports</div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="is_admin" id="role_admin" value="1">
+                        <label class="form-check-label" for="role_admin">
+                            Administrator
+                        </label>
+                        <div class="form-text">Full access to all system features</div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Link to Employee (Optional)</label>
+                    <select class="form-select" id="employee_id" name="employee_id">
+                        <option value="">No Linked Employee</option>
+                        {% for employee in employees %}
+                            <option value="{{ employee.id }}">{{ employee.name }} ({{ employee.employee_code }})</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">If this user is also an employee, link their accounts</div>
+                </div>
+                
+                <div class="mt-4 d-flex justify-content-between">
+                    <a href="{{ url_for('admin.users') }}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Cancel
+                    </a>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-person-plus"></i> Add User
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Password confirmation validation
+        $('form').submit(function(e) {
+            var password = $('#password').val();
+            var confirmPassword = $('#confirm_password').val();
+            
+            if(password.length < 8) {
+                e.preventDefault();
+                alert('Password must be at least 8 characters long');
+                return;
+            }
+            
+            if(password !== confirmPassword) {
+                e.preventDefault();
+                alert('Passwords do not match');
+                return;
+            }
+        });
+    });
+</script>
+{% endblock %}

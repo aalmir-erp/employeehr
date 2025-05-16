@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Add Bonus Question{% endblock %}
+
+{% block content %}
+{% include "bonus/help/question_fields_help.html" %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('bonus.hr_dashboard') }}">HR Bonus Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('bonus.hr_questions') }}">Questions</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Add Question</li>
+                </ol>
+            </nav>
+            <h1 class="mb-3">Add Bonus Question</h1>
+            <p class="lead">Create a new evaluation question for a department.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">New Bonus Question</h4>
+                    <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#questionFieldsHelpModal">
+                        <i class="bi bi-question-circle me-1"></i> Field Guide
+                    </button>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('bonus.add_question') }}">
+                        <div class="mb-3">
+                            <label for="department" class="form-label">Department</label>
+                            <select class="form-select" id="department" name="department" required>
+                                <option value="" disabled selected>Select department</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept }}">{{ dept }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">The department this question applies to.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="question_text" class="form-label">Question Text</label>
+                            <textarea class="form-control" id="question_text" name="question_text" rows="3" required></textarea>
+                            <div class="form-text">The actual question text. Keep it clear and concise.</div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="min_value" class="form-label">Minimum Value</label>
+                                <input type="number" class="form-control" id="min_value" name="min_value" value="-10" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="max_value" class="form-label">Maximum Value</label>
+                                <input type="number" class="form-control" id="max_value" name="max_value" value="10" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="default_value" class="form-label">Default Value</label>
+                                <input type="number" class="form-control" id="default_value" name="default_value" value="0" required>
+                                <div class="form-text">Pre-filled value (can be negative)</div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="weight" class="form-label">Weight Factor</label>
+                            <input type="number" class="form-control" id="weight" name="weight" step="0.1" value="1.0" min="0.1" required>
+                            <div class="form-text">How much this question contributes to the overall score (1.0 = standard weight).</div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('bonus.hr_questions') }}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Save Question</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Guidelines</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Good Questions:</strong></p>
+                    <ul>
+                        <li>Are clear and specific</li>
+                        <li>Measure observable behaviors</li>
+                        <li>Focus on a single aspect of performance</li>
+                        <li>Use objective criteria</li>
+                    </ul>
+                    <p><strong>Examples:</strong></p>
+                    <ul>
+                        <li>Rate the employee's ability to meet deadlines</li>
+                        <li>How well does the employee communicate with team members?</li>
+                        <li>Rate the quality of work produced during the evaluation period</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Form validation for min, max, default values
+        const form = document.querySelector('form');
+        const minInput = document.getElementById('min_value');
+        const maxInput = document.getElementById('max_value');
+        const defaultInput = document.getElementById('default_value');
+
+        form.addEventListener('submit', function(event) {
+            const min = parseInt(minInput.value);
+            const max = parseInt(maxInput.value);
+            const defaultVal = parseInt(defaultInput.value);
+
+            if (min >= max) {
+                alert('Minimum value must be less than maximum value');
+                event.preventDefault();
+                return;
+            }
+            
+            // Allow negative values for min, max, and default
+
+            if (defaultVal < min || defaultVal > max) {
+                alert('Default value must be between minimum and maximum values');
+                event.preventDefault();
+                return;
+            }
+        });
+
+        // Update default value when min or max changes
+        function updateDefaultValue() {
+            const min = parseInt(minInput.value) || 0;
+            const max = parseInt(maxInput.value) || 10;
+            const current = parseInt(defaultInput.value) || 5;
+
+            // Only adjust if current is outside the new range
+            if (current < min) {
+                defaultInput.value = min;
+            } else if (current > max) {
+                defaultInput.value = max;
+            }
+        }
+
+        minInput.addEventListener('change', updateDefaultValue);
+        maxInput.addEventListener('change', updateDefaultValue);
+    });
+</script>
+{% endblock %}

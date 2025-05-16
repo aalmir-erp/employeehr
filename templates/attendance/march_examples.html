@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+
+{% block title %}March Attendance Examples{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">March 2025 Attendance Records</h5>
+            <div>
+                <a href="{{ url_for('attendance.import_march_data') }}" class="btn btn-secondary btn-sm">
+                    <i class="bi bi-arrow-left"></i> Back to Import
+                </a>
+                <a href="{{ url_for('attendance.process_all_logs') }}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-gear"></i> Process More Logs
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <h5>Shift Type Classification</h5>
+                <p>
+                    <strong>Day Shift:</strong> Check-in between 6:00 AM and 12:00 PM<br>
+                    <strong>Night Shift:</strong> Check-in after 6:00 PM
+                </p>
+            </div>
+            
+            <ul class="nav nav-tabs" id="attendanceRecordsTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="day-shift-tab" data-bs-toggle="tab" data-bs-target="#day-shift" 
+                            type="button" role="tab" aria-controls="day-shift" aria-selected="true">
+                        Day Shift Examples
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="night-shift-tab" data-bs-toggle="tab" data-bs-target="#night-shift" 
+                            type="button" role="tab" aria-controls="night-shift" aria-selected="false">
+                        Night Shift Examples
+                    </button>
+                </li>
+            </ul>
+            
+            <div class="tab-content p-3 border border-top-0 rounded-bottom" id="attendanceRecordsContent">
+                <!-- Day Shift Tab -->
+                <div class="tab-pane fade show active" id="day-shift" role="tabpanel" aria-labelledby="day-shift-tab">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Employee</th>
+                                    <th>Check-In</th>
+                                    <th>Check-Out</th>
+                                    <th>Work Hours</th>
+                                    <th>Status</th>
+                                    <th>Department</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if day_shift %}
+                                    {% for record in day_shift %}
+                                    <tr>
+                                        <td>{{ record.date.strftime('%d-%b-%Y') }}</td>
+                                        <td>
+                                            <a href="{{ url_for('attendance.employee_attendance', employee_id=record.employee.id) }}">
+                                                {{ record.employee.name }}
+                                            </a>
+                                        </td>
+                                        <td>{{ record.check_in.strftime('%H:%M') if record.check_in else 'N/A' }}</td>
+                                        <td>{{ record.check_out.strftime('%H:%M') if record.check_out else 'N/A' }}</td>
+                                        <td>{{ "%.2f"|format(record.work_hours|float) if record.work_hours else '0.00' }}</td>
+                                        <td>
+                                            {% if record.status == 'present' %}
+                                                <span class="badge bg-success">Present</span>
+                                            {% elif record.status == 'absent' %}
+                                                <span class="badge bg-danger">Absent</span>
+                                            {% elif record.status == 'late' %}
+                                                <span class="badge bg-warning">Late</span>
+                                            {% elif record.status == 'half-day' %}
+                                                <span class="badge bg-info">Half Day</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ record.status|title }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ record.employee.department or 'N/A' }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="7" class="text-center">No day shift records found for March 2025</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Night Shift Tab -->
+                <div class="tab-pane fade" id="night-shift" role="tabpanel" aria-labelledby="night-shift-tab">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Employee</th>
+                                    <th>Check-In</th>
+                                    <th>Check-Out</th>
+                                    <th>Work Hours</th>
+                                    <th>Status</th>
+                                    <th>Department</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if night_shift %}
+                                    {% for record in night_shift %}
+                                    <tr>
+                                        <td>{{ record.date.strftime('%d-%b-%Y') }}</td>
+                                        <td>
+                                            <a href="{{ url_for('attendance.employee_attendance', employee_id=record.employee.id) }}">
+                                                {{ record.employee.name }}
+                                            </a>
+                                        </td>
+                                        <td>{{ record.check_in.strftime('%H:%M') if record.check_in else 'N/A' }}</td>
+                                        <td>{{ record.check_out.strftime('%H:%M') if record.check_out else 'N/A' }}</td>
+                                        <td>{{ "%.2f"|format(record.work_hours|float) if record.work_hours else '0.00' }}</td>
+                                        <td>
+                                            {% if record.status == 'present' %}
+                                                <span class="badge bg-success">Present</span>
+                                            {% elif record.status == 'absent' %}
+                                                <span class="badge bg-danger">Absent</span>
+                                            {% elif record.status == 'late' %}
+                                                <span class="badge bg-warning">Late</span>
+                                            {% elif record.status == 'half-day' %}
+                                                <span class="badge bg-info">Half Day</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ record.status|title }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ record.employee.department or 'N/A' }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="7" class="text-center">No night shift records found for March 2025</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Attendance Processing Explanation</h5>
+        </div>
+        <div class="card-body">
+            <p>
+                The system processes attendance logs in the following steps:
+            </p>
+            <ol>
+                <li>Raw attendance logs are imported from devices or CSV files</li>
+                <li>Each log contains an employee ID, timestamp, and log type (IN/OUT)</li>
+                <li>Logs are stored in their raw form to preserve the original data</li>
+                <li>When processing logs, the system:
+                    <ul>
+                        <li>Groups logs by employee and date</li>
+                        <li>Creates or updates attendance records</li>
+                        <li>Sets the earliest IN log as check-in time</li>
+                        <li>Sets the latest OUT log as check-out time</li>
+                        <li>Calculates work hours as (check-out time - check-in time)</li>
+                        <li>Updates attendance status based on work hours</li>
+                    </ul>
+                </li>
+                <li>Overtime rules can be applied to calculate extra hours worked</li>
+            </ol>
+            
+            <div class="alert alert-warning">
+                <strong>Note about Night Shifts:</strong> For overnight shifts (where check-out time is next day), 
+                the system automatically adjusts the checkout time to calculate correct work hours.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

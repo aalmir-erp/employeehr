@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}HR Bonus Review{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('bonus.hr_dashboard') }}">HR Bonus Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Review Submissions</li>
+                </ol>
+            </nav>
+            <h1 class="mb-3">
+                {% if filter_status == 'approved' %}
+                Approved Submissions
+                {% elif filter_status == 'draft' %}
+                Draft Submissions
+                {% elif filter_status == 'rejected' %}
+                Rejected Submissions
+                {% else %}
+                Bonus Review
+                {% endif %}
+            </h1>
+            <p class="lead">
+                {% if filter_status == 'approved' %}
+                Review approved submissions ready for export to Odoo.
+                {% elif filter_status == 'draft' %}
+                View submissions currently in preparation by supervisors.
+                {% elif filter_status == 'rejected' %}
+                View rejected submissions that need revision.
+                {% else %}
+                Review and approve supervisor bonus submissions.
+                {% endif %}
+            </p>
+            
+            {% if filter_status %}
+            <a href="{{ url_for('bonus.hr_review') }}" class="btn btn-outline-secondary mb-3">
+                <i class="bi bi-arrow-left me-1"></i> Back to All Submissions
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Pending Submissions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Pending Review</h4>
+                </div>
+                <div class="card-body">
+                    {% if pending_submissions %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Department</th>
+                                    <th>Period</th>
+                                    <th>Submitted By</th>
+                                    <th>Submitted On</th>
+                                    <th>Employees</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for submission in pending_submissions %}
+                                <tr>
+                                    <td>{{ submission.department }}</td>
+                                    <td>{{ submission.period.name }}</td>
+                                    <td>{{ submission.submitter.username if submission.submitter else 'Unknown' }}</td>
+                                    <td>{{ submission.submitted_at|format_date if submission.submitted_at else 'N/A' }}</td>
+                                    <td>{{ submission.evaluations|selectattr('employee_id')|map(attribute='employee_id')|unique|list|length }}</td>
+                                    <td>
+                                        {% if submission.status == 'in_review' %}
+                                            <span class="badge bg-info">
+                                                Level {{ submission.approval_level }} Approval
+                                                <small>({{ submission.approval_level }} of 2)</small>
+                                            </span>
+                                        {% elif submission.status == 'submitted' %}
+                                            <span class="badge bg-warning">Pending</span>
+                                        {% elif submission.status == 'approved' %}
+                                            <span class="badge bg-success">Approved</span>
+                                        {% elif submission.status == 'rejected' %}
+                                            <span class="badge bg-danger">Rejected</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ submission.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('bonus.view_submission', submission_id=submission.id) }}" class="btn btn-sm btn-primary">
+                                            Review
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle me-2"></i> No submissions are currently pending review.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Completed Reviews -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Completed Reviews</h4>
+                </div>
+                <div class="card-body">
+                    {% if other_submissions %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Department</th>
+                                    <th>Period</th>
+                                    <th>Status</th>
+                                    <th>Reviewed By</th>
+                                    <th>Reviewed On</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for submission in other_submissions %}
+                                <tr>
+                                    <td>{{ submission.department }}</td>
+                                    <td>{{ submission.period.name }}</td>
+                                    <td>
+                                        <span class="badge {% if submission.status == 'approved' %}bg-success{% else %}bg-danger{% endif %}">
+                                            {{ submission.status }}
+                                        </span>
+                                    </td>
+                                    <td>{{ submission.reviewer.username if submission.reviewer else 'N/A' }}</td>
+                                    <td>{{ submission.reviewed_at|format_date if submission.reviewed_at else 'N/A' }}</td>
+                                    <td>
+                                        <a href="{{ url_for('bonus.view_submission', submission_id=submission.id) }}" class="btn btn-sm btn-info">
+                                            View
+                                        </a>
+                                        {% if submission.status == 'approved' %}
+                                        <a href="{{ url_for('bonus.export_submission', submission_id=submission.id) }}" class="btn btn-sm btn-success">
+                                            Export
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle me-2"></i> No reviews have been completed yet.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Manual Attendance Entry{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-pencil-square me-2"></i>
+                Manual Attendance Entry
+            </h5>
+            <div>
+                <a href="{{ url_for('attendance.batch_entry') }}" class="btn btn-sm btn-outline-light">
+                    <i class="bi bi-people"></i> Batch Entry
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('attendance.manual_entry') }}">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="employee" class="form-label">Employee</label>
+                        <select class="form-select employee-select" id="employee" name="employee_id" required 
+                                data-placeholder="Type to search employee by name or ID" data-allow-clear="true">
+                            <option value="">Select Employee</option>
+                            {% for employee in employees %}
+                                <option value="{{ employee.id }}">{{ employee.name }} ({{ employee.employee_code }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="date" class="form-label">Date</label>
+                        <input type="date" class="form-control" id="date" name="date" value="{{ today.strftime('%Y-%m-%d') }}" required>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="check_in" class="form-label">Check In Time</label>
+                        <input type="time" class="form-control" id="check_in" name="check_in">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="check_out" class="form-label">Check Out Time</label>
+                        <input type="time" class="form-control" id="check_out" name="check_out">
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="status" class="form-label">Status</label>
+                        <select class="form-select" id="status" name="status" required>
+                            <option value="present">Present</option>
+                            <option value="absent">Absent</option>
+                            <option value="late">Late</option>
+                            <option value="half-day">Half Day</option>
+                            <option value="pending">Pending</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="notes" class="form-label">Notes</label>
+                        <input type="text" class="form-control" id="notes" name="notes" placeholder="Any special notes about this entry">
+                    </div>
+                </div>
+                
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="calculate_hours" name="calculate_hours" checked>
+                    <label class="form-check-label" for="calculate_hours">
+                        Automatically calculate work hours based on check-in/out times
+                    </label>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="break_start" class="form-label">Break Start Time</label>
+                        <input type="time" class="form-control" id="break_start" name="break_start">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="break_end" class="form-label">Break End Time</label>
+                        <input type="time" class="form-control" id="break_end" name="break_end">
+                    </div>
+                </div>
+                
+                <div class="row mb-3" id="work_hours_container">
+                    <div class="col-md-4">
+                        <label for="break_duration" class="form-label">Break Duration (hours)</label>
+                        <input type="number" class="form-control" id="break_duration" name="break_duration" step="0.5" min="0" max="5" value="1">
+                        <div class="form-text">Auto-calculated if break start/end provided</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="work_hours" class="form-label">Work Hours</label>
+                        <input type="number" class="form-control" id="work_hours" name="work_hours" step="0.5" min="0" max="24">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="overtime_hours" class="form-label">Overtime Hours</label>
+                        <input type="number" class="form-control" id="overtime_hours" name="overtime_hours" step="0.5" min="0" max="24">
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('attendance.index') }}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Dashboard
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Save Attendance
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Toggle work hours manual input based on checkbox
+        $('#calculate_hours').change(function() {
+            if(this.checked) {
+                $('#work_hours_container').hide();
+            } else {
+                $('#work_hours_container').show();
+            }
+        }).change(); // Trigger on page load
+        
+        // Calculate break duration when break start/end times change
+        $('#break_start, #break_end').on('change', function() {
+            var breakStart = $('#break_start').val();
+            var breakEnd = $('#break_end').val();
+            
+            if(breakStart && breakEnd) {
+                var breakStartTime = new Date('2000-01-01T' + breakStart + ':00');
+                var breakEndTime = new Date('2000-01-01T' + breakEnd + ':00');
+                
+                // Handle overnight breaks
+                if(breakEndTime < breakStartTime) {
+                    breakEndTime.setDate(breakEndTime.getDate() + 1);
+                }
+                
+                var diffMs = breakEndTime - breakStartTime;
+                var diffHrs = diffMs / 1000 / 60 / 60;
+                
+                // Update break duration field
+                $('#break_duration').val(diffHrs.toFixed(1));
+                
+                // Recalculate work hours
+                $('#check_in').trigger('change');
+            }
+        });
+        
+        // Calculate work hours when check-in/out times or break duration change
+        $('#check_in, #check_out, #break_duration').on('change', function() {
+            var checkIn = $('#check_in').val();
+            var checkOut = $('#check_out').val();
+            
+            if(checkIn && checkOut) {
+                var checkInTime = new Date('2000-01-01T' + checkIn + ':00');
+                var checkOutTime = new Date('2000-01-01T' + checkOut + ':00');
+                
+                // Handle overnight shifts
+                if(checkOutTime < checkInTime) {
+                    checkOutTime.setDate(checkOutTime.getDate() + 1);
+                }
+                
+                var diffMs = checkOutTime - checkInTime;
+                var diffHrs = diffMs / 1000 / 60 / 60;
+                
+                // Get break duration
+                var breakDuration = parseFloat($('#break_duration').val()) || 1;
+                
+                // Subtract break duration from total hours
+                var totalWorkHours = Math.max(0, diffHrs - breakDuration);
+                
+                // Standard 8-hour workday, anything beyond is overtime
+                var standardHours = 8;
+                var workHours = Math.min(totalWorkHours, standardHours);
+                var overtimeHours = Math.max(0, totalWorkHours - standardHours);
+                
+                $('#work_hours').val(workHours.toFixed(1));
+                $('#overtime_hours').val(overtimeHours.toFixed(1));
+            }
+        });
+    });
+</script>
+{% endblock %}

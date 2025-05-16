@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Add Evaluation Period{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('bonus.hr_dashboard') }}">HR Bonus Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('bonus.hr_periods') }}">Evaluation Periods</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Add Period</li>
+                </ol>
+            </nav>
+            <h1 class="mb-3">Add Evaluation Period</h1>
+            <p class="lead">Create a new time period for bonus evaluations.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('bonus.add_period') }}">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Period Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                            <div class="form-text">For example: "Q1 2025", "May 2025", etc.</div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="start_date" class="form-label">Start Date</label>
+                                <input type="date" class="form-control" id="start_date" name="start_date" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="end_date" class="form-label">End Date</label>
+                                <input type="date" class="form-control" id="end_date" name="end_date" required>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('bonus.hr_periods') }}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Create Period</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Guidelines</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Evaluation Period Tips:</strong></p>
+                    <ul>
+                        <li>Choose a clear, descriptive name</li>
+                        <li>Align with company calendar (quarters, fiscal periods)</li>
+                        <li>Allow adequate time for evaluation process</li>
+                        <li>Consider coordinating with payroll cycles</li>
+                    </ul>
+                    <p><strong>Common Period Types:</strong></p>
+                    <ul>
+                        <li>Monthly (e.g., "January 2025")</li>
+                        <li>Quarterly (e.g., "Q1 2025")</li>
+                        <li>Semi-annual (e.g., "H1 2025")</li>
+                        <li>Annual (e.g., "Annual 2025")</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Form validation for dates
+        const form = document.querySelector('form');
+        const startDateInput = document.getElementById('start_date');
+        const endDateInput = document.getElementById('end_date');
+
+        form.addEventListener('submit', function(event) {
+            const startDate = new Date(startDateInput.value);
+            const endDate = new Date(endDateInput.value);
+
+            if (startDate >= endDate) {
+                alert('Start date must be before end date');
+                event.preventDefault();
+                return;
+            }
+        });
+
+        // Set default dates (first day of current month to last day)
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        
+        startDateInput.valueAsDate = firstDay;
+        endDateInput.valueAsDate = lastDay;
+    });
+</script>
+{% endblock %}

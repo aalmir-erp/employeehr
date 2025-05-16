@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}HR Bonus Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="mb-3">HR Bonus Dashboard</h1>
+            <p class="lead">Manage department-specific bonus evaluation questions and performance periods.</p>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <a href="{{ url_for('bonus.hr_periods') }}" class="text-decoration-none">
+                <div class="card bg-primary text-white h-100">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title">Evaluation Periods</h5>
+                        <h2 class="display-4">{{ stats.total_periods }}</h2>
+                        <p class="card-text">{{ stats.active_periods }} active</p>
+                        <div class="mt-auto text-end">
+                            <i class="bi bi-arrow-right"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3 mb-3">
+            <a href="{{ url_for('bonus.hr_review') }}" class="text-decoration-none">
+                <div class="card bg-success text-white h-100">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title">Pending Review</h5>
+                        <h2 class="display-4">{{ stats.submitted }}</h2>
+                        <p class="card-text">Awaiting HR approval</p>
+                        <div class="mt-auto text-end">
+                            <i class="bi bi-arrow-right"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3 mb-3">
+            <a href="{{ url_for('bonus.hr_review') }}?filter=approved" class="text-decoration-none">
+                <div class="card bg-info text-white h-100">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title">Approved</h5>
+                        <h2 class="display-4">{{ stats.approved }}</h2>
+                        <p class="card-text">Ready for Odoo export</p>
+                        <div class="mt-auto text-end">
+                            <i class="bi bi-arrow-right"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3 mb-3">
+            <a href="{{ url_for('bonus.hr_review') }}?filter=draft" class="text-decoration-none">
+                <div class="card bg-warning text-white h-100">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title">Drafts</h5>
+                        <h2 class="display-4">{{ stats.draft }}</h2>
+                        <p class="card-text">In preparation</p>
+                        <div class="mt-auto text-end">
+                            <i class="bi bi-arrow-right"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Actions -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Question Management</h4>
+                </div>
+                <div class="card-body">
+                    <p>Define evaluation criteria for each department.</p>
+                    <div class="mb-3">
+                        <strong>Departments with Questions:</strong>
+                        <ul class="list-group mt-2">
+                            {% for dept, count in departments_with_questions %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ dept }}
+                                <span class="badge bg-primary rounded-pill">{{ count }}</span>
+                            </li>
+                            {% else %}
+                            <li class="list-group-item">No departments configured yet</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    <a href="{{ url_for('bonus.hr_questions') }}" class="btn btn-primary">Manage Questions</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Evaluation Periods</h4>
+                </div>
+                <div class="card-body">
+                    <p>Configure time periods for bonus evaluations.</p>
+                    <div class="mb-3">
+                        <strong>Active Periods:</strong>
+                        <ul class="list-group mt-2">
+                            {% for period in periods %}
+                            {% if period.status in ['open', 'in_review'] %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ period.name }}
+                                <span class="badge {% if period.status == 'open' %}bg-success{% else %}bg-info{% endif %} rounded-pill">{{ period.status }}</span>
+                            </li>
+                            {% endif %}
+                            {% else %}
+                            <li class="list-group-item">No active periods</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    <a href="{{ url_for('bonus.hr_periods') }}" class="btn btn-primary">Manage Periods</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Review Submissions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Review Submissions</h4>
+                </div>
+                <div class="card-body">
+                    <p>Review and approve supervisor bonus submissions.</p>
+                    <a href="{{ url_for('bonus.hr_review') }}" class="btn btn-success">
+                        Review Submissions 
+                        {% if stats.submitted > 0 %}
+                        <span class="badge bg-light text-dark ml-2">{{ stats.submitted }}</span>
+                        {% endif %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Department Management -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Department Management</h4>
+                </div>
+                <div class="card-body">
+                    <p>Manage department supervisors and assignments.</p>
+                    <a href="{{ url_for('supervisor.reassign_supervisor') }}" class="btn btn-primary">
+                        <i class="bi bi-person-badge me-1"></i>
+                        Reassign Supervisor
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

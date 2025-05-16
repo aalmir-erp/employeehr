@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block title %}Assign Shifts{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-people me-2"></i>
+                Assign Shifts to Employees
+            </h5>
+        </div>
+        <div class="card-body">
+            <!-- Assign Shift Form -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white">
+                            <h6 class="mb-0">New Shift Assignment</h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" action="{{ url_for('admin.assign_shift') }}" class="row g-3">
+                                <div class="col-md-4">
+                                    <label for="employee_id" class="form-label">Employee*</label>
+                                    <select class="form-select" id="employee_id" name="employee_id" required>
+                                        <option value="">Select Employee</option>
+                                        {% for employee in employees %}
+                                            <option value="{{ employee.id }}" {% if selected_employee_id == employee.id %}selected{% endif %}>
+                                                {{ employee.name }} ({{ employee.employee_code }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="shift_id" class="form-label">Shift*</label>
+                                    <select class="form-select" id="shift_id" name="shift_id" required>
+                                        <option value="">Select Shift</option>
+                                        {% for shift in shifts %}
+                                            <option value="{{ shift.id }}" {% if selected_shift_id == shift.id %}selected{% endif %} data-color="{{ shift.color_code }}">
+                                                {{ shift.name }} ({{ shift.start_time.strftime('%H:%M') }}-{{ shift.end_time.strftime('%H:%M') }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="start_date" class="form-label">Start Date*</label>
+                                    <input type="date" class="form-control" id="start_date" name="start_date" required value="{{ today.strftime('%Y-%m-%d') }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="end_date" class="form-label">End Date</label>
+                                    <input type="date" class="form-control" id="end_date" name="end_date">
+                                    <div class="form-text">Leave blank for indefinite assignment</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="shift_preview" class="form-label">Shift Preview</label>
+                                    <div id="shift_preview" class="p-3 rounded border" style="height: 38px; background-color: #f8f9fa;">Select a shift</div>
+                                </div>
+                                <div class="col-md-4 d-flex align-items-end">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="" id="update_current" name="update_current" checked>
+                                        <label class="form-check-label" for="update_current">
+                                            Set as employee's current shift
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-12">
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="bi bi-plus-circle"></i> Assign Shift
+                                    </button>
+                                    <a href="{{ url_for('shifts.scheduler') }}" class="btn btn-primary ms-2">
+                                        <i class="bi bi-calendar-week"></i> Go to Scheduler
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Current Assignments Table -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0">Active Shift Assignments</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="assignmentsTable">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Shift</th>
+                                    <th>Start Date</th>
+                                    <th>End Date</th>
+                                    <th>Current</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for assignment in assignments %}
+                                <tr>
+                                    <td>{{ assignment.employee.name }}</td>
+                                    <td>
+                                        <span class="shift-color-block" style="background-color: {{ assignment.shift.color_code }}"></span>
+                                        {{ assignment.shift.name }}
+                                    </td>
+                                    <td>{{ assignment.start_date.strftime('%Y-%m-%d') }}</td>
+                                    <td>
+                                        {% if assignment.end_date %}
+                                            {{ assignment.end_date.strftime('%Y-%m-%d') }}
+                                        {% else %}
+                                            Indefinite
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if assignment.employee.current_shift_id == assignment.shift.id %}
+                                            <span class="badge bg-success">Current</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <form method="post" action="{{ url_for('shifts.delete_assignment', assignment_id=assignment.id) }}" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete Assignment">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                        
+                                        {% if assignment.employee.current_shift_id != assignment.shift.id %}
+                                        <form method="post" action="{{ url_for('admin.set_current_shift') }}" class="d-inline">
+                                            <input type="hidden" name="employee_id" value="{{ assignment.employee.id }}">
+                                            <input type="hidden" name="shift_id" value="{{ assignment.shift.id }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-primary" title="Set as Current Shift">
+                                                <i class="bi bi-check-circle"></i>
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center">No active shift assignments found</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize DataTable
+        $('#assignmentsTable').DataTable({
+            "order": [[0, "asc"]],
+            "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]],
+            "language": {
+                "search": "Filter:"
+            }
+        });
+        
+        // Display shift color when selected
+        $('#shift_id').change(function() {
+            var selected = $(this).find('option:selected');
+            var color = selected.data('color');
+            
+            if(color) {
+                $('#shift_preview').css('background-color', color);
+                $('#shift_preview').text(selected.text());
+            } else {
+                $('#shift_preview').css('background-color', '#f8f9fa');
+                $('#shift_preview').text('Select a shift');
+            }
+        });
+        
+        // Validate dates
+        $('form').submit(function(e) {
+            var startDate = $('#start_date').val();
+            var endDate = $('#end_date').val();
+            
+            if(endDate && startDate > endDate) {
+                e.preventDefault();
+                alert('End date must be after start date');
+            }
+        });
+    });
+</script>
+{% endblock %}

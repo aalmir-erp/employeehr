@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Device Troubleshooting: {{ device.name }}{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-tools me-2"></i>
+                Device Troubleshooting: {{ device.name }}
+            </h5>
+            <a href="{{ url_for('devices.index') }}" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-left"></i> Back to Devices
+            </a>
+        </div>
+        <div class="card-body">
+            <!-- Device Information -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header bg-dark text-white">
+                            <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i> Device Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <strong>Name:</strong> {{ device.name }}
+                            </div>
+                            <div class="mb-3">
+                                <strong>Device ID:</strong> {{ device.device_id }}
+                            </div>
+                            <div class="mb-3">
+                                <strong>Type:</strong> {{ device.device_type }}
+                            </div>
+                            <div class="mb-3">
+                                <strong>Location:</strong> {{ device.location or 'N/A' }}
+                            </div>
+                            <div class="mb-3">
+                                <strong>IP Address:</strong> {{ device.ip_address or 'N/A' }}
+                            </div>
+                            <div class="mb-3">
+                                <strong>Port:</strong> {{ device.port or 'N/A' }}
+                            </div>
+                            <div class="mb-3">
+                                <strong>Last Ping:</strong> 
+                                {% if device.last_ping %}
+                                    {{ device.last_ping.strftime('%Y-%m-%d %H:%M:%S') }}
+                                {% else %}
+                                    Never
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header {% if is_online %}bg-success{% else %}bg-danger{% endif %} text-white">
+                            <h5 class="mb-0">
+                                <i class="bi {% if is_online %}bi-check-circle{% else %}bi-x-circle{% endif %} me-2"></i>
+                                Connection Status: {{ 'Online' if is_online else 'Offline' }}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if not is_online and error_message %}
+                                <div class="alert alert-danger">
+                                    <h6>Error Details:</h6>
+                                    <p>{{ error_message }}</p>
+                                </div>
+                                
+                                <div class="mt-4">
+                                    <h6>Troubleshooting Steps:</h6>
+                                    <ul>
+                                        {% if 'No IP address' in error_message %}
+                                            <li>Configure an IP address for this device in the <a href="{{ url_for('devices.edit', device_id=device.id) }}">edit device</a> page.</li>
+                                        {% elif 'Port' in error_message %}
+                                            <li>Check if the port {{ device.port }} is open on the device.</li>
+                                            <li>Verify that no firewall is blocking the connection.</li>
+                                            <li>Ensure the device is powered on and connected to the network.</li>
+                                        {% elif 'ping' in error_message %}
+                                            <li>Verify the device is powered on.</li>
+                                            <li>Check network connectivity between server and device.</li>
+                                            <li>Verify the IP address {{ device.ip_address }} is correct.</li>
+                                            <li>Ensure no firewall is blocking ICMP packets.</li>
+                                        {% elif 'API' in error_message %}
+                                            <li>Verify the API key is correct and not expired.</li>
+                                            <li>Check if the device's API service is running.</li>
+                                            <li>Verify that the device is registered with the MIR AMS service.</li>
+                                        {% else %}
+                                            <li>Verify the device is powered on and connected to the network.</li>
+                                            <li>Check all connection parameters in the <a href="{{ url_for('devices.edit', device_id=device.id) }}">edit device</a> page.</li>
+                                            <li>Restart the device if possible.</li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            {% elif is_online %}
+                                <div class="alert alert-success">
+                                    <p>Device is online and functioning properly.</p>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <h6>Available Actions:</h6>
+                                    <div class="d-flex gap-2 mt-3">
+                                        <form method="post" action="{{ url_for('devices.fetch_employees', device_id=device.id) }}">
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="bi bi-people"></i> Fetch Employees
+                                            </button>
+                                        </form>
+                                        
+                                        <form method="post" action="{{ url_for('devices.fetch_logs', device_id=device.id) }}">
+                                            <button type="submit" class="btn btn-info text-white">
+                                                <i class="bi bi-clock-history"></i> Fetch Attendance Logs
+                                            </button>
+                                        </form>
+                                        
+                                        <form method="post" action="{{ url_for('devices.generate_device_report', device_id=device.id) }}">
+                                            <button type="submit" class="btn btn-success">
+                                                <i class="bi bi-file-earmark-bar-graph"></i> Generate Report
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            {% endif %}
+                            
+                            <div class="mt-4">
+                                <form method="post" action="{{ url_for('devices.check_device', device_id=device.id) }}" class="d-inline">
+                                    <button type="submit" class="btn btn-secondary">
+                                        <i class="bi bi-arrow-repeat"></i> Check Connection Again
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Device Logs -->
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="bi bi-journal-text me-2"></i> Recent Device Logs</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Type</th>
+                                    <th>Message</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs %}
+                                <tr>
+                                    <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                    <td>
+                                        <span class="badge {% if log.log_type == 'error' %}bg-danger
+                                            {% elif log.log_type == 'connection' %}bg-info
+                                            {% elif log.log_type == 'sync' %}bg-primary
+                                            {% elif log.log_type == 'report' %}bg-success
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ log.log_type|capitalize }}
+                                        </span>
+                                    </td>
+                                    <td>{{ log.message }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center">No logs available</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <a href="{{ url_for('devices.logs', device_id=device.id) }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-list"></i> View All Logs
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

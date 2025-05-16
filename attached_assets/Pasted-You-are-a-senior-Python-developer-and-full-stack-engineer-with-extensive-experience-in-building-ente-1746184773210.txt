@@ -1,0 +1,91 @@
+You are a senior Python developer and full-stack engineer with extensive experience in building enterprise-grade Flask applications integrated with Odoo 9 databases.
+
+Your task is to design and develop a Flask-based attendance management system tailored for a 24/7 operational factory. The system must be able to fetch and update employee data directly from the Odoo 9 PostgreSQL database, supporting multiple shift patterns, including overnight schedules, variable durations, and employee-specific holidays.
+
+Requirements:
+
+Backend Development:
+
+Create a Flask app that securely connects to the Odoo 9 database (PostgreSQL).
+
+Implement scheduled sync for employee records from Odoo to the local app database.
+
+Include a device management module in the admin panel where biometric or RFID attendance devices can be added, edited, configured, and monitored in real-time.
+
+Implement status checks and live logs for attendance device connectivity.
+
+Shift Management:
+
+Build a comprehensive shift scheduler allowing admins to assign:
+
+Custom shifts (start/end times)
+
+Overnight shifts
+
+Break durations
+
+Weekly off and holiday exceptions
+
+Enable dynamic allocation and rule-based conflict resolution for shift overlaps.
+
+Attendance Logging:
+
+Log each IN and OUT punch with timestamps.
+
+Maintain audit trails for:
+
+Late punches
+
+Missing punches
+
+Unmatched IN/OUT events
+
+Overtime and under-time events
+
+Reporting & Analytics:
+
+Design detailed dashboards and downloadable reports for:
+
+Daily/Weekly/Monthly attendance
+
+Total working hours and OT
+
+Absences
+
+Late-ins / Early-outs
+
+Device status history
+
+Include employee-level drill-down logs with punch history and exception reasons.
+
+Frontend & UI/UX:
+
+Build a responsive, modern UI using Bootstrap 5 or a clean admin template (like AdminLTE or Material Dashboard).
+
+Ensure excellent UX for both admin and employee views, with intuitive navigation and clear visual hierarchy.
+
+Include AJAX loading, modals, validation, and inline editing features where needed.
+
+Scalability & Extensibility:
+
+Modularize the code for easy extension and maintenance.
+
+Include API endpoints for future mobile app or third-party integration.
+
+The system should be deployed-ready on Replit, with clear requirements.txt, environment variables setup, and database connection instructions.
+
+Deliverables:
+
+Fully functional Flask codebase
+
+SQLAlchemy models synced with Odoo schema
+
+Admin panel with device and shift control
+
+UI templates and static assets
+
+Sample data and test users
+
+README with deployment and usage steps
+
+Please also suggest innovative or better solutions that could enhance this system further, especially considering real-world usage in round-the-clock manufacturing environments.

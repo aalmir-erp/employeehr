@@ -1,0 +1,554 @@
+{% extends "base.html" %}
+
+{% block title %}Batch Attendance Entry{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h2 mb-3">
+                <i class="bi bi-pencil-square me-2"></i>
+                Batch Attendance Entry
+            </h1>
+            <p class="lead">Enter attendance for multiple employees at once with this form.</p>
+        </div>
+    </div>
+    
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Batch Entry Form</h5>
+            <div>
+                <a href="{{ url_for('attendance.manual_entry') }}" class="btn btn-sm btn-outline-light">
+                    <i class="bi bi-person"></i> Single Entry
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('attendance.batch_entry') }}" id="batchEntryForm">
+                <div class="row mb-4">
+                    <div class="col-md-12 mb-3">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle-fill"></i> Configure multiple days and log types for batch entry below.
+                            You can enter different types of logs (check-in, check-out, break-in, break-out) for multiple days.
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label for="date_range_start" class="form-label">Date Range Start</label>
+                        <input type="date" class="form-control" id="date_range_start" name="date_range_start" value="{{ today.strftime('%Y-%m-%d') }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date_range_end" class="form-label">Date Range End</label>
+                        <input type="date" class="form-control" id="date_range_end" name="date_range_end" value="{{ today.strftime('%Y-%m-%d') }}">
+                        <div class="form-text">Leave blank for single day</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="department_filter" class="form-label">Filter by Department</label>
+                        <select class="form-select" id="department_filter">
+                            <option value="">All Departments</option>
+                            {% for dept in departments %}
+                                <option value="{{ dept }}">{{ dept }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="status_filter" class="form-label">Default Status</label>
+                        <select class="form-select" id="status_filter">
+                            <option value="present">Present</option>
+                            <option value="absent">Absent</option>
+                            <option value="late">Late</option>
+                            <option value="half-day">Half Day</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">Log Types Configuration</h6>
+                            </div>
+                            <div class="card-body" id="logTypesContainer">
+                                <div class="log-type-entry mb-3 p-2 border rounded">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-3">
+                                            <label class="form-label">Log Type</label>
+                                            <select class="form-select log-type-select" name="log_types[]">
+                                                <option value="check_in">Check In</option>
+                                                <option value="check_out">Check Out</option>
+                                                <option value="break_in">Break In</option>
+                                                <option value="break_out">Break Out</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Default Time</label>
+                                            <input type="time" class="form-control default-time" name="default_times[]">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Apply To Days</label>
+                                            <select class="form-select day-select" name="apply_days[]" multiple>
+                                                <option value="1">Monday</option>
+                                                <option value="2">Tuesday</option>
+                                                <option value="3">Wednesday</option>
+                                                <option value="4">Thursday</option>
+                                                <option value="5">Friday</option>
+                                                <option value="6">Saturday</option>
+                                                <option value="0">Sunday</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label d-block">&nbsp;</label>
+                                            <button type="button" class="btn btn-sm btn-danger remove-log-type">
+                                                <i class="bi bi-trash"></i> Remove
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <button type="button" class="btn btn-sm btn-success" id="addLogTypeBtn">
+                                    <i class="bi bi-plus-circle"></i> Add Another Log Type
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover" id="batchEntryTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40px;">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="selectAll">
+                                    </div>
+                                </th>
+                                <th>Employee</th>
+                                <th>Employee ID</th>
+                                <th>Department</th>
+                                <th>Check-In</th>
+                                <th>Check-Out</th>
+                                <th>Break Start</th>
+                                <th>Break End</th>
+                                <th>Break (hrs)</th>
+                                <th>Status</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for employee in employees %}
+                            <tr class="employee-row" data-department="{{ employee.department or '' }}">
+                                <td>
+                                    <div class="form-check">
+                                        <input class="form-check-input employee-select" type="checkbox" name="selected_employees" value="{{ employee.id }}">
+                                    </div>
+                                </td>
+                                <td>{{ employee.name }}</td>
+                                <td>{{ employee.employee_code }}</td>
+                                <td>{{ employee.department or 'Unassigned' }}</td>
+                                <td>
+                                    <input type="time" class="form-control form-control-sm" name="check_in_{{ employee.id }}">
+                                </td>
+                                <td>
+                                    <input type="time" class="form-control form-control-sm" name="check_out_{{ employee.id }}">
+                                </td>
+                                <td>
+                                    <input type="time" class="form-control form-control-sm" name="break_start_{{ employee.id }}">
+                                </td>
+                                <td>
+                                    <input type="time" class="form-control form-control-sm" name="break_end_{{ employee.id }}">
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm" name="break_duration_{{ employee.id }}" value="1" min="0" max="5" step="0.5">
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm status-select" name="status_{{ employee.id }}">
+                                        <option value="present">Present</option>
+                                        <option value="absent">Absent</option>
+                                        <option value="late">Late</option>
+                                        <option value="half-day">Half Day</option>
+                                        <option value="pending">Pending</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" name="notes_{{ employee.id }}" placeholder="Notes">
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="bi bi-info-circle-fill"></i> Selected employees: <span id="selectedCount">0</span>
+                </div>
+                
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{{ url_for('attendance.index') }}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Dashboard
+                    </a>
+                    <button type="submit" class="btn btn-primary" id="saveBtn" disabled>
+                        <i class="bi bi-save"></i> Save Attendance Records
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize multiselect for day selection
+        $('.day-select').select2({
+            placeholder: "Select days",
+            allowClear: true
+        });
+        
+        // Add log type entry
+        $('#addLogTypeBtn').click(function() {
+            const logTypeHtml = `
+                <div class="log-type-entry mb-3 p-2 border rounded">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <label class="form-label">Log Type</label>
+                            <select class="form-select log-type-select" name="log_types[]">
+                                <option value="check_in">Check In</option>
+                                <option value="check_out">Check Out</option>
+                                <option value="break_in">Break In</option>
+                                <option value="break_out">Break Out</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Default Time</label>
+                            <input type="time" class="form-control default-time" name="default_times[]">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Apply To Days</label>
+                            <select class="form-select day-select" name="apply_days[]" multiple>
+                                <option value="1">Monday</option>
+                                <option value="2">Tuesday</option>
+                                <option value="3">Wednesday</option>
+                                <option value="4">Thursday</option>
+                                <option value="5">Friday</option>
+                                <option value="6">Saturday</option>
+                                <option value="0">Sunday</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label d-block">&nbsp;</label>
+                            <button type="button" class="btn btn-sm btn-danger remove-log-type">
+                                <i class="bi bi-trash"></i> Remove
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            $('#logTypesContainer').append(logTypeHtml);
+            
+            // Initialize the newly added multiselect
+            $('#logTypesContainer .log-type-entry:last-child .day-select').select2({
+                placeholder: "Select days",
+                allowClear: true
+            });
+            
+            // Attach remove button handler to the new entry
+            $('#logTypesContainer .log-type-entry:last-child .remove-log-type').click(function() {
+                $(this).closest('.log-type-entry').remove();
+            });
+        });
+        
+        // Remove log type entry
+        $(document).on('click', '.remove-log-type', function() {
+            $(this).closest('.log-type-entry').remove();
+        });
+        
+        // Date range validation
+        $('#date_range_end').change(function() {
+            const startDate = new Date($('#date_range_start').val());
+            const endDate = new Date($(this).val());
+            
+            if (endDate < startDate) {
+                alert('End date cannot be before start date');
+                $(this).val($('#date_range_start').val());
+            }
+        });
+        
+        // Generate log types form preview when date range changes
+        $('#date_range_start, #date_range_end').change(function() {
+            updateFormPreview();
+        });
+        
+        function updateFormPreview() {
+            const startDate = new Date($('#date_range_start').val());
+            const endDateInput = $('#date_range_end').val();
+            const endDate = endDateInput ? new Date(endDateInput) : new Date(startDate);
+            
+            // If there's already a preview, remove it
+            $('#datePreview').remove();
+            
+            // Create date preview
+            let dates = [];
+            let currentDate = new Date(startDate);
+            
+            while (currentDate <= endDate) {
+                dates.push(new Date(currentDate));
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            if (dates.length > 1) {
+                // Create preview of dates
+                let previewHtml = `
+                    <div id="datePreview" class="alert alert-secondary mt-3">
+                        <h6>Date Range Preview (${dates.length} days):</h6>
+                        <div class="row">
+                `;
+                
+                dates.forEach((date, index) => {
+                    const formattedDate = date.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
+                    previewHtml += `
+                        <div class="col-md-2 col-4 mb-2">
+                            <div class="badge bg-light text-dark p-2 w-100">${formattedDate}</div>
+                        </div>
+                    `;
+                });
+                
+                previewHtml += `
+                        </div>
+                    </div>
+                `;
+                
+                // Add preview before the log types container
+                $('#logTypesContainer').before(previewHtml);
+            }
+        }
+        
+        // Toggle all checkboxes
+        $('#selectAll').change(function() {
+            $('.employee-select').prop('checked', $(this).prop('checked'));
+            updateSelectedCount();
+            toggleSaveButton();
+        });
+        
+        // Individual checkbox changes
+        $('.employee-select').change(function() {
+            updateSelectedCount();
+            toggleSaveButton();
+            
+            // If any checkbox is unchecked, uncheck "select all"
+            if (!$(this).prop('checked')) {
+                $('#selectAll').prop('checked', false);
+            } else if ($('.employee-select:checked').length === $('.employee-select').length) {
+                // If all checkboxes are checked, check "select all"
+                $('#selectAll').prop('checked', true);
+            }
+        });
+        
+        // Update counter
+        function updateSelectedCount() {
+            let count = $('.employee-select:checked').length;
+            $('#selectedCount').text(count);
+        }
+        
+        // Enable/disable save button
+        function toggleSaveButton() {
+            let count = $('.employee-select:checked').length;
+            $('#saveBtn').prop('disabled', count === 0);
+        }
+        
+        // Department filter
+        $('#department_filter').change(function() {
+            const department = $(this).val();
+            
+            if (department === "") {
+                // Show all rows
+                $('.employee-row').show();
+            } else {
+                // Hide rows that don't match the department
+                $('.employee-row').hide();
+                $(`.employee-row[data-department="${department}"]`).show();
+            }
+        });
+        
+        // Default status
+        $('#status_filter').change(function() {
+            const status = $(this).val();
+            $('.status-select').val(status);
+        });
+        
+        // Apply time to all selected
+        function applyBulkTime(type) {
+            const time = prompt(`Enter ${type} time for all selected employees (HH:MM format):`);
+            if (time) {
+                $('.employee-select:checked').each(function() {
+                    const employeeId = $(this).val();
+                    $(`[name="${type}_${employeeId}"]`).val(time);
+                });
+            }
+        }
+        
+        // Add bulk action buttons
+        $('.table-responsive').before(`
+            <div class="mb-3">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="bulkCheckIn">
+                    <i class="bi bi-alarm"></i> Set Check-In for Selected
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="bulkCheckOut">
+                    <i class="bi bi-alarm"></i> Set Check-Out for Selected
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="bulkBreakStart">
+                    <i class="bi bi-stopwatch-fill"></i> Set Break Start for Selected
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="bulkBreakEnd">
+                    <i class="bi bi-stopwatch"></i> Set Break End for Selected
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="bulkBreakDuration">
+                    <i class="bi bi-clock"></i> Set Break Duration for Selected
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="applyDefaultTimes">
+                    <i class="bi bi-clock-history"></i> Apply Default Times from Above
+                </button>
+            </div>
+        `);
+        
+        // Bulk action handlers
+        $('#bulkCheckIn').click(function() {
+            applyBulkTime('check_in');
+        });
+        
+        $('#bulkCheckOut').click(function() {
+            applyBulkTime('check_out');
+        });
+        
+        $('#bulkBreakStart').click(function() {
+            applyBulkTime('break_start');
+        });
+        
+        $('#bulkBreakEnd').click(function() {
+            applyBulkTime('break_end');
+        });
+        
+        $('#bulkBreakDuration').click(function() {
+            const breakDuration = prompt('Enter break duration (in hours, e.g., 1, 0.5, 1.5):', '1');
+            if (breakDuration !== null) {
+                // Validate input is a number between 0 and 5
+                const breakValue = parseFloat(breakDuration);
+                if (!isNaN(breakValue) && breakValue >= 0 && breakValue <= 5) {
+                    $('.employee-select:checked').each(function() {
+                        const employeeId = $(this).val();
+                        $(`[name="break_duration_${employeeId}"]`).val(breakValue);
+                    });
+                } else {
+                    alert('Please enter a valid number between 0 and 5');
+                }
+            }
+        });
+        
+        // Apply default times
+        $('#applyDefaultTimes').click(function() {
+            // Get all log type configurations
+            const logTypes = [];
+            $('.log-type-entry').each(function() {
+                const logType = $(this).find('.log-type-select').val();
+                const defaultTime = $(this).find('.default-time').val();
+                const applyDays = $(this).find('.day-select').val();
+                
+                if (defaultTime && applyDays && applyDays.length > 0) {
+                    logTypes.push({
+                        type: logType,
+                        time: defaultTime,
+                        days: applyDays.map(day => parseInt(day))
+                    });
+                }
+            });
+            
+            if (logTypes.length === 0) {
+                alert('Please configure at least one log type with time and days above');
+                return;
+            }
+            
+            // Apply to selected employees
+            $('.employee-select:checked').each(function() {
+                const employeeId = $(this).val();
+                
+                // Apply each configured log type
+                logTypes.forEach(logType => {
+                    const startDate = new Date($('#date_range_start').val());
+                    const endDateInput = $('#date_range_end').val();
+                    const endDate = endDateInput ? new Date(endDateInput) : new Date(startDate);
+                    
+                    let currentDate = new Date(startDate);
+                    while (currentDate <= endDate) {
+                        const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+                        
+                        // Check if this day should have this log type
+                        if (logType.days.includes(dayOfWeek)) {
+                            // Apply the time to this employee for this log type
+                            if (logType.type === 'check_in') {
+                                $(`[name="check_in_${employeeId}"]`).val(logType.time);
+                            } else if (logType.type === 'check_out') {
+                                $(`[name="check_out_${employeeId}"]`).val(logType.time);
+                            } else if (logType.type === 'break_in') {
+                                $(`[name="break_start_${employeeId}"]`).val(logType.time);
+                            } else if (logType.type === 'break_out') {
+                                $(`[name="break_end_${employeeId}"]`).val(logType.time);
+                            }
+                        }
+                        
+                        // Move to next day
+                        currentDate.setDate(currentDate.getDate() + 1);
+                    }
+                });
+            });
+            
+            alert('Default times applied to selected employees');
+        });
+        
+        // Initialize DataTable for better searching and pagination
+        $('#batchEntryTable').DataTable({
+            paging: true,
+            searching: true,
+            lengthMenu: [10, 25, 50, 100],
+            pageLength: 25,
+            language: {
+                search: "_INPUT_",
+                searchPlaceholder: "Search employee...",
+                lengthMenu: "Show _MENU_ employees"
+            },
+            columnDefs: [
+                { orderable: false, targets: [0, 4, 5, 6, 7] } // Disable sorting on checkbox and input columns
+            ],
+            order: [[1, 'asc']] // Sort by employee name by default
+        });
+        
+        // Form validation before submit
+        $('#batchEntryForm').submit(function(e) {
+            const selectedEmployees = $('.employee-select:checked').length;
+            if (selectedEmployees === 0) {
+                e.preventDefault();
+                alert('Please select at least one employee');
+                return false;
+            }
+            
+            const logTypes = $('.log-type-entry').length;
+            if (logTypes === 0) {
+                e.preventDefault();
+                alert('Please configure at least one log type');
+                return false;
+            }
+            
+            // Check that we have date range
+            const startDate = $('#date_range_start').val();
+            if (!startDate) {
+                e.preventDefault();
+                alert('Please select a start date');
+                return false;
+            }
+            
+            return true;
+        });
+    });
+</script>
+{% endblock %}

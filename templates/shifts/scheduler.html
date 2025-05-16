@@ -1,0 +1,1267 @@
+{% extends "base.html" %}
+
+{% block title %}Shift Scheduler{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/shifts.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-calendar-week me-2"></i>
+                Shift Scheduler
+            </h5>
+        </div>
+        <div class="card-body">
+            <!-- Filter Form and Batch Controls -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">Schedule Controls</h6>
+                            <div class="d-flex">
+                                <div class="btn-group me-3">
+                                    <button type="button" class="btn btn-sm btn-light view-toggle active" data-view="week">
+                                        <i class="bi bi-calendar-week"></i> Week View <small>(7 days)</small>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-light view-toggle" data-view="month">
+                                        <i class="bi bi-calendar-month"></i> Month View <small>(full month)</small>
+                                    </button>
+                                </div>
+                                {% if current_user.is_admin %}
+                                <div class="batch-controls">
+                                    <div class="dropdown d-inline-block me-2">
+                                        <button class="btn btn-sm btn-primary dropdown-toggle" type="button" id="batchOperationsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bi bi-gear-fill"></i> Batch Operations
+                                        </button>
+                                        <ul class="dropdown-menu" aria-labelledby="batchOperationsDropdown">
+                                            <li>
+                                                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#advancedAssignModal">
+                                                    <i class="bi bi-calendar-plus"></i> Assign Shifts
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#advancedDeleteModal">
+                                                    <i class="bi bi-calendar-x"></i> Delete Shifts
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item" href="#" id="batch-delete-mode">
+                                                    <i class="bi bi-check2-square"></i> Select Specific Shifts
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <button type="button" id="print-schedule-btn" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-printer"></i> Print Schedule
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <form id="schedulerForm" method="get" action="{{ url_for('shifts.scheduler') }}" class="row g-3">
+                                <!-- Common filters -->
+                                <div class="col-md-3">
+                                    <label for="view_type" class="form-label">View Type</label>
+                                    <select class="form-select" id="view_type" name="view_type">
+                                        <option value="default" {% if view_type == 'default' %}selected{% endif %}>Standard View</option>
+                                        <option value="by_employee" {% if view_type == 'by_employee' %}selected{% endif %}>By Employee</option>
+                                        <option value="by_shift" {% if view_type == 'by_shift' %}selected{% endif %}>By Shift</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- Month filter -->
+                                <div class="col-md-3">
+                                    <label for="month_select" class="form-label">Month</label>
+                                    <input type="month" class="form-select" id="month_select" name="month_select" 
+                                           value="{{ month_start.strftime('%Y-%m') if month_start else week_start.strftime('%Y-%m') }}"
+                                           onchange="document.getElementById('schedulerForm').submit()">
+                                </div>
+                                
+                                <div class="col-md-3">
+                                    <label for="department" class="form-label">Department</label>
+                                    <select class="form-select" id="department" name="department">
+                                        <option value="">All Departments</option>
+                                        {% for dept in departments %}
+                                            <option value="{{ dept }}" {% if selected_department == dept %}selected{% endif %}>
+                                                {{ dept }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <!-- Employee filter (shown/hidden based on view type) -->
+                                <div class="col-md-3 filter-option" id="employee-filter" style="display: none;">
+                                    <label for="employee_id" class="form-label">Employee</label>
+                                    <select class="form-select" id="employee_id" name="employee_id">
+                                        <option value="">All Employees</option>
+                                        {% for employee in all_employees %}
+                                            <option value="{{ employee.id }}" {% if selected_employee_id == employee.id %}selected{% endif %} data-department="{{ employee.department or '' }}">
+                                                {{ employee.name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <!-- Shift filter (shown/hidden based on view type) -->
+                                <div class="col-md-3 filter-option" id="shift-filter" style="display: none;">
+                                    <label for="shift_id" class="form-label">Shift</label>
+                                    <select class="form-select" id="shift_id" name="shift_id">
+                                        <option value="">All Shifts</option>
+                                        {% for shift in shifts %}
+                                            <option value="{{ shift.id }}" {% if selected_shift_id == shift.id %}selected{% endif %}>
+                                                {{ shift.name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <!-- Date selectors for Week View -->
+                                <div class="col-md-3 week-selector">
+                                    <label for="week_start" class="form-label">Week Start Date</label>
+                                    <div class="input-group">
+                                        <input type="date" class="form-control" id="week_start" name="week_start" value="{{ week_start.strftime('%Y-%m-%d') }}">
+                                        <span class="input-group-text bg-light">
+                                            <small>{{ week_start.strftime('%a') }}</small>
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Navigation buttons -->
+                                <div class="col-md-6 d-flex align-items-end">
+                                    <button type="submit" class="btn btn-primary me-2">
+                                        <i class="bi bi-filter"></i> Apply Filters
+                                    </button>
+                                    
+                                    <!-- Week navigation -->
+                                    <div class="btn-group me-2 week-navigation">
+                                        <a href="{{ url_for('shifts.scheduler', week_start=(week_start - timedelta(days=7)).strftime('%Y-%m-%d'), department=selected_department, view_type=view_type) }}" class="btn btn-outline-secondary">
+                                            <i class="bi bi-arrow-left"></i> Previous Week
+                                        </a>
+                                        <a href="{{ url_for('shifts.scheduler', department=selected_department, view_type=view_type) }}" class="btn btn-outline-secondary">
+                                            <i class="bi bi-calendar-check"></i> Current Week
+                                        </a>
+                                        <a href="{{ url_for('shifts.scheduler', week_start=(week_start + timedelta(days=7)).strftime('%Y-%m-%d'), department=selected_department, view_type=view_type) }}" class="btn btn-outline-secondary">
+                                            Next Week <i class="bi bi-arrow-right"></i>
+                                        </a>
+                                    </div>
+                                    
+                                    <!-- Month navigation -->
+                                    <div class="btn-group me-2 month-navigation" style="display: none;">
+                                        <a href="#" class="btn btn-outline-secondary prev-month">
+                                            <i class="bi bi-arrow-left"></i> Previous Month
+                                        </a>
+                                        <a href="#" class="btn btn-outline-secondary current-month">
+                                            <i class="bi bi-calendar-check"></i> Current Month
+                                        </a>
+                                        <a href="#" class="btn btn-outline-secondary next-month">
+                                            Next Month <i class="bi bi-arrow-right"></i>
+                                        </a>
+                                    </div>
+                                    
+                                    <div class="calendar-nav-help">
+                                        <small title="Keyboard navigation: ← Previous Period, → Next Period, Home = Current Period">
+                                            <i class="bi bi-keyboard"></i> Keyboard Navigation
+                                        </small>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Schedule Views Container -->
+            <div class="schedule-views-container">
+                <!-- Weekly View -->
+                <div class="table-responsive" id="weeklyView">
+                    <table class="table table-bordered schedule-table" id="scheduleTable">
+                        <thead>
+                            <tr class="bg-light">
+                                <th style="width: 200px">Employee</th>
+                                {% for day in days %}
+                                    <th class="text-center{% if day.weekday() >= 5 %} bg-warning bg-opacity-25{% endif %} position-relative">
+                                        <div>{{ day.strftime('%a') }}</div>
+                                        <div>{{ format_date(day) }}</div>
+                                    </th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for employee in employees %}
+                            <tr>
+                                <td>
+                                    <strong>{{ employee.name }}</strong><br>
+                                    <small class="text-muted">{{ employee.department or 'N/A' }}</small>
+                                </td>
+                                {% for day in days %}
+                                    {% set assignment = employee_assignments.get(employee.id, {}).get(day.strftime('%Y-%m-%d')) %}
+                                    {% set is_holiday = holidays.get(day.strftime('%Y-%m-%d')) %}
+                                    <td class="text-center position-relative p-1{% if day.weekday() >= 5 %} bg-warning bg-opacity-10{% endif %}{% if is_holiday %} bg-info bg-opacity-10{% endif %}">
+                                        <!-- Holiday Display -->
+                                        {% if is_holiday %}
+                                            <div class="badge bg-info w-100 mb-1">
+                                                <i class="bi bi-calendar-event"></i> {{ is_holiday }}
+                                            </div>
+                                        {% endif %}
+                                        
+                                        <!-- Shift Assignment Display -->
+                                        {% if assignment %}
+                                            <div class="shift-assignment" data-assignment-id="{{ assignment.id }}">
+                                                <div class="shift-badge mb-1" style="background-color: {{ assignment.shift.color_code }}">
+                                                    {{ assignment.shift.name }}<br>
+                                                    <small>{{ assignment.shift.start_time.strftime('%H:%M') }} - {{ assignment.shift.end_time.strftime('%H:%M') }}</small>
+                                                </div>
+                                                {% if current_user.is_admin %}
+                                                    <div class="shift-assignment-cell" data-employee-id="{{ employee.id }}" data-date="{{ day.strftime('%Y-%m-%d') }}">
+                                                        <form method="post" action="{{ url_for('shifts.assignment_delete', assignment_id=assignment.id) }}" class="d-inline">
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove Assignment">
+                                                                <i class="bi bi-x"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        {% elif current_user.is_admin %}
+                                            <div class="shift-assignment-cell" data-employee-id="{{ employee.id }}" data-date="{{ day.strftime('%Y-%m-%d') }}">
+                                                <button type="button" class="btn btn-sm btn-outline-primary add-shift-btn">
+                                                    <i class="bi bi-plus"></i>
+                                                </button>
+                                                <div class="shift-selector d-none">
+                                                    {% for shift in shifts %}
+                                                        <button type="button" class="btn btn-sm w-100 mb-1 text-white assign-shift-btn" 
+                                                                style="background-color: {{ shift.color_code }}" 
+                                                                data-shift-id="{{ shift.id }}">
+                                                            {{ shift.name }}
+                                                        </button>
+                                                    {% endfor %}
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary cancel-btn">
+                                                        <i class="bi bi-x"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">No shift</span>
+                                        {% endif %}
+                                    </td>
+                                {% endfor %}
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center">No employees found</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Monthly View -->
+                <div class="table-responsive" id="monthlyView" style="display: none;">
+                    <table class="table table-bordered schedule-table month-table" id="monthScheduleTable">
+                        <thead>
+                            <tr class="bg-light text-center">
+                                <th colspan="7" class="month-header">
+                                    {{ month_start.strftime('%B %Y') if month_start else week_start.strftime('%B %Y') }}
+                                </th>
+                            </tr>
+                            <tr class="bg-light text-center">
+                                <th>Monday</th>
+                                <th>Tuesday</th>
+                                <th>Wednesday</th>
+                                <th>Thursday</th>
+                                <th>Friday</th>
+                                <th class="bg-warning bg-opacity-25">Saturday</th>
+                                <th class="bg-warning bg-opacity-25">Sunday</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for week_row in month_days|batch(7) %}
+                                <tr class="month-row" style="height: 120px;">
+                                    {% for day in week_row %}
+                                        <td class="month-day p-1 position-relative {% if day.month != month_start.month %}text-muted bg-light{% endif %}{% if day.weekday() >= 5 %} bg-warning bg-opacity-10{% endif %}" data-date="{{ day.strftime('%Y-%m-%d') }}">
+                                            <div class="day-header d-flex justify-content-between align-items-center mb-1">
+                                                <span class="day-number fw-bold">{{ day.day }}</span>
+                                                {% set is_holiday = holidays.get(day.strftime('%Y-%m-%d')) %}
+                                                {% if is_holiday %}
+                                                    <span class="badge bg-info">
+                                                        <i class="bi bi-calendar-event"></i>
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <div class="day-shifts">
+                                                {% for employee in employees %}
+                                                    {% set assignment = employee_assignments.get(employee.id, {}).get(day.strftime('%Y-%m-%d')) %}
+                                                    {% if assignment %}
+                                                        <div class="month-shift-badge" 
+                                                             style="background-color: {{ assignment.shift.color_code }}; 
+                                                                    border-radius: 3px;
+                                                                    margin-bottom: 2px;
+                                                                    padding: 1px 3px;
+                                                                    font-size: 0.7rem;
+                                                                    white-space: nowrap;
+                                                                    overflow: hidden;
+                                                                    text-overflow: ellipsis;"
+                                                             title="{{ employee.name }}: {{ assignment.shift.name }} ({{ assignment.shift.start_time.strftime('%H:%M') }} - {{ assignment.shift.end_time.strftime('%H:%M') }})">
+                                                            {{ employee.name|truncate(15, True) }}
+                                                        </div>
+                                                    {% endif %}
+                                                {% endfor %}
+                                                
+                                                {% if current_user.is_admin and day.month == month_start.month %}
+                                                    <button type="button" class="btn btn-sm btn-outline-primary month-add-btn" 
+                                                            data-date="{{ day.strftime('%Y-%m-%d') }}"
+                                                            data-bs-toggle="modal" 
+                                                            data-bs-target="#dayAssignModal">
+                                                        <i class="bi bi-plus-circle"></i>
+                                                    </button>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Shift-based view (empty template, will be populated by JS) -->
+                <div class="table-responsive" id="shiftView" style="display: none;">
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-info-circle"></i> 
+                        Select a specific shift from the dropdown above to see all employees assigned to it.
+                    </div>
+                    <table class="table table-bordered schedule-table" id="shiftScheduleTable">
+                        <!-- To be populated dynamically based on selected view and filters -->
+                    </table>
+                </div>
+                
+                <!-- Employee-based view (empty template, will be populated by JS) -->
+                <div class="table-responsive" id="employeeView" style="display: none;">
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-info-circle"></i> 
+                        Select a specific employee from the dropdown above to see their full schedule.
+                    </div>
+                    <table class="table table-bordered schedule-table" id="employeeScheduleTable">
+                        <!-- To be populated dynamically based on selected view and filters -->
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Legend and Tools -->
+            <div class="card mt-4">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0">Legend and Batch Assignment Tools</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <h6>Color Key:</h6>
+                                <span class="badge bg-warning bg-opacity-25 me-2">Weekend</span>
+                                <span class="badge bg-info bg-opacity-25 me-2">Holiday</span>
+                            </div>
+                            <div class="mb-3">
+                                <h6>Available Shifts (Drag to Assign):</h6>
+                                <div class="d-flex flex-wrap">
+                                    {% for shift in shifts %}
+                                        <span class="badge me-2 mb-2 p-2" style="background-color: {{ shift.color_code }}" data-shift-id="{{ shift.id }}">
+                                            {{ shift.name }}
+                                        </span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% if current_user.is_admin %}
+                            <div class="mt-3">
+                                <h6>Selection Tips:</h6>
+                                <p class="small text-muted">
+                                    Use the Advanced Assign/Delete buttons at the top of the page to perform batch operations 
+                                    by department, employee, or date range.
+                                </p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex flex-column align-items-end h-100">
+                                <div class="card mb-3 w-100">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0">Usage Tips</h6>
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <ul class="mb-0 small">
+                                            <li>Drag shift badges to empty cells to assign</li>
+                                            <li>Use batch assign mode to select multiple cells</li>
+                                            <li>Use batch delete mode to remove multiple assignments at once</li>
+                                            <li>Use the day column headers to apply shifts to entire days</li>
+                                            <li>Keyboard shortcuts: ←→ to navigate weeks</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div>
+                                    <a href="{{ url_for('shifts.index') }}" class="btn btn-secondary">
+                                        <i class="bi bi-arrow-left"></i> Back to Shifts
+                                    </a>
+                                    <a href="{{ url_for('shifts.holidays') }}" class="btn btn-info ms-2">
+                                        <i class="bi bi-calendar-event"></i> Manage Holidays
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Advanced Delete Modal -->
+<div class="modal fade" id="advancedDeleteModal" tabindex="-1" aria-labelledby="advancedDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="advancedDeleteModalLabel">Advanced Batch Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-danger fw-bold">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Warning: This will delete multiple shift assignments at once.
+                </p>
+                
+                <form id="advancedDeleteForm" class="row g-3">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="deleteDepartment" class="form-label">Department (Optional)</label>
+                            <select class="form-select" id="deleteDepartment">
+                                <option value="">All Departments</option>
+                                {% for dept in departments %}
+                                    <option value="{{ dept }}">{{ dept }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="deleteEmployees" class="form-label">Employees (Optional)</label>
+                            <select class="form-select" id="deleteEmployees" multiple size="5">
+                                {% for employee in employees %}
+                                    <option value="{{ employee.id }}" data-department="{{ employee.department or '' }}">
+                                        {{ employee.name }} ({{ employee.department or 'Unassigned' }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Hold Ctrl/Cmd to select multiple employees</div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="deleteShift" class="form-label">Shift Type (Optional)</label>
+                            <select class="form-select" id="deleteShift">
+                                <option value="">All Shifts</option>
+                                {% for shift in shifts %}
+                                    <option value="{{ shift.id }}">{{ shift.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="deleteStartDate" class="form-label">Date Range (Required)</label>
+                            <div class="input-group mb-2">
+                                <span class="input-group-text">From</span>
+                                <input type="date" class="form-control" id="deleteStartDate" value="{{ week_start.strftime('%Y-%m-%d') }}">
+                                <span class="input-group-text" id="deleteStartDayName">{{ week_start.strftime('%a') }}</span>
+                            </div>
+                            <div class="input-group">
+                                <span class="input-group-text">To</span>
+                                <input type="date" class="form-control" id="deleteEndDate" value="{{ week_end.strftime('%Y-%m-%d') }}">
+                                <span class="input-group-text" id="deleteEndDayName">{{ week_end.strftime('%a') }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-12 mt-4">
+                        <div class="alert alert-warning">
+                            <i class="bi bi-info-circle-fill"></i> 
+                            <strong>Filter combinations:</strong>
+                            <ul class="mb-0 mt-1">
+                                <li>Date range only: Delete all assignments in the date range</li>
+                                <li>Department + Date range: Delete assignments for all employees in the selected department</li>
+                                <li>Employees + Date range: Delete assignments only for selected employees</li>
+                                <li>Shift + Date range: Delete assignments of specific shift type only</li>
+                            </ul>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmAdvancedDelete">
+                    <i class="bi bi-trash"></i> Delete Assignments
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Advanced Assign Modal -->
+<div class="modal fade" id="advancedAssignModal" tabindex="-1" aria-labelledby="advancedAssignModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="advancedAssignModalLabel">Advanced Batch Assign</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="advancedAssignForm" class="row g-3">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="assignDepartment" class="form-label">Department (Optional)</label>
+                            <select class="form-select" id="assignDepartment">
+                                <option value="">All Departments</option>
+                                {% for dept in departments %}
+                                    <option value="{{ dept }}">{{ dept }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="assignEmployees" class="form-label">Employees (Optional)</label>
+                            <select class="form-select" id="assignEmployees" multiple size="5">
+                                {% for employee in employees %}
+                                    <option value="{{ employee.id }}" data-department="{{ employee.department or '' }}">
+                                        {{ employee.name }} ({{ employee.department or 'Unassigned' }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Hold Ctrl/Cmd to select multiple employees</div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="assignShift" class="form-label">Shift to Assign (Required)</label>
+                            <select class="form-select" id="assignShift" required>
+                                <option value="">Select a Shift</option>
+                                {% for shift in shifts %}
+                                    <option value="{{ shift.id }}">{{ shift.name }} ({{ shift.start_time.strftime('%H:%M') }} - {{ shift.end_time.strftime('%H:%M') }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="assignStartDate" class="form-label">Date Range (Required)</label>
+                            <div class="input-group mb-2">
+                                <span class="input-group-text">From</span>
+                                <input type="date" class="form-control" id="assignStartDate" value="{{ week_start.strftime('%Y-%m-%d') }}" required>
+                                <span class="input-group-text" id="assignStartDayName">{{ week_start.strftime('%a') }}</span>
+                            </div>
+                            <div class="input-group">
+                                <span class="input-group-text">To</span>
+                                <input type="date" class="form-control" id="assignEndDate" value="{{ week_end.strftime('%Y-%m-%d') }}" required>
+                                <span class="input-group-text" id="assignEndDayName">{{ week_end.strftime('%a') }}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Days of Week (Optional)</label>
+                            <div class="d-flex gap-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="0" id="weekday0" checked>
+                                    <label class="form-check-label" for="weekday0">Mon</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="1" id="weekday1" checked>
+                                    <label class="form-check-label" for="weekday1">Tue</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="2" id="weekday2" checked>
+                                    <label class="form-check-label" for="weekday2">Wed</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="3" id="weekday3" checked>
+                                    <label class="form-check-label" for="weekday3">Thu</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="4" id="weekday4" checked>
+                                    <label class="form-check-label" for="weekday4">Fri</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="5" id="weekday5">
+                                    <label class="form-check-label" for="weekday5">Sat</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="6" id="weekday6">
+                                    <label class="form-check-label" for="weekday6">Sun</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-12 mt-3">
+                        <div class="alert alert-warning">
+                            <i class="bi bi-info-circle-fill"></i> 
+                            <strong>Note:</strong> Existing assignments within the date range will not be changed. 
+                            This only adds new assignments to empty slots.
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmAdvancedAssign">
+                    <i class="bi bi-grid"></i> Assign Shifts
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Legacy Batch Delete Modal (kept for compatibility) -->
+<div class="modal fade" id="batchDeleteModal" tabindex="-1" aria-labelledby="batchDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="batchDeleteModalLabel">Batch Delete Shift Assignments</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the selected shift assignments?</p>
+                <div id="selectedAssignmentsContainer">
+                    <p class="fw-bold mb-2">Selected assignments:</p>
+                    <ul id="selectedAssignmentsList" class="mb-0">
+                        <!-- Will be populated dynamically -->
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmBatchDelete">Delete Selected</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Day Assignment Modal (for Monthly View) -->
+<div class="modal fade" id="dayAssignModal" tabindex="-1" aria-labelledby="dayAssignModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="dayAssignModalLabel">Assign Shifts for <span id="selected-date"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="day-assign-form">
+                    <input type="hidden" id="day-assign-date">
+                    <div class="mb-3">
+                        <label for="day-assign-employees" class="form-label">Employees</label>
+                        <select class="form-select" id="day-assign-employees" multiple style="height: 150px;">
+                            {% for employee in employees %}
+                                <option value="{{ employee.id }}" data-department="{{ employee.department }}">{{ employee.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Hold Ctrl/Cmd to select multiple employees</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="day-assign-shift" class="form-label">Shift</label>
+                        <select class="form-select" id="day-assign-shift" required>
+                            <option value="">Select Shift</option>
+                            {% for shift in shifts %}
+                                <option value="{{ shift.id }}" style="background-color: {{ shift.color_code }}; color: #fff;">{{ shift.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="day-assign-override">
+                        <label class="form-check-label" for="day-assign-override">
+                            Override existing assignments
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="execute-day-assign">
+                    <i class="bi bi-save"></i> Save Assignments
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/shifts.js') }}"></script>
+<script>
+    $(document).ready(function() {
+        // Initialize the shift scheduler
+        initializeShiftScheduler();
+        
+        // Initialize view toggles
+        initializeViewToggles();
+        
+        // Initialize filter behaviors
+        initializeFilterBehaviors();
+        
+        // Variables for batch deletion
+        let batchDeleteMode = false;
+        let selectedAssignments = [];
+        
+        // Print schedule button functionality
+        $('#print-schedule-btn').on('click', function() {
+            // Open print dialog
+            window.print();
+        });
+        
+        // Show day name when date changes
+        function updateDayName(dateInput, dayNameElement) {
+            const date = new Date(dateInput.val());
+            if (!isNaN(date.getTime())) {
+                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const dayName = dayNames[date.getDay()];
+                dayNameElement.text(dayName);
+            }
+        }
+        
+        // Date input change event handlers for advanced modals
+        $('#deleteStartDate').on('change', function() {
+            updateDayName($(this), $('#deleteStartDayName'));
+        });
+        
+        $('#deleteEndDate').on('change', function() {
+            updateDayName($(this), $('#deleteEndDayName'));
+        });
+        
+        $('#assignStartDate').on('change', function() {
+            updateDayName($(this), $('#assignStartDayName'));
+        });
+        
+        $('#assignEndDate').on('change', function() {
+            updateDayName($(this), $('#assignEndDayName'));
+        });
+        
+        // Add event handler for add shift buttons
+        $('.add-shift-btn').on('click', function() {
+            // Hide all other shift selectors
+            $('.shift-selector').addClass('d-none');
+            $('.add-shift-btn').removeClass('d-none');
+            
+            // Show this shift selector
+            $(this).addClass('d-none');
+            $(this).siblings('.shift-selector').removeClass('d-none');
+        });
+        
+        // Cancel button event handler
+        $('.cancel-btn').on('click', function() {
+            $(this).closest('.shift-selector').addClass('d-none');
+            $(this).closest('.shift-assignment-cell').find('.add-shift-btn').removeClass('d-none');
+        });
+        
+        // Assign shift button event handler
+        $('.assign-shift-btn').on('click', function() {
+            var shiftId = $(this).data('shift-id');
+            var cell = $(this).closest('.shift-assignment-cell');
+            var employeeId = cell.data('employee-id');
+            var date = cell.data('date');
+            
+            // Call function to assign shift
+            assignShift(shiftId, employeeId, date);
+        });
+        
+        // Batch delete mode toggle
+        $('#batch-delete-mode').on('click', function() {
+            batchDeleteMode = !batchDeleteMode;
+            
+            if (batchDeleteMode) {
+                // Enable batch delete mode
+                $(this).addClass('active');
+                $('.shift-assignment').addClass('selectable');
+                selectedAssignments = [];
+                
+                // Show action buttons
+                let actionBar = $('<div class="batch-action-bar position-fixed bottom-0 start-0 w-100 bg-light p-3 border-top" style="z-index: 1050;">' + 
+                                '<div class="container d-flex justify-content-between align-items-center">' +
+                                '<div><span class="badge bg-primary me-2" id="selected-count">0</span> assignments selected</div>' +
+                                '<div>' +
+                                '<button class="btn btn-danger" id="openBatchDeleteModal" disabled><i class="bi bi-trash"></i> Delete Selected</button>' +
+                                '<button class="btn btn-secondary ms-2" id="cancelBatchDelete"><i class="bi bi-x"></i> Cancel</button>' +
+                                '</div>' +
+                                '</div>' +
+                                '</div>');
+                $('body').append(actionBar);
+                
+                // Make shift assignments clickable for selection
+                $('.shift-assignment').on('click', function(e) {
+                    e.stopPropagation();
+                    if (batchDeleteMode) {
+                        const assignmentId = $(this).data('assignment-id');
+                        const employeeName = $(this).closest('tr').find('td:first-child').text().trim();
+                        const date = $(this).closest('td').data('date') || $(this).data('date');
+                        const shiftName = $(this).find('.shift-badge').text().trim().split('\n')[0];
+                        
+                        // Toggle selection
+                        if ($(this).hasClass('selected')) {
+                            $(this).removeClass('selected');
+                            selectedAssignments = selectedAssignments.filter(a => a.id !== assignmentId);
+                        } else {
+                            $(this).addClass('selected');
+                            selectedAssignments.push({
+                                id: assignmentId,
+                                employeeName: employeeName,
+                                date: date,
+                                shiftName: shiftName
+                            });
+                        }
+                        
+                        // Update selected count
+                        $('#selected-count').text(selectedAssignments.length);
+                        
+                        // Enable/disable delete button
+                        $('#openBatchDeleteModal').prop('disabled', selectedAssignments.length === 0);
+                    }
+                });
+                
+                // Open batch delete modal
+                $('#openBatchDeleteModal').on('click', function() {
+                    // Populate the modal with selected assignments
+                    $('#selectedAssignmentsList').empty();
+                    selectedAssignments.forEach(assignment => {
+                        $('#selectedAssignmentsList').append(
+                            `<li>${assignment.employeeName} - ${assignment.shiftName} on ${assignment.date}</li>`
+                        );
+                    });
+                    
+                    // Show the modal
+                    new bootstrap.Modal(document.getElementById('batchDeleteModal')).show();
+                });
+                
+                // Cancel batch delete mode
+                $('#cancelBatchDelete').on('click', function() {
+                    exitBatchDeleteMode();
+                });
+            } else {
+                exitBatchDeleteMode();
+            }
+        });
+        
+        // Confirm batch delete button
+        $('#confirmBatchDelete').on('click', function() {
+            if (selectedAssignments.length > 0) {
+                const assignmentIds = selectedAssignments.map(a => a.id);
+                
+                // Send the delete request
+                $.ajax({
+                    url: "{{ url_for('shifts.batch_delete_assignments') }}",
+                    type: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify({ assignment_ids: assignmentIds }),
+                    success: function(response) {
+                        if (response.success) {
+                            // Hide the modal
+                            bootstrap.Modal.getInstance(document.getElementById('batchDeleteModal')).hide();
+                            
+                            // Exit batch delete mode
+                            exitBatchDeleteMode();
+                            
+                            // Reload the page to show the updated schedule
+                            location.reload();
+                        } else {
+                            alert('Error deleting assignments: ' + response.message);
+                        }
+                    },
+                    error: function() {
+                        alert('Failed to delete assignments. Please try again.');
+                    }
+                });
+            }
+        });
+        
+        // Function to exit batch delete mode
+        function exitBatchDeleteMode() {
+            batchDeleteMode = false;
+            $('#batch-delete-mode').removeClass('active');
+            $('.shift-assignment').removeClass('selectable selected');
+            $('.shift-assignment').off('click');
+            $('.batch-action-bar').remove();
+            selectedAssignments = [];
+        }
+    });
+    
+    // Function to assign a shift (defined in shifts.js)
+    function assignShift(shiftId, employeeId, date) {
+        $.post("{{ url_for('shifts.add_assignment') }}", {
+            shift_id: shiftId,
+            employee_id: employeeId,
+            date: date
+        }).done(function(response) {
+            if (response.success) {
+                // Reload the page to show the updated schedule
+                location.reload();
+            } else {
+                alert('Error assigning shift: ' + response.message);
+            }
+        }).fail(function() {
+            alert('Failed to assign shift. Please try again.');
+        });
+    }
+    
+    // Department select change handlers to filter employees
+    $('#assignDepartment').on('change', function() {
+        const department = $(this).val();
+        filterEmployeeOptions('#assignEmployees', department);
+    });
+    
+    $('#deleteDepartment').on('change', function() {
+        const department = $(this).val();
+        filterEmployeeOptions('#deleteEmployees', department);
+    });
+    
+    // Function to filter employee options based on department
+    function filterEmployeeOptions(selectId, department) {
+        const employeeSelect = $(selectId);
+        
+        // Show all options if no department selected
+        if (!department) {
+            employeeSelect.find('option').show();
+            return;
+        }
+        
+        // Filter options by department
+        employeeSelect.find('option').each(function() {
+            const optionDepartment = $(this).data('department');
+            if (optionDepartment === department) {
+                $(this).show();
+            } else {
+                $(this).hide();
+                $(this).prop('selected', false);
+            }
+        });
+    }
+    
+    // Advanced batch assign handler
+    $('#confirmAdvancedAssign').on('click', function() {
+        // Gather form data
+        const shiftId = $('#assignShift').val();
+        const startDate = $('#assignStartDate').val();
+        const endDate = $('#assignEndDate').val();
+        
+        // Validate required fields
+        if (!shiftId || !startDate || !endDate) {
+            alert('Please fill in all required fields');
+            return;
+        }
+        
+        // Get selected days of week (0-6, Monday-Sunday)
+        const selectedDays = [];
+        for (let i = 0; i < 7; i++) {
+            if ($(`#weekday${i}`).prop('checked')) {
+                selectedDays.push(i);
+            }
+        }
+        
+        // Get selected employees or department filter
+        let employeeIds = Array.from($('#assignEmployees option:selected')).map(opt => $(opt).val());
+        const department = $('#assignDepartment').val();
+        
+        // Prepare the request data
+        const requestData = {
+            shift_id: shiftId,
+            start_date: startDate,
+            end_date: endDate,
+            days_of_week: selectedDays
+        };
+        
+        // Add employee ids if selected
+        if (employeeIds.length > 0) {
+            requestData.employee_ids = employeeIds;
+        } else if (department) {
+            // Use department if no specific employees selected
+            requestData.department = department;
+        }
+        
+        // Send the batch assign request
+        $.ajax({
+            url: "{{ url_for('shifts.batch_assign') }}",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify(requestData),
+            success: function(response) {
+                if (response.success) {
+                    // Close the modal
+                    bootstrap.Modal.getInstance(document.getElementById('advancedAssignModal')).hide();
+                    
+                    // Show success message
+                    alert(`Successfully assigned shifts to ${response.count} slots`);
+                    
+                    // Reload the page to show the updated schedule
+                    location.reload();
+                } else {
+                    alert('Error assigning shifts: ' + response.message);
+                }
+            },
+            error: function() {
+                alert('Failed to assign shifts. Please try again.');
+            }
+        });
+    });
+    
+    // Advanced batch delete handler
+    $('#confirmAdvancedDelete').on('click', function() {
+        // Gather form data
+        const startDate = $('#deleteStartDate').val();
+        const endDate = $('#deleteEndDate').val();
+        
+        // Validate required fields
+        if (!startDate || !endDate) {
+            alert('Please specify a date range');
+            return;
+        }
+        
+        // Get selected employees or department filter
+        let employeeIds = Array.from($('#deleteEmployees option:selected')).map(opt => $(opt).val());
+        const department = $('#deleteDepartment').val();
+        const shiftId = $('#deleteShift').val();
+        
+        // Prepare the request data
+        const requestData = {
+            start_date: startDate,
+            end_date: endDate
+        };
+        
+        // Add optional filters
+        if (employeeIds.length > 0) {
+            requestData.employee_ids = employeeIds;
+        } else if (department) {
+            requestData.department = department;
+        }
+        
+        if (shiftId) {
+            requestData.shift_id = shiftId;
+        }
+        
+        // Confirm deletion
+        if (!confirm('Are you sure you want to delete assignments matching these criteria? This action cannot be undone.')) {
+            return;
+        }
+        
+        // Send the batch delete request
+        $.ajax({
+            url: "{{ url_for('shifts.advanced_batch_delete') }}",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify(requestData),
+            success: function(response) {
+                if (response.success) {
+                    // Close the modal
+                    bootstrap.Modal.getInstance(document.getElementById('advancedDeleteModal')).hide();
+                    
+                    // Show success message
+                    alert(`Successfully deleted ${response.count} assignments`);
+                    
+                    // Reload the page to show the updated schedule
+                    location.reload();
+                } else {
+                    alert('Error deleting assignments: ' + response.message);
+                }
+            },
+            error: function() {
+                alert('Failed to delete assignments. Please try again.');
+            }
+        });
+    });
+    
+    // Initialize view toggles (Week/Month/etc)
+    function initializeViewToggles() {
+        // Check URL parameters to see if we should be in month view
+        const urlParams = new URLSearchParams(window.location.search);
+        const monthParam = urlParams.get('month_select');
+        const initialView = monthParam ? 'month' : 'week';
+        
+        // Set the initial view based on URL parameters
+        if (initialView === 'month') {
+            // If month parameter is present, start in month view
+            $('.view-toggle[data-view="month"]').addClass('active');
+            $('.view-toggle[data-view="week"]').removeClass('active');
+            $('#weeklyView').hide();
+            $('#monthlyView').show();
+            $('#shiftView').hide();
+            $('#employeeView').hide();
+            $('.week-selector').hide();
+            $('.month-selector').show();
+            $('.week-navigation').hide();
+            $('.month-navigation').show();
+        } else {
+            // Default to week view
+            $('.view-toggle[data-view="week"]').addClass('active');
+            $('.view-toggle[data-view="month"]').removeClass('active');
+            $('#weeklyView').show();
+            $('#monthlyView').hide();
+            $('#shiftView').hide();
+            $('#employeeView').hide();
+            $('.week-selector').show();
+            $('.month-selector').hide();
+            $('.week-navigation').show();
+            $('.month-navigation').hide();
+        }
+        
+        // Handle week/month view toggle clicks
+        $('.view-toggle').on('click', function() {
+            const viewType = $(this).data('view');
+            
+            // Update active toggle button
+            $('.view-toggle').removeClass('active');
+            $(this).addClass('active');
+            
+            // Show/hide appropriate view
+            if (viewType === 'week') {
+                $('#weeklyView').show();
+                $('#monthlyView').hide();
+                $('#shiftView').hide();
+                $('#employeeView').hide();
+                $('.week-selector').show();
+                $('.month-selector').hide();
+                $('.week-navigation').show();
+                $('.month-navigation').hide();
+            } else if (viewType === 'month') {
+                $('#weeklyView').hide();
+                $('#monthlyView').show();
+                $('#shiftView').hide();
+                $('#employeeView').hide();
+                $('.week-selector').hide();
+                $('.month-selector').show();
+                $('.week-navigation').hide();
+                $('.month-navigation').show();
+            }
+        });
+        
+        // Handle month navigation
+        $('.prev-month').on('click', function(e) {
+            e.preventDefault();
+            const monthInput = $('#month_select');
+            const currentDate = new Date(monthInput.val() + '-01');
+            // Move to previous month
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            monthInput.val(currentDate.getFullYear() + '-' + String(currentDate.getMonth() + 1).padStart(2, '0'));
+            $('#schedulerForm').submit();
+        });
+        
+        $('.next-month').on('click', function(e) {
+            e.preventDefault();
+            const monthInput = $('#month_select');
+            const currentDate = new Date(monthInput.val() + '-01');
+            // Move to next month
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            monthInput.val(currentDate.getFullYear() + '-' + String(currentDate.getMonth() + 1).padStart(2, '0'));
+            $('#schedulerForm').submit();
+        });
+        
+        $('.current-month').on('click', function(e) {
+            e.preventDefault();
+            const today = new Date();
+            $('#month_select').val(today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0'));
+            $('#schedulerForm').submit();
+        });
+        
+        // Handle day assignment modal in monthly view
+        $('.month-add-btn').on('click', function() {
+            const date = $(this).data('date');
+            const formattedDate = new Date(date).toLocaleDateString();
+            $('#selected-date').text(formattedDate);
+            $('#day-assign-date').val(date);
+        });
+        
+        // Execute day assignment
+        $('#execute-day-assign').on('click', function() {
+            const date = $('#day-assign-date').val();
+            const shiftId = $('#day-assign-shift').val();
+            const employeeIds = Array.from($('#day-assign-employees option:selected')).map(opt => $(opt).val());
+            const override = $('#day-assign-override').prop('checked');
+            
+            if (!date || !shiftId || employeeIds.length === 0) {
+                alert('Please select a shift and at least one employee');
+                return;
+            }
+            
+            // Create assignments for each selected employee
+            let assignCount = 0;
+            let promises = [];
+            
+            employeeIds.forEach(employeeId => {
+                const promise = $.post("{{ url_for('shifts.add_assignment') }}", {
+                    shift_id: shiftId,
+                    employee_id: employeeId,
+                    date: date,
+                    override: override
+                });
+                promises.push(promise);
+            });
+            
+            // Wait for all assignments to complete
+            Promise.all(promises)
+                .then(responses => {
+                    bootstrap.Modal.getInstance(document.getElementById('dayAssignModal')).hide();
+                    
+                    const successCount = responses.filter(r => r.success).length;
+                    alert(`Successfully assigned shifts to ${successCount} employees`);
+                    
+                    // Reload the page to show the updated schedule
+                    location.reload();
+                })
+                .catch(() => {
+                    alert('Error assigning shifts. Please try again.');
+                });
+        });
+    }
+    
+    // Initialize filter behaviors based on view type
+    function initializeFilterBehaviors() {
+        // Show/hide appropriate filters based on view type
+        $('#view_type').on('change', function() {
+            const viewType = $(this).val();
+            
+            // Reset and hide all specific filters first
+            $('.filter-option').hide();
+            
+            // Show appropriate filters based on view type
+            if (viewType === 'by_employee') {
+                $('#employee-filter').show();
+                $('#shift-filter').hide();
+            } else if (viewType === 'by_shift') {
+                $('#employee-filter').hide();
+                $('#shift-filter').show();
+            } else {
+                $('#employee-filter').hide();
+                $('#shift-filter').hide();
+            }
+        });
+        
+        // Department filter should update employee dropdown
+        $('#department').on('change', function() {
+            const department = $(this).val();
+            
+            // Filter employee dropdown based on department
+            $('#employee_id option').each(function() {
+                const optDept = $(this).data('department');
+                if (!department || optDept === department || $(this).val() === '') {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                    if ($(this).is(':selected')) {
+                        $(this).prop('selected', false);
+                    }
+                }
+            });
+        });
+        
+        // Initialize based on current selection
+        const currentViewType = $('#view_type').val();
+        if (currentViewType === 'by_employee') {
+            $('#employee-filter').show();
+        } else if (currentViewType === 'by_shift') {
+            $('#shift-filter').show();
+        }
+    }
+</script>
+{% endblock %}

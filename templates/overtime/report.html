@@ -1,0 +1,292 @@
+{% extends 'base.html' %}
+
+{% block title %}Overtime Report{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">Overtime Report</h1>
+        <div>
+            <a href="{{ url_for('overtime.index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Report Filters -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Report Filters</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" action="{{ url_for('overtime.report') }}" class="row g-3">
+                <div class="col-md-4">
+                    <label for="from_date" class="form-label">From Date</label>
+                    <input type="date" class="form-control" id="from_date" name="from_date" 
+                           value="{{ from_date.strftime('%Y-%m-%d') if from_date else '' }}">
+                </div>
+                <div class="col-md-4">
+                    <label for="to_date" class="form-label">To Date</label>
+                    <input type="date" class="form-control" id="to_date" name="to_date" 
+                           value="{{ to_date.strftime('%Y-%m-%d') if to_date else '' }}">
+                </div>
+                <div class="col-md-4">
+                    <label for="department" class="form-label">Department</label>
+                    <select class="form-select select2" id="department" name="department">
+                        <option value="">All Departments</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept }}" {% if selected_department == dept %}selected{% endif %}>{{ dept }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 text-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-filter"></i> Apply Filters
+                    </button>
+                    <a href="{{ url_for('overtime.report') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle"></i> Clear Filters
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Report Results -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Overtime Hours: {{ from_date.strftime('%b %d, %Y') }} - {{ to_date.strftime('%b %d, %Y') }}</h5>
+            <div>
+                <button class="btn btn-sm btn-outline-secondary" onclick="window.print()">
+                    <i class="bi bi-printer"></i> Print Report
+                </button>
+                <button class="btn btn-sm btn-outline-primary" id="exportCSV">
+                    <i class="bi bi-file-earmark-spreadsheet"></i> Export CSV
+                </button>
+                <button id="sendToOdooBtn" class="btn btn-primary">Send to Odoo</button>
+
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if results %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0" id="overtimeTable">
+                    <thead>
+                        <tr>
+                                                        <th><input type="checkbox" id="selectAll"></th> <!-- Select All Checkbox -->
+                            <th>Employee Code</th>
+                            <th>Name</th>
+                            <th>Department</th>
+                            <th class="text-end">Total Hours</th>
+                            <th class="text-end">Weekday OT</th>
+                            <th class="text-end">Weekend OT</th>
+                            <th class="text-end">Holiday OT</th>
+                            <th class="text-end">Absent Days</th>
+                            <th class="text-end">Avg. Rate</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in results %}
+                                <tr data-employee-id="{{ result.employee_code }}" data-overtime='{{ "%.1f"|format(result.total_overtime if result.total_overtime is not none else 0) }}'>
+
+            <td><input type="checkbox" class="employeeCheckbox" data-employee-id="{{ result.employee_code }}" data-overtime='{{ "%.1f"|format(result.total_overtime if result.total_overtime is not none else 0) }}'></td>
+
+                            <td>{{ result.employee_code }}</td>
+                            <td>
+                                <a href="{{ url_for('overtime.employee_overtime', employee_id=result.id) }}">
+                                    {{ result.name }}
+                                </a>
+                            </td>
+                            <td>{{ result.department or '-' }}</td>
+                            <td class="text-end">{{ "%.1f"|format(result.total_overtime if result.total_overtime is not none else 0) }}</td>
+                            <td class="text-end">{{ "%.1f"|format(result.weekday_overtime if result.weekday_overtime is not none else 0) }}</td>
+                            <td class="text-end">{{ "%.1f"|format(result.weekend_overtime if result.weekend_overtime is not none else 0) }}</td>
+                            <td class="text-end">{{ "%.1f"|format(result.holiday_overtime if result.holiday_overtime is not none else 0) }}</td>
+                            <td class="text-end">{{ result.absent_days or 0 }}</td>
+                            <td class="text-end">{{ "%.2f"|format(result.avg_rate if result.avg_rate is not none else 0) }}x</td>
+                            <td class="text-end">
+                                <a href="{{ url_for('overtime.employee_overtime', employee_id=result.id) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-graph-up"></i> Details
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-primary fw-bold">
+                            <td colspan="3" class="text-end">Total:</td>
+                            <td class="text-end">{{ "%.1f"|format(total_overtime if total_overtime is not none else 0) }}</td>
+                            <td class="text-end">{{ "%.1f"|format(total_weekday_overtime if total_weekday_overtime is not none else 0) }}</td>
+                            <td class="text-end">{{ "%.1f"|format(total_weekend_overtime if total_weekend_overtime is not none else 0) }}</td>
+                            <td class="text-end">{{ "%.1f"|format(total_holiday_overtime if total_holiday_overtime is not none else 0) }}</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <div class="mb-3">
+                    <i class="bi bi-clock-history text-secondary" style="font-size: 3rem;"></i>
+                </div>
+                <h5 class="text-muted">No overtime data found for the selected period</h5>
+                <p class="text-muted">Try changing your filters or selecting a different date range.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Initialize Select2
+    $('.select2').select2({
+        theme: 'bootstrap-5',
+        width: '100%'
+    });
+    
+    // Initialize DataTable with export functionality if not already initialized
+    var overtimeTable;
+    if ($('#overtimeTable').length > 0) {
+        if (!$.fn.dataTable.isDataTable('#overtimeTable') && $('#overtimeTable tbody tr').length > 0) {
+            overtimeTable = $('#overtimeTable').DataTable({
+                "pageLength": 25,
+                "order": [[3, "desc"]], // Sort by total hours (descending)
+                "dom": 'Bfrtip',
+                "buttons": [
+                    'copy', 'excel', 'pdf'
+                ]
+            });
+        } else if ($.fn.dataTable.isDataTable('#overtimeTable')) {
+            // If already initialized, get the instance
+            overtimeTable = $('#overtimeTable').DataTable();
+        } else {
+            console.log('No data in overtimeTable, skipping DataTable initialization');
+        }
+    } else {
+        console.log('Table #overtimeTable not found in the DOM');
+    }
+    
+    // Custom export CSV button
+    $('#exportCSV').on('click', function() {
+        // Defensive check for table existence
+        if ($('#overtimeTable').length === 0 || $('#overtimeTable tbody tr').length === 0) {
+            console.warn('Table #overtimeTable not found or empty, cannot export CSV');
+            alert('No data available to export');
+            return;
+        }
+        
+        // Get table data
+        var tableData = [];
+        var headers = [];
+        
+        // Get headers (except Actions column)
+        $('#overtimeTable thead th').each(function(index) {
+            if (index < 8) { // Include all columns except Actions
+                headers.push($(this).text());
+            }
+        });
+        
+        // Make sure we have headers
+        if (headers.length === 0) {
+            console.warn('No headers found in table, cannot export CSV');
+            alert('Table structure is invalid, cannot export data');
+            return;
+        }
+        
+        tableData.push(headers);
+        
+        // Get rows
+        $('#overtimeTable tbody tr').each(function() {
+            var rowData = [];
+            $(this).find('td').each(function(index) {
+                if (index < 8) { // Include all columns except Actions
+                    // Get text content only
+                    var content = $(this).text().trim();
+                    rowData.push(content);
+                }
+            });
+            tableData.push(rowData);
+        });
+        
+        // Get total row
+        var totalRow = [
+            '', '', 'Total:', 
+            '{{ "%.1f"|format(total_overtime if total_overtime is not none else 0) }}',
+            '{{ "%.1f"|format(total_weekday_overtime if total_weekday_overtime is not none else 0) }}',
+            '{{ "%.1f"|format(total_weekend_overtime if total_weekend_overtime is not none else 0) }}',
+            '{{ "%.1f"|format(total_holiday_overtime if total_holiday_overtime is not none else 0) }}',
+            ''
+        ];
+        tableData.push(totalRow);
+        
+        // Create CSV content
+        var csvContent = "data:text/csv;charset=utf-8,";
+        tableData.forEach(function(rowArray) {
+            var row = rowArray.join(",");
+            csvContent += row + "\r\n";
+        });
+        
+        // Create download link
+        var encodedUri = encodeURI(csvContent);
+        var link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "overtime_report_{{ from_date.strftime('%Y-%m-%d') }}_to_{{ to_date.strftime('%Y-%m-%d') }}.csv");
+        document.body.appendChild(link);
+        
+        // Trigger download
+        link.click();
+    });
+
+   console.log(" hhhhhhhhhhhhhhhhhhhhh ")
+
+
+
+    $('#sendToOdooBtn').click(function() {
+        var runId = $(this).data('run-id');
+        var overtimeData = [];
+console.log("sssssssssssssssssssssss")
+        $('#overtimeTable tbody tr').each(function() {
+            var checkbox = $(this).find('.employeeCheckbox');
+            console.log(checkbox)
+            if (checkbox.is(':checked')) {
+                console.log("yes here ")
+                var employeeId = $(this).data('employee-id');
+                var overtime = $(this).data('overtime') || 0;
+                overtimeData.push({
+                    employee_id: employeeId,
+                    total_overtime: parseFloat(overtime)
+                });
+            }
+        });
+
+        if (overtimeData.length === 0) {
+            alert('Please select at least one employee.');
+            return;
+        }
+
+        $.ajax({
+            url: "{{ url_for('overtime.send_overtime_to_odoo') }}",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({
+                run_id: runId,
+                overtime_data: overtimeData
+            }),
+            success: function(response) {
+                alert(response.message || 'Overtime sent successfully.');
+            },
+            error: function(xhr) {
+                alert('Failed to send overtime: ' + xhr.responseText);
+            }
+        });
+    });
+
+   console.log(" hhhhhhhhhhh322hhhhhhhhhh ")
+
+
+});
+</script>
+{% endblock %}

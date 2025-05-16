@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block title %}Recalculate Overtime{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">Recalculate Overtime</h1>
+        <div>
+            <a href="{{ url_for('overtime.index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Recalculate by Date Range</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('overtime.recalculate') }}">
+                        <input type="hidden" name="recalculate_type" value="date_range">
+                        <div class="mb-3">
+                            <label for="from_date" class="form-label">From Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="from_date" name="from_date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="to_date" class="form-label">To Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="to_date" name="to_date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="department" class="form-label">Department (Optional)</label>
+                            <select class="form-select select2" id="department" name="department">
+                                <option value="">All Departments</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept }}">{{ dept }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Leave blank to process all departments</div>
+                        </div>
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-arrow-clockwise"></i> Recalculate
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Recalculate by Employee</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('overtime.recalculate') }}">
+                        <input type="hidden" name="recalculate_type" value="employee">
+                        <div class="mb-3">
+                            <label for="employee_id" class="form-label">Employee <span class="text-danger">*</span></label>
+                            <select class="form-select select2" id="employee_id" name="employee_id" required>
+                                <option value="">Select Employee</option>
+                                {% for employee in employees %}
+                                <option value="{{ employee.id }}">{{ employee.name }} ({{ employee.employee_code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="emp_from_date" class="form-label">From Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="emp_from_date" name="from_date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="emp_to_date" class="form-label">To Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="emp_to_date" name="to_date" required>
+                        </div>
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-arrow-clockwise"></i> Recalculate
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">Quick Recalculation Options</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <form method="post" action="{{ url_for('overtime.recalculate') }}">
+                        <input type="hidden" name="recalculate_type" value="current_month">
+                        <button type="submit" class="btn btn-outline-primary w-100 mb-3">
+                            <i class="bi bi-calendar-month"></i> Recalculate Current Month
+                        </button>
+                    </form>
+                </div>
+                <div class="col-md-4">
+                    <form method="post" action="{{ url_for('overtime.recalculate') }}">
+                        <input type="hidden" name="recalculate_type" value="previous_month">
+                        <button type="submit" class="btn btn-outline-info w-100 mb-3">
+                            <i class="bi bi-calendar-minus"></i> Recalculate Previous Month
+                        </button>
+                    </form>
+                </div>
+                <div class="col-md-4">
+                    <form method="post" action="{{ url_for('overtime.recalculate') }}">
+                        <input type="hidden" name="recalculate_type" value="current_week">
+                        <button type="submit" class="btn btn-outline-secondary w-100 mb-3">
+                            <i class="bi bi-calendar-week"></i> Recalculate Current Week
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if recalculation_results %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">Recalculation Results</h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-success">
+                <h5 class="alert-heading">Recalculation Complete!</h5>
+                <p>Successfully recalculated overtime for:</p>
+                <ul>
+                    <li><strong>{{ recalculation_results.records_processed }}</strong> attendance records</li>
+                    <li><strong>{{ recalculation_results.employees_processed }}</strong> employees</li>
+                    <li><strong>{{ "%.1f"|format(recalculation_results.total_overtime_hours) }}</strong> total overtime hours</li>
+                </ul>
+                <hr>
+                <p class="mb-0">
+                    Period: {{ recalculation_results.from_date.strftime('%b %d, %Y') }} to {{ recalculation_results.to_date.strftime('%b %d, %Y') }}
+                </p>
+            </div>
+            <div class="text-end">
+                <a href="{{ url_for('overtime.report') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-file-earmark-bar-graph"></i> View Overtime Report
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Initialize Select2
+    $('.select2').select2({
+        theme: 'bootstrap-5',
+        width: '100%'
+    });
+    
+    // Set default dates
+    var today = new Date();
+    var firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    var lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    
+    // Format dates for input fields
+    var firstDayStr = firstDayOfMonth.toISOString().split('T')[0];
+    var lastDayStr = lastDayOfMonth.toISOString().split('T')[0];
+    var todayStr = today.toISOString().split('T')[0];
+    
+    // Set default date range to current month
+    $('#from_date, #emp_from_date').val(firstDayStr);
+    $('#to_date, #emp_to_date').val(lastDayStr);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Bonus Submission{% endblock %}
+
+{% block styles %}
+{% include "bonus/help/evaluation_guide.html" %}
+{{ super() }}
+<style>
+    .evaluation-table th {
+        position: sticky;
+        top: 0;
+        background-color: var(--bs-body-bg);
+        z-index: 10;
+    }
+    .evaluation-table .employee-name {
+        position: sticky;
+        left: 0;
+        background-color: var(--bs-body-bg);
+        z-index: 5;
+    }
+    .score-cell {
+        width: 100px;
+        text-align: center;
+    }
+    .score-input {
+        width: 60px;
+        text-align: center;
+        margin: 0 auto;
+    }
+    .saving-indicator {
+        display: none;
+        color: var(--bs-info);
+    }
+    .save-success {
+        display: none;
+        color: var(--bs-success);
+    }
+    .save-error {
+        display: none;
+        color: var(--bs-danger);
+    }
+    .total-points {
+        font-weight: bold;
+        color: var(--bs-primary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('bonus.supervisor_dashboard') }}">Bonus Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Edit Submission</li>
+                </ol>
+            </nav>
+            <h1 class="mb-3">Bonus Evaluation</h1>
+            <p class="lead">
+                Department: <strong>{{ submission.department }}</strong> | 
+                Period: <strong>{{ submission.period.name }}</strong> | 
+                Status: <span class="badge {% if submission.status == 'draft' %}bg-warning{% elif submission.status == 'rejected' %}bg-danger{% endif %}">{{ submission.status }}</span>
+            </p>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Employee Evaluations</h4>
+                    <div>
+                        <button type="button" class="btn btn-outline-info me-2" data-bs-toggle="modal" data-bs-target="#evaluationGuideModal">
+                            <i class="bi bi-info-circle me-1"></i> Evaluation Guide
+                        </button>
+                        <button type="button" id="submit-button" class="btn btn-success">
+                            Submit for Review
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if employees and questions %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered evaluation-table">
+                            <thead>
+                                <tr>
+                                    <th class="employee-name">Employee</th>
+                                    {% for question in questions %}
+                                    <th class="score-cell" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ question.question_text }}">
+                                        Q{{ loop.index }}
+                                        <span class="d-block small text-muted">({{ question.min_value }}-{{ question.max_value }})</span>
+                                    </th>
+                                    {% endfor %}
+                                    <th class="score-cell">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for employee in employees %}
+                                <tr>
+                                    <td class="employee-name">{{ employee.name }}</td>
+                                    {% for question in questions %}
+                                    <td class="score-cell">
+                                        <input type="number" 
+                                            class="form-control score-input"
+                                            data-employee-id="{{ employee.id }}"
+                                            data-question-id="{{ question.id }}"
+                                            min="{{ question.min_value }}"
+                                            max="{{ question.max_value }}"
+                                            value="{% if employee.id in evaluation_matrix and question.id in evaluation_matrix[employee.id] %}{{ evaluation_matrix[employee.id][question.id].value }}{% else %}{{ question.default_value }}{% endif %}"
+                                        >
+                                        <div class="mt-1">
+                                            <small class="saving-indicator">
+                                                <i class="bi bi-arrow-repeat"></i> Saving...
+                                            </small>
+                                            <small class="save-success">
+                                                <i class="bi bi-check-circle"></i> Saved
+                                            </small>
+                                            <small class="save-error">
+                                                <i class="bi bi-exclamation-circle"></i> Error
+                                            </small>
+                                        </div>
+                                    </td>
+                                    {% endfor %}
+                                    <td class="score-cell">
+                                        <span class="total-points" id="total-{{ employee.id }}">
+                                            {% set found = false %}
+                                            {% for emp_id, points in submission.calculate_total_points().items() %}
+                                                {% if emp_id == employee.id %}
+                                                    {{ "%.1f"|format(points) }}
+                                                    {% set found = true %}
+                                                {% endif %}
+                                            {% endfor %}
+                                            {% if not found %}0.0{% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        No employees or evaluation questions found for this department.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Question Details</h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Question</th>
+                                    <th>Range</th>
+                                    <th>Weight</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for question in questions %}
+                                <tr>
+                                    <td>
+                                        <strong>Q{{ loop.index }}:</strong> {{ question.question_text }}
+                                    </td>
+                                    <td>{{ question.min_value }} - {{ question.max_value }}</td>
+                                    <td>{{ question.weight }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Submission Information</h4>
+                </div>
+                <div class="card-body">
+                    <p>You're currently working on a <span class="badge {% if submission.status == 'draft' %}bg-warning{% else %}bg-danger{% endif %}">{{ submission.status }}</span> submission.</p>
+                    
+                    <h5 class="mt-4">Next Steps:</h5>
+                    <ol>
+                        <li>Rate each employee on all criteria</li>
+                        <li>Verify that all evaluations are complete</li>
+                        <li>Click "Submit for Review" to send to HR</li>
+                    </ol>
+                    
+                    <div class="alert alert-info mt-3">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Note:</strong> Once submitted, evaluations cannot be modified unless rejected by HR.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Submit Confirmation Modal -->
+<div class="modal fade" id="submitModal" tabindex="-1" aria-labelledby="submitModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="submitModalLabel">Confirm Submission</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to submit this evaluation for HR review?</p>
+                <p>Once submitted, you won't be able to make changes unless it's rejected by HR.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" action="{{ url_for('bonus.submit_evaluation', submission_id=submission.id) }}">
+                    <button type="submit" class="btn btn-success">Submit for Review</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Enable tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        // Handle submission button
+        const submitButton = document.getElementById('submit-button');
+        submitButton.addEventListener('click', function() {
+            const submitModal = new bootstrap.Modal(document.getElementById('submitModal'));
+            submitModal.show();
+        });
+        
+        // Handle score inputs
+        const scoreInputs = document.querySelectorAll('.score-input');
+        let saveTimeout;
+        
+        function saveScore(input) {
+            // Clear any pending save
+            clearTimeout(saveTimeout);
+            
+            const employeeId = input.dataset.employeeId;
+            const questionId = input.dataset.questionId;
+            const value = parseInt(input.value);
+            const min = parseInt(input.min);
+            const max = parseInt(input.max);
+            
+            // Validate input
+            if (isNaN(value) || value < min || value > max) {
+                // Show error
+                const errorIndicator = input.parentElement.querySelector('.save-error');
+                errorIndicator.style.display = 'block';
+                setTimeout(() => { errorIndicator.style.display = 'none'; }, 3000);
+                
+                // Reset to min or max if out of bounds
+                if (value < min) input.value = min;
+                if (value > max) input.value = max;
+                return;
+            }
+            
+            // Show saving indicator
+            const savingIndicator = input.parentElement.querySelector('.saving-indicator');
+            const successIndicator = input.parentElement.querySelector('.save-success');
+            const errorIndicator = input.parentElement.querySelector('.save-error');
+            
+            savingIndicator.style.display = 'block';
+            successIndicator.style.display = 'none';
+            errorIndicator.style.display = 'none';
+            
+            // Save to server
+            fetch('/api/evaluation/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    submission_id: {{ submission.id }},
+                    employee_id: employeeId,
+                    question_id: questionId,
+                    value: value
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                savingIndicator.style.display = 'none';
+                
+                if (data.status === 'success') {
+                    successIndicator.style.display = 'block';
+                    setTimeout(() => { successIndicator.style.display = 'none'; }, 3000);
+                    
+                    // Update total points
+                    const totalElement = document.getElementById(`total-${employeeId}`);
+                    if (totalElement && data.total_points) {
+                        totalElement.textContent = data.total_points.toFixed(1);
+                    }
+                } else {
+                    errorIndicator.style.display = 'block';
+                    setTimeout(() => { errorIndicator.style.display = 'none'; }, 3000);
+                    console.error('Save error:', data.message);
+                }
+            })
+            .catch(error => {
+                savingIndicator.style.display = 'none';
+                errorIndicator.style.display = 'block';
+                setTimeout(() => { errorIndicator.style.display = 'none'; }, 3000);
+                console.error('Save error:', error);
+            });
+        }
+        
+        // Add event listeners for each input
+        scoreInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                saveScore(this);
+            });
+            
+            input.addEventListener('input', function() {
+                // Debounce the save to avoid too many requests
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => {
+                    saveScore(this);
+                }, 800);
+            });
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+
+{% block title %}Raw Attendance Logs{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-list-ul me-2"></i>
+                Raw Attendance Logs
+            </h5>
+        </div>
+        <div class="card-body">
+            <!-- Filter Form -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header bg-secondary">
+                            <h6 class="mb-0">Filter Logs</h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="get" action="{{ url_for('attendance.raw_logs') }}" class="row g-3">
+                                <div class="col-md-3">
+                                    <label for="date_from" class="form-label">From Date</label>
+                                    <input type="date" class="form-control" id="date_from" name="date_from" value="{{ request.args.get('date_from', '') }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="date_to" class="form-label">To Date</label>
+                                    <input type="date" class="form-control" id="date_to" name="date_to" value="{{ request.args.get('date_to', '') }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="employee" class="form-label">Employee</label>
+                                    <select class="form-select" id="employee" name="employee_id">
+                                        <option value="">All Employees</option>
+                                        {% for employee in employees %}
+                                            <option value="{{ employee.id }}" {% if request.args.get('employee_id')|int == employee.id %}selected{% endif %}>
+                                                {{ employee.name }} ({{ employee.employee_code }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="device" class="form-label">Device</label>
+                                    <select class="form-select" id="device" name="device_id">
+                                        <option value="">All Devices</option>
+                                        {% for device in devices %}
+                                            <option value="{{ device.id }}" {% if request.args.get('device_id')|int == device.id %}selected{% endif %}>
+                                                {{ device.name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="log_type" class="form-label">Log Type</label>
+                                    <select class="form-select" id="log_type" name="log_type">
+                                        <option value="">All Types</option>
+                                        <option value="IN" {% if request.args.get('log_type') == 'IN' %}selected{% endif %}>Check In</option>
+                                        <option value="OUT" {% if request.args.get('log_type') == 'OUT' %}selected{% endif %}>Check Out</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="processed" class="form-label">Processed Status</label>
+                                    <select class="form-select" id="processed" name="processed">
+                                        <option value="">All</option>
+                                        <option value="1" {% if request.args.get('processed') == '1' %}selected{% endif %}>Processed</option>
+                                        <option value="0" {% if request.args.get('processed') == '0' %}selected{% endif %}>Unprocessed</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 d-flex align-items-end">
+                                    <button type="submit" class="btn btn-primary me-2">
+                                        <i class="bi bi-filter"></i> Apply Filters
+                                    </button>
+                                    <a href="{{ url_for('attendance.raw_logs') }}" class="btn btn-secondary">
+                                        <i class="bi bi-x-circle"></i> Clear Filters
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Logs Table -->
+            <div class="table-responsive">
+                <table class="table table-hover" id="rawLogsTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Employee</th>
+                            <th>Device</th>
+                            <th>Timestamp</th>
+                            <th>Type</th>
+                            <th>Processed</th>
+                            <th>Created At</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td>{{ log.id }}</td>
+                            <td>{{ log.employee_name }}</td>
+                            <td>{{ log.device_name }}</td>
+                            <td>{{ log.timestamp_str }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if log.log_type == 'IN' %}bg-success
+                                    {% elif log.log_type == 'OUT' %}bg-danger
+                                    {% elif log.log_type == 'BREAK_IN' %}bg-warning
+                                    {% elif log.log_type == 'BREAK_OUT' %}bg-info
+                                    {% else %}bg-secondary{% endif %}">
+                                    {% if log.log_type == 'IN' %}Check In
+                                    {% elif log.log_type == 'OUT' %}Check Out
+                                    {% elif log.log_type == 'BREAK_IN' %}Break Start
+                                    {% elif log.log_type == 'BREAK_OUT' %}Break End
+                                    {% else %}{{ log.log_type }}{% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge {% if log.is_processed %}bg-success{% else %}bg-warning{% endif %}">
+                                    {{ 'Processed' if log.is_processed else 'Pending' }}
+                                </span>
+                            </td>
+                            <td>{{ log.created_at_str }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center">No logs found matching the criteria</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if pagination.pages > 1 %}
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item {% if pagination.page == 1 %}disabled{% endif %}">
+                        {% if pagination.has_prev %}
+                            <a class="page-link" href="{{ url_for('attendance.raw_logs', page=pagination.prev_num, **filtered_args) }}">
+                                <i class="bi bi-chevron-left"></i> Previous
+                            </a>
+                        {% else %}
+                            <a class="page-link" href="#">
+                                <i class="bi bi-chevron-left"></i> Previous
+                            </a>
+                        {% endif %}
+                    </li>
+                    
+                    {% for page_num in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                        {% if page_num %}
+                            <li class="page-item {% if pagination.page == page_num %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('attendance.raw_logs', page=page_num, **filtered_args) }}">
+                                    {{ page_num }}
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <li class="page-item {% if pagination.page == pagination.pages %}disabled{% endif %}">
+                        {% if pagination.has_next %}
+                            <a class="page-link" href="{{ url_for('attendance.raw_logs', page=pagination.next_num, **filtered_args) }}">
+                                Next <i class="bi bi-chevron-right"></i>
+                            </a>
+                        {% else %}
+                            <a class="page-link" href="#">
+                                Next <i class="bi bi-chevron-right"></i>
+                            </a>
+                        {% endif %}
+                    </li>
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        try {
+            // Use basic client-side filtering without breaking server-side pagination
+            $('#quickSearch').on('keyup', function() {
+                var value = $(this).val().toLowerCase();
+                $('#rawLogsTable tbody tr').filter(function() {
+                    $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+                });
+            });
+            
+            // Enable sorting for table headers
+            $('.sortable').click(function() {
+                var table = $(this).parents('table').eq(0);
+                var rows = table.find('tr:gt(0)').toArray().sort(comparer($(this).index()));
+                this.asc = !this.asc;
+                if (!this.asc) {
+                    rows = rows.reverse();
+                }
+                for (var i = 0; i < rows.length; i++) {
+                    table.append(rows[i]);
+                }
+            });
+            
+            function comparer(index) {
+                return function(a, b) {
+                    var valA = getCellValue(a, index);
+                    var valB = getCellValue(b, index);
+                    return $.isNumeric(valA) && $.isNumeric(valB) ? valA - valB : valA.localeCompare(valB);
+                };
+            }
+            
+            function getCellValue(row, index) {
+                return $(row).children('td').eq(index).text();
+            }
+            
+            // Also enhance the employee and device dropdowns with Select2
+            $('#employee').select2({
+                placeholder: "Select an employee",
+                allowClear: true,
+                width: '100%'
+            });
+            
+            $('#device').select2({
+                placeholder: "Select a device",
+                allowClear: true,
+                width: '100%'
+            });
+        } catch (e) {
+            console.error("DataTable initialization error:", e);
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,338 @@
+{% extends 'base.html' %}
+
+{% block title %}Import Attendance CSV{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('attendance.index') }}">Attendance</a></li>
+                    <li class="breadcrumb-item active">Import CSV</li>
+                </ol>
+            </nav>
+            
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="card-title mb-0">Import Attendance CSV</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="alert alert-info">
+                                <h5>CSV Format Support</h5>
+                                <p>This enhanced tool now supports multiple CSV formats:</p>
+                                <ul>
+                                    <li><strong>Auto-detect:</strong> Automatically detect and parse your CSV format</li>
+                                    <li><strong>MIR Event Viewer:</strong> Complex format with metadata headers and embedded punch times</li>
+                                    <li><strong>ZKTeco Standard:</strong> Standard columnar format with User ID, Name, Time, and Status</li>
+                                    <li><strong>Hikvision:</strong> Format from Hikvision access control systems</li>
+                                </ul>
+                                <p><small>The import process automatically batch processes data for better performance with large files.</small></p>
+                                <div class="btn-group dropend">
+                                    <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-download me-1"></i> Download Sample CSV
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="{{ url_for('attendance.download_sample_csv', format='zkteco') }}">ZKTeco Format</a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('attendance.download_sample_csv', format='mir') }}">MIR Format</a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('attendance.download_sample_csv', format='hikvision') }}">Hikvision Format</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="csv_file" class="form-label">CSV File</label>
+                                    <input class="form-control" type="file" id="csv_file" name="csv_file" accept=".csv" required>
+                                    <div class="form-text">Select your attendance data CSV file</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="file_format" class="form-label">File Format</label>
+                                    <select class="form-select" id="file_format" name="file_format">
+                                        <option value="auto" selected>Auto-detect format</option>
+                                        <option value="mir">MIR Event Viewer Report</option>
+                                        <option value="zkteco">ZKTeco Standard</option>
+                                        <option value="hikvision">Hikvision</option>
+                                    </select>
+                                    <div class="form-text">Select the format of your CSV file or use Auto-detect</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="device_id" class="form-label">Attendance Device</label>
+                                    <select class="form-select" id="device_id" name="device_id">
+                                        {% for device in devices %}
+                                        <option value="{{ device.id }}" {% if device.id == default_device.id %}selected{% endif %}>
+                                            {{ device.name }} ({{ device.device_type }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">Select the device these logs came from</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="create_missing" name="create_missing" role="switch">
+                                    <label class="form-check-label" for="create_missing">
+                                        Create missing employees automatically
+                                    </label>
+                                    <div class="form-text">If checked, employees that don't exist in the system will be created with their ID and name from the CSV</div>
+                                </div>
+                                <div class="alert alert-warning mt-2">
+                                    <i class="bi bi-exclamation-triangle"></i> <strong>Important:</strong> Make sure to check this box if your employees are not yet in the system!
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> <strong>After Import:</strong> You'll need to <a href="{{ url_for('attendance.process_all_logs') }}">process the logs</a> to convert them into attendance records and calculate overtime.
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('attendance.index') }}" class="btn btn-secondary me-md-2">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Import Attendance Data</button>
+                            <a href="{{ url_for('attendance.process_all_logs') }}" class="btn btn-outline-success ms-md-2">
+                                <i class="bi bi-cpu"></i> Process Imported Logs
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="card-title mb-0">Delete Attendance Data</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill"></i> <strong>Warning!</strong> This action will permanently delete attendance records and logs from the system.
+                    </div>
+                    
+                    <form method="POST" id="delete-form">
+                        <input type="hidden" name="delete_records" value="true">
+                        <input type="hidden" name="confirm_token" value="delete-attendance-records">
+                        
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="delete_type" id="delete_type_all" value="all" checked
+                                           onclick="document.getElementById('date_range_div').style.display='none';document.getElementById('employee_div').style.display='none';">
+                                    <label class="form-check-label fw-bold" for="delete_type_all">Delete ALL Records</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="delete_type" id="delete_type_date" value="date_range"
+                                           onclick="document.getElementById('date_range_div').style.display='flex';document.getElementById('employee_div').style.display='none';">
+                                    <label class="form-check-label fw-bold" for="delete_type_date">Delete by Date Range</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="delete_type" id="delete_type_employee" value="employee"
+                                           onclick="document.getElementById('employee_div').style.display='block';document.getElementById('date_range_div').style.display='none';">
+                                    <label class="form-check-label fw-bold" for="delete_type_employee">Delete by Employee</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Delete By Date Range Options -->
+                        <div class="row mb-3" id="date_range_div" style="display: none;">
+                            <div class="col-md-6">
+                                <label for="from_date" class="form-label">From Date</label>
+                                <input type="date" class="form-control" id="from_date" name="from_date">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="to_date" class="form-label">To Date</label>
+                                <input type="date" class="form-control" id="to_date" name="to_date">
+                            </div>
+                        </div>
+                        
+                        <!-- Delete By Employee Options -->
+                        <div class="row" id="employee_div" style="display: none;">
+                            <div class="col-md-12 mb-3">
+                                <label for="employee_id" class="form-label">Select Employee</label>
+                                <select class="form-select employee-select" id="employee_id" name="employee_id" data-placeholder="Type to search for employee" data-allow-clear="true">
+                                    <option value="">-- Select Employee --</option>
+                                    {% for employee in employees %}
+                                    <option value="{{ employee.id }}">{{ employee.name }} ({{ employee.employee_code }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-12 mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="include_date_range" name="include_date_range" 
+                                           onclick="document.getElementById('emp_date_div').style.display=this.checked ? 'flex' : 'none';">
+                                    <label class="form-check-label" for="include_date_range">
+                                        Also filter by date range
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="row" id="emp_date_div" style="display: none;">
+                                <div class="col-md-6">
+                                    <label for="emp_from_date" class="form-label">From Date</label>
+                                    <input type="date" class="form-control" id="emp_from_date" name="emp_from_date">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="emp_to_date" class="form-label">To Date</label>
+                                    <input type="date" class="form-control" id="emp_to_date" name="emp_to_date">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3 form-check mt-3">
+                            <input type="checkbox" class="form-check-input" id="confirm_delete" required>
+                            <label class="form-check-label" for="confirm_delete">
+                                I understand this action will permanently delete attendance data
+                            </label>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash"></i> Delete Selected Records
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Sample CSV Format</h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 font-monospace small" style="max-height: 300px; overflow-y: auto;">
+"Event Viewer Report","Business Unit:","MIR-Plastic Industries LLC","Location:","MIRDXB","Department:","Cleaner/Misc"
+"Section:","Cleaner/Misc","Employee ID:","129","Report Period:"," 01-Mar-25 To :31-Mar-25","Employee Name:","KHAMIS"
+"Date","Day","Terminal ID","Terminal Name","Event","Punch"
+01-Mar-25,"Saturday","2","DXB Attendance","IN",01-Mar-25  08:23 am
+01-Mar-25,"Saturday","2","DXB Attendance","OUT",01-Mar-25  09:43 pm
+02-Mar-25,"Sunday","2","DXB Attendance","IN",02-Mar-25  08:06 am
+02-Mar-25,"Sunday","2","DXB Attendance","OUT",02-Mar-25  03:42 pm</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add validation for file input
+        const fileInput = document.getElementById('csv_file');
+        if (fileInput) {
+            fileInput.addEventListener('change', function() {
+                const file = this.files[0];
+                if (file && !file.name.toLowerCase().endsWith('.csv')) {
+                    alert('Please select a CSV file');
+                    this.value = '';
+                }
+            });
+        }
+        
+        // Initialize Select2 for better dropdown usability
+        if ($.fn.select2) {
+            $('#file_format').select2({
+                minimumResultsForSearch: -1, // Disable search for this dropdown
+                width: '100%'
+            });
+            
+            $('#device_id').select2({
+                width: '100%'
+            });
+        }
+        
+        // Get all the needed elements for delete options
+        const dateRangeDiv = document.getElementById('date_range_div');
+        const employeeDiv = document.getElementById('employee_div');
+        const empDateDiv = document.getElementById('emp_date_div');
+        const includeCheckbox = document.getElementById('include_date_range');
+        
+        // Add event listeners to radio buttons
+        document.getElementById('delete_type_all').addEventListener('change', function() {
+            dateRangeDiv.style.display = 'none';
+            employeeDiv.style.display = 'none';
+        });
+        
+        document.getElementById('delete_type_date').addEventListener('change', function() {
+            dateRangeDiv.style.display = 'flex';
+            employeeDiv.style.display = 'none';
+        });
+        
+        document.getElementById('delete_type_employee').addEventListener('change', function() {
+            dateRangeDiv.style.display = 'none';
+            employeeDiv.style.display = 'block';
+            empDateDiv.style.display = includeCheckbox.checked ? 'flex' : 'none';
+        });
+        
+        // Event listener for the checkbox
+        if (includeCheckbox) {
+            includeCheckbox.addEventListener('change', function() {
+                empDateDiv.style.display = this.checked ? 'flex' : 'none';
+            });
+        }
+        
+        // Form validation
+        const deleteForm = document.getElementById('delete-form');
+        if (deleteForm) {
+            deleteForm.addEventListener('submit', function(event) {
+                let isValid = true;
+                let errorMessage = '';
+                
+                const deleteType = document.querySelector('input[name="delete_type"]:checked').value;
+                
+                if (deleteType === 'date_range') {
+                    const fromDate = document.getElementById('from_date').value;
+                    const toDate = document.getElementById('to_date').value;
+                    
+                    if (!fromDate || !toDate) {
+                        isValid = false;
+                        errorMessage = 'Please select both from and to dates';
+                    }
+                } else if (deleteType === 'employee') {
+                    const employeeId = document.getElementById('employee_id').value;
+                    
+                    if (!employeeId) {
+                        isValid = false;
+                        errorMessage = 'Please select an employee';
+                    }
+                    
+                    if (includeCheckbox.checked) {
+                        const empFromDate = document.getElementById('emp_from_date').value;
+                        const empToDate = document.getElementById('emp_to_date').value;
+                        
+                        if (!empFromDate || !empToDate) {
+                            isValid = false;
+                            errorMessage = 'Please select both from and to dates for the employee';
+                        }
+                    }
+                }
+                
+                if (!isValid) {
+                    event.preventDefault();
+                    alert(errorMessage);
+                    return false;
+                }
+                
+                // Final confirmation
+                if (!confirm('Are you absolutely sure you want to delete these attendance records? This cannot be undone!')) {
+                    event.preventDefault();
+                    return false;
+                }
+                
+                return true;
+            });
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,375 @@
+{% extends 'base.html' %}
+
+{% block title %}Employee Attendance - {{ employee.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="bi bi-person-badge"></i> {{ employee.name }}'s Attendance</h2>
+                <div class="btn-group">
+                    <a href="{{ url_for('attendance.daily') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Daily View
+                    </a>
+                    <button class="btn btn-outline-primary" id="exportBtn">
+                        <i class="bi bi-download"></i> Export Data
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="bi bi-person-vcard"></i> Employee Details</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <th width="150">ID/Code:</th>
+                            <td>{{ employee.employee_code }}</td>
+                        </tr>
+                        <tr>
+                            <th>Department:</th>
+                            <td>{{ employee.department or 'Not Assigned' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Position:</th>
+                            <td>{{ employee.position or 'Not Assigned' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Join Date:</th>
+                            <td>{{ employee.join_date.strftime('%d %b, %Y') if employee.join_date else 'Not Available' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Status:</th>
+                            <td>
+                                {% if employee.is_active %}
+                                <span class="badge bg-success">Active</span>
+                                {% else %}
+                                <span class="badge bg-danger">Inactive</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> Current Shift</h5>
+                </div>
+                <div class="card-body">
+                    {% if employee.current_shift %}
+                    <table class="table table-borderless">
+                        <tr>
+                            <th width="150">Shift Name:</th>
+                            <td>
+                                <span class="badge" style="background-color: {{ employee.current_shift.color_code }}">
+                                    {{ employee.current_shift.name }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Work Hours:</th>
+                            <td>{{ employee.current_shift.start_time.strftime('%I:%M %p') }} - {{ employee.current_shift.end_time.strftime('%I:%M %p') }}</td>
+                        </tr>
+                        <tr>
+                            <th>Duration:</th>
+                            <td>{{ '%.2f'|format(employee.current_shift.get_duration_hours()) }} hours</td>
+                        </tr>
+                        <tr>
+                            <th>Break Time:</th>
+                            <td>{{ employee.current_shift.break_duration }} hours</td>
+                        </tr>
+                        <tr>
+                            <th>Grace Period:</th>
+                            <td>{{ employee.current_shift.grace_period_minutes }} minutes</td>
+                        </tr>
+                    </table>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> No shift assigned to this employee.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="bi bi-funnel"></i> Filter Records</h5>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <label for="date_from" class="form-label">From Date</label>
+                            <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from|default('') }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="date_to" class="form-label">To Date</label>
+                            <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to|default('') }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="status" class="form-label">Status</label>
+                            <select class="form-control" id="status" name="status">
+                                <option value="">All Statuses</option>
+                                <option value="present" {% if status == 'present' %}selected{% endif %}>Present</option>
+                                <option value="absent" {% if status == 'absent' %}selected{% endif %}>Absent</option>
+                                <option value="late" {% if status == 'late' %}selected{% endif %}>Late</option>
+                                <option value="half-day" {% if status == 'half-day' %}selected{% endif %}>Half Day</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-search"></i> Apply Filter
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="bi bi-table"></i> Attendance Records</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover{% if records %} datatable{% endif %}">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Check In</th>
+                                    <th>Check Out</th>
+                                    <th>Status</th>
+                                    <th>Break Start</th>
+                                    <th>Break End</th>
+                                    <th>Break Duration</th>
+                                    <th>Work Hours</th>
+                                    <th>Overtime</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in records %}
+                                <tr>
+                                    <td>{{ record.date.strftime('%d %b, %Y') }} <small class="text-muted">({{ record.date.strftime('%a') }})</small></td>
+                                    <td>
+                                        {% if record.check_in %}
+                                            {{ record.check_in.strftime('%I:%M %p') }}
+                                            {% if record.status == 'late' %}
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="bi bi-exclamation-triangle"></i> Late
+                                                </span>
+                                            {% endif %}
+                                        {% else %}
+                                            --
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if record.check_out %}
+                                            {{ record.check_out.strftime('%I:%M %p') }}
+                                        {% else %}
+                                            --
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if record.is_holiday %}
+                                            <span class="badge bg-info">Holiday</span>
+                                        {% elif record.is_weekend %}
+                                            <span class="badge bg-secondary">Weekend</span>
+                                        {% elif record.status == 'present' %}
+                                            <span class="badge bg-success">Present</span>
+                                        {% elif record.status == 'absent' %}
+                                            <span class="badge bg-danger">Absent</span>
+                                        {% elif record.status == 'late' %}
+                                            <span class="badge bg-warning text-dark">Late</span>
+                                        {% elif record.status == 'half-day' %}
+                                            <span class="badge bg-primary">Half Day</span>
+                                        {% else %}
+                                            <span class="badge bg-light text-dark">{{ record.status|capitalize }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if record.break_start %}
+                                            {{ record.break_start.strftime('%I:%M %p') }}
+                                        {% elif record.break_start_time %}
+                                            {{ record.break_start_time.strftime('%I:%M %p') }}
+                                        {% else %}
+                                            --
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if record.break_end %}
+                                            {{ record.break_end.strftime('%I:%M %p') }}
+                                        {% elif record.break_end_time %}
+                                            {{ record.break_end_time.strftime('%I:%M %p') }}
+                                        {% else %}
+                                            --
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ '%.2f'|format(record.break_duration) if record.break_duration else '--' }} hrs</td>
+                                    <td>{{ '%.2f'|format(record.work_hours) if record.work_hours else '--' }} hrs</td>
+                                    <td>{{ '%.2f'|format(record.overtime_hours) if record.overtime_hours else '--' }} hrs</td>
+                                    <td>
+                                        {% if record.notes %}
+                                            <button type="button" class="btn btn-sm btn-outline-info view-notes" data-bs-toggle="modal" data-bs-target="#notesModal" data-notes="{{ record.notes }}">
+                                                <i class="bi bi-card-text"></i>
+                                            </button>
+                                        {% else %}
+                                            --
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="8" class="text-center">No attendance records found</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> Attendance Summary</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="attendanceChart" height="250"></canvas>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="bi bi-list-check"></i> Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            Present Days
+                            <span class="badge bg-success rounded-pill">{{ stats.present_count if stats else 0 }}</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            Absent Days
+                            <span class="badge bg-danger rounded-pill">{{ stats.absent_count if stats else 0 }}</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            Late Arrivals
+                            <span class="badge bg-warning text-dark rounded-pill">{{ stats.late_count if stats else 0 }}</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            Total Working Days
+                            <span class="badge bg-primary rounded-pill">{{ stats.total_days if stats else 0 }}</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            Average Work Hours
+                            <span class="badge bg-secondary rounded-pill">{{ '%.2f'|format(stats.avg_hours) if stats and stats.avg_hours else 0 }}</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            Total Overtime Hours
+                            <span class="badge bg-dark rounded-pill">{{ '%.2f'|format(stats.total_overtime) if stats and stats.total_overtime else 0 }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notes Modal -->
+<div class="modal fade" id="notesModal" tabindex="-1" aria-labelledby="notesModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="notesModalLabel">Attendance Notes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="notesContent">
+                <!-- Notes content will be inserted here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize attendance chart
+        const ctxAttendance = document.getElementById('attendanceChart').getContext('2d');
+        
+        const attendanceData = {
+            labels: ['Present', 'Absent', 'Late', 'Other'],
+            datasets: [{
+                label: 'Attendance Distribution',
+                data: [
+                    {{ stats.present if stats else 0 }},
+                    {{ stats.absent if stats else 0 }},
+                    {{ stats.late if stats else 0 }},
+                    0
+                ],
+                backgroundColor: [
+                    '#28a745', // Present (Success)
+                    '#dc3545', // Absent (Danger)
+                    '#ffc107', // Late (Warning)
+                    '#6c757d'  // Other (Secondary)
+                ],
+                borderWidth: 1
+            }]
+        };
+        
+        new Chart(ctxAttendance, {
+            type: 'doughnut',
+            data: attendanceData,
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Attendance Distribution'
+                    }
+                }
+            }
+        });
+        
+        // Handle export button
+        document.getElementById('exportBtn').addEventListener('click', function() {
+            // Create export URL with current filters
+            let dateFrom = document.getElementById('date_from').value;
+            let dateTo = document.getElementById('date_to').value;
+            let status = document.getElementById('status').value;
+            
+            window.location.href = `{{ url_for('reports.export_csv') }}?type=employee&employee_id={{ employee.id }}&date_from=${dateFrom}&date_to=${dateTo}&status=${status}`;
+        });
+        
+        // Handle notes modal
+        const viewNotesButtons = document.querySelectorAll('.view-notes');
+        viewNotesButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const notes = this.getAttribute('data-notes');
+                document.getElementById('notesContent').textContent = notes;
+            });
+        });
+    });
+</script>
+{% endblock %}

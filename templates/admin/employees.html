@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}Employee Management{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-people me-2"></i>
+                Employee Management
+            </h5>
+            <div>
+                <button type="button" class="btn btn-light btn-sm me-2" data-bs-toggle="modal" data-bs-target="#filterModal">
+                    <i class="bi bi-funnel"></i> Filter
+                </button>
+                <form action="{{ url_for('admin.sync_employees') }}" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-light btn-sm">
+                        <i class="bi bi-arrow-repeat"></i> Sync from Odoo
+                    </button>
+                </form>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- Employee Statistics -->
+            <div class="row mb-4">
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-primary text-white h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-people me-2"></i> Total</h5>
+                            <h3>{{ stats.total }}</h3>
+                            <p class="mb-0">Total employees</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-success text-white h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-person-check me-2"></i> Active</h5>
+                            <h3>{{ stats.active }}</h3>
+                            <p class="mb-0">{{ '{:.1f}'.format(stats.active_percent) }}% of total</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-info text-white h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-building me-2"></i> Departments</h5>
+                            <h3>{{ stats.departments }}</h3>
+                            <p class="mb-0">Distinct departments</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-warning text-dark h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-calendar-check me-2"></i> Today</h5>
+                            <h3>{{ stats.present_today }}</h3>
+                            <p class="mb-0">{{ '{:.1f}'.format(stats.present_percent) }}% present today</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Employees Table -->
+            <div class="table-responsive">
+                <table class="table table-hover" id="employeesTable">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Name</th>
+                            <th>Department</th>
+                            <th>Position</th>
+                            <th>Join Date</th>
+                            <th>Current Shift</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for employee in employees %}
+                        <tr>
+                            <td>{{ employee.employee_code }}</td>
+                            <td>{{ employee.name }}</td>
+                            <td>{{ employee.department or 'N/A' }}</td>
+                            <td>{{ employee.position or 'N/A' }}</td>
+                            <td>{{ employee.join_date.strftime('%Y-%m-%d') if employee.join_date else 'N/A' }}</td>
+                            <td>
+                                {% if employee.current_shift %}
+                                    <span class="shift-color-block" style="background-color: {{ employee.current_shift.color_code }}"></span>
+                                    {{ employee.current_shift.name }}
+                                {% else %}
+                                    <span class="badge bg-secondary">Not Assigned</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge {% if employee.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ 'Active' if employee.is_active else 'Inactive' }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('attendance.employee_attendance', employee_id=employee.id) }}" class="btn btn-sm btn-outline-primary" title="View Attendance">
+                                        <i class="bi bi-calendar-check"></i>
+                                    </a>
+                                    <a href="{{ url_for('shifts.assign_shift') }}?employee_id={{ employee.id }}" class="btn btn-sm btn-outline-success" title="Assign Shift">
+                                        <i class="bi bi-clock"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary toggle-status"
+                                           data-bs-toggle="modal" data-bs-target="#toggleStatusModal"
+                                           data-employee-id="{{ employee.id }}"
+                                           data-employee-name="{{ employee.name }}"
+                                           data-current-status="{{ 'active' if employee.is_active else 'inactive' }}"
+                                           title="Toggle Status">
+                                        <i class="bi bi-toggle-on"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center">No employees found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="get" action="{{ url_for('admin.employees') }}">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Filter Employees</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="department" class="form-label">Department</label>
+                        <select class="form-select" id="department" name="department">
+                            <option value="">All Departments</option>
+                            {% for dept in departments %}
+                                <option value="{{ dept }}" {% if selected_filters.department == dept %}selected{% endif %}>
+                                    {{ dept }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="shift_id" class="form-label">Current Shift</label>
+                        <select class="form-select" id="shift_id" name="shift_id">
+                            <option value="">All Shifts</option>
+                            <option value="none" {% if selected_filters.shift_id == 'none' %}selected{% endif %}>No Shift Assigned</option>
+                            {% for shift in shifts %}
+                                <option value="{{ shift.id }}" {% if selected_filters.shift_id|int == shift.id %}selected{% endif %}>
+                                    {{ shift.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="status" class="form-label">Status</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="">All</option>
+                            <option value="active" {% if selected_filters.status == 'active' %}selected{% endif %}>Active</option>
+                            <option value="inactive" {% if selected_filters.status == 'inactive' %}selected{% endif %}>Inactive</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="search" class="form-label">Search</label>
+                        <input type="text" class="form-control" id="search" name="search" placeholder="Name, Code, or Position" value="{{ selected_filters.search or '' }}">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a href="{{ url_for('admin.employees') }}" class="btn btn-secondary">Clear Filters</a>
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Toggle Status Modal -->
+<div class="modal fade" id="toggleStatusModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="toggleStatusForm" method="post" action="#">
+                <input type="hidden" name="employee_id" id="statusEmployeeId">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Change Employee Status</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to change the status of <strong id="statusEmployeeName"></strong>?</p>
+                    <p id="statusChangeMessage"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Change Status</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize DataTable with comprehensive defensive checks
+        try {
+            // First check if the table exists in DOM
+            if ($('#employeesTable').length === 0) {
+                console.warn('Table #employeesTable not found in the DOM');
+                return;
+            }
+            
+            // Next check if there's enough data to warrant a DataTable
+            if ($('#employeesTable tbody tr').length <= 1) {
+                console.log('No data or only one row in #employeesTable, skipping DataTable initialization');
+                return;
+            }
+            
+            // Check if a single row contains the "No employees found" message
+            if ($('#employeesTable tbody tr').length === 1 && 
+                $('#employeesTable tbody tr td[colspan]').length > 0) {
+                console.log('#employeesTable contains only "No employees" message row, skipping DataTable initialization');
+                return;
+            }
+            
+            // Check if DataTable is already initialized
+            if ($.fn.dataTable.isDataTable('#employeesTable')) {
+                console.log('#employeesTable already initialized as DataTable');
+                return;
+            }
+            
+            // Safe to initialize
+            $('#employeesTable').DataTable({
+                "order": [[1, "asc"]],  // Sort by name
+                "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]],
+                "language": {
+                    "search": "Quick Filter:"
+                }
+            });
+        } catch (e) {
+            console.error('Error initializing DataTable for #employeesTable:', e);
+        }
+        
+        // Toggle status modal setup
+        $('.toggle-status').on('click', function() {
+            var employeeId = $(this).data('employee-id');
+            var employeeName = $(this).data('employee-name');
+            var currentStatus = $(this).data('current-status');
+            var newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+            var messageClass = newStatus === 'active' ? 'text-success' : 'text-danger';
+            
+            $('#statusEmployeeId').val(employeeId);
+            $('#statusEmployeeName').text(employeeName);
+            $('#statusChangeMessage').html('Status will change from <strong>' + currentStatus + '</strong> to <strong class="' + messageClass + '">' + newStatus + '</strong>');
+        });
+    });
+</script>
+{% endblock %}
