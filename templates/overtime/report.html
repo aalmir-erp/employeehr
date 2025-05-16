@@ -88,9 +88,9 @@
                     </thead>
                     <tbody>
                         {% for result in results %}
-                                <tr data-employee-id="{{ result.employee_code }}" data-overtime='{{ "%.1f"|format(result.total_overtime if result.total_overtime is not none else 0) }}'>
+                                <tr data-employee-id="{{ result.employee_code }}" data-overtime='{{ "%.1f"|format(result.overt_time_weighted if result.overt_time_weighted is not none else 0) }}'>
 
-            <td><input type="checkbox" class="employeeCheckbox" data-employee-id="{{ result.employee_code }}" data-overtime='{{ "%.1f"|format(result.total_overtime if result.total_overtime is not none else 0) }}'></td>
+            <td><input type="checkbox" class="employeeCheckbox" data-employee-id="{{ result.employee_code }}" data-overtime='{{ "%.1f"|format(result.overt_time_weighted if result.overt_time_weighted is not none else 0) }}'></td>
 
                             <td>{{ result.employee_code }}</td>
                             <td>
