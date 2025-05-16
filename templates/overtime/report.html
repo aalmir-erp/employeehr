@@ -82,6 +82,7 @@
                             <th class="text-end">Holiday OT</th>
                             <th class="text-end">Absent Days</th>
                             <th class="text-end">Avg. Rate</th>
+                            <th class="text-end">Weighted(OT) </th>
                             <th class="text-end">Actions</th>
                         </tr>
                     </thead>
@@ -104,6 +105,8 @@
                             <td class="text-end">{{ "%.1f"|format(result.holiday_overtime if result.holiday_overtime is not none else 0) }}</td>
                             <td class="text-end">{{ result.absent_days or 0 }}</td>
                             <td class="text-end">{{ "%.2f"|format(result.avg_rate if result.avg_rate is not none else 0) }}x</td>
+                            <td class="text-end">{{ "%.2f"|format(result.overt_time_weighted if result.overt_time_weighted is not none else 0) }}x</td>
+                            
                             <td class="text-end">
                                 <a href="{{ url_for('overtime.employee_overtime', employee_id=result.id) }}" class="btn btn-sm btn-outline-primary">
                                     <i class="bi bi-graph-up"></i> Details

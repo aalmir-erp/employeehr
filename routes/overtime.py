@@ -595,6 +595,7 @@ def report():
         func.coalesce(func.sum(AttendanceRecord.overtime_hours), 0).label('total_overtime'),
         func.coalesce(func.sum(AttendanceRecord.regular_overtime_hours), 0).label('weekday_overtime'),
         func.coalesce(func.sum(AttendanceRecord.weekend_overtime_hours), 0).label('weekend_overtime'),
+        func.coalesce(func.sum(AttendanceRecord.overt_time_weighted), 0).label('overt_time_weighted'),
         func.coalesce(func.sum(
             case(
                 (AttendanceRecord.status == 'absent', 1),
