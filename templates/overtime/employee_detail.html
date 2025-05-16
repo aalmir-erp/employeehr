@@ -150,6 +150,7 @@
                             <th>Weekend OT</th>
                             <th>Holiday OT</th>
                             <th>Rate</th>
+                            <th>OT(weight)</th>
                             <th>Night Hours</th>
                             <th>Rule Applied</th>
                         </tr>
@@ -166,6 +167,8 @@
                             <td>{{ "%.1f"|format(record.weekend_overtime_hours if record.weekend_overtime_hours is not none else 0) }}</td>
                             <td>{{ "%.1f"|format(record.holiday_overtime_hours if record.holiday_overtime_hours is not none else 0) }}</td>
                             <td>{{ "%.2f"|format(record.overtime_rate if record.overtime_rate is not none else 0) }}x</td>
+                            <td>{{ "%.2f"|format(record.overt_time_weighted if record.overt_time_weighted is not none else 0) }}</td>
+                            
                             <td>{{ "%.1f"|format(record.overtime_night_hours if record.overtime_night_hours is not none else 0) }}</td>
                             <td>
                                 {% if record.overtime_rule %}
