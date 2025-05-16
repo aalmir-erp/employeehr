@@ -256,6 +256,8 @@ class AttendanceRecord(db.Model):
     overtime_rule = db.relationship('OvertimeRule', backref='attendance_records', lazy=True)
     attendance_logs = db.relationship('AttendanceLog', backref='attendance_record', lazy='dynamic')
     shift = db.relationship('Shift', backref='attendance_records', lazy=True)
+    overt_time_weighted = db.Column(db.Float, default=0.0)
+
     
     def __repr__(self):
         return f'<AttendanceRecord {self.employee_id} {self.date}>'
@@ -425,6 +427,7 @@ class AttendanceRecord(db.Model):
             # Store total values - ensure it's the sum of all overtime categories
             self.overtime_hours = self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours
             self.overtime_rate = rate
+            self.overt_time_weighted =  self.overtime_hours *  self.overtime_rate
             
             return capped_overtime, rate
         else:
@@ -462,8 +465,9 @@ class AttendanceRecord(db.Model):
                 self.overtime_night_hours = overtime_eligible
                 
             # Ensure overtime_hours is the sum of all overtime categories
-            self.overtime_hours = self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours
+            self.overtime_hours =  self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours
             self.overtime_rate = default_rate
+            self.overt_time_weighted =  self.overtime_hours *  self.overtime_rate
             
             return overtime_eligible, default_rate
 
