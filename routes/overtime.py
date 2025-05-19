@@ -361,7 +361,9 @@ def recalculate():
     if request.method == 'POST':
         try:
             # Get form data
-            recalc_type = request.form.get('recalc_type')
+            recalc_type = request.form.get('recalculate_type')
+            print (" get here recalculated -----------------------------------")
+            print (recalc_type)
             
             if recalc_type == 'date':
                 date_str = request.form.get('date')
@@ -380,6 +382,8 @@ def recalculate():
                 flash(f'Successfully recalculated overtime for {count} records on {target_date}', 'success')
                 
             elif recalc_type == 'employee':
+                print (" get here recalculated --------------2323---------------------")
+
                 employee_id = request.form.get('employee_id')
                 if not employee_id:
                     flash('Please select an employee', 'danger')
