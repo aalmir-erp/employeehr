@@ -1,150 +1,134 @@
 {% extends "base.html" %}
 
-{% block title %}Edit Shift{% endblock %}
+{% block title %}Edit Shift - {{ shift.name }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row mb-4">
-        <div class="col">
-            <h1 class="h2 mb-3">
-                <i class="bi bi-clock me-2"></i>
+<div class="col-md-8 mx-auto">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-pencil me-2"></i>
                 Edit Shift: {{ shift.name }}
-            </h1>
-            <p class="lead">Modify shift configuration and options.</p>
+            </h5>
         </div>
-    </div>
-
-    <div class="row">
-        <div class="col-md-8">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="card-title mb-0">Shift Details</h5>
-                </div>
-                <div class="card-body">
+        <div class="card-body">
                     <form method="post" action="{{ url_for('shifts.edit_shift', shift_id=shift.id) }}">
-                        <div class="mb-3">
-                            <label for="name" class="form-label">Shift Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="name" name="name" value="{{ shift.name }}" required>
-                            <div class="form-text">A descriptive name like "Day Shift" or "Night Shift"</div>
-                        </div>
-                        
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label for="start_time" class="form-label">Start Time <span class="text-danger">*</span></label>
-                                <input type="time" class="form-control" id="start_time" name="start_time" value="{{ start_time }}" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="end_time" class="form-label">End Time <span class="text-danger">*</span></label>
-                                <input type="time" class="form-control" id="end_time" name="end_time" value="{{ end_time }}" required>
-                            </div>
-                        </div>
-                        
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label for="break_duration" class="form-label">Break Duration (hours)</label>
-                                <input type="number" class="form-control" id="break_duration" name="break_duration" min="0" max="5" step="0.5" value="{{ shift.break_duration or 0 }}">
-                                <div class="form-text">Time subtracted from total hours worked</div>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="grace_period_minutes" class="form-label">Grace Period (minutes)</label>
-                                <input type="number" class="form-control" id="grace_period_minutes" name="grace_period_minutes" min="0" max="60" value="{{ shift.grace_period_minutes or 0 }}">
-                                <div class="form-text">Allowed time for late arrivals</div>
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="weekend_days" class="form-label">Weekend Days (Comma-separated day numbers)</label>
-                            <input type="text" class="form-control" id="weekend_days" name="weekend_days" value="{{ weekend_days }}">
-                            <div class="form-text">0=Monday, 1=Tuesday, 2=Wednesday, 3=Thursday, 4=Friday, 5=Saturday, 6=Sunday</div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="color_code" class="form-label">Color</label>
-                            <input type="color" class="form-control form-control-color" id="color_code" name="color_code" value="{{ shift.color_code or '#007bff' }}">
-                            <div class="form-text">Color used to identify this shift in the schedule</div>
-                        </div>
-                        
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if shift.is_active %}checked{% endif %}>
-                            <label class="form-check-label" for="is_active">Active</label>
-                            <div class="form-text">Inactive shifts won't be available for new assignments</div>
-                        </div>
-                        
-                        <div class="d-flex justify-content-between">
-                            <a href="{{ url_for('shifts.index') }}" class="btn btn-secondary">Cancel</a>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-save me-1"></i> Save Changes
-                            </button>
-                        </div>
-                    </form>
+                <div class="mb-3">
+                    <label for="name" class="form-label">Shift Name*</label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ shift.name }}" required>
                 </div>
-            </div>
-        </div>
-        
-        <div class="col-md-4">
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-info text-white">
-                    <h5 class="card-title mb-0">Shift Information</h5>
-                </div>
-                <div class="card-body">
-                    <table class="table table-sm">
-                        <tr>
-                            <th>Created:</th>
-                            <td>{{ shift.created_at.strftime('%Y-%m-%d') if shift.created_at else 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <th>Duration:</th>
-                            <td>{{ shift.get_duration_hours() }} hours</td>
-                        </tr>
-                        <tr>
-                            <th>Overnight:</th>
-                            <td>
-                                {% if shift.is_overnight %}
-                                <span class="badge bg-info">Yes</span>
-                                {% else %}
-                                <span class="badge bg-secondary">No</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>Active:</th>
-                            <td>
-                                {% if shift.is_active %}
-                                <span class="badge bg-success">Active</span>
-                                {% else %}
-                                <span class="badge bg-secondary">Inactive</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                    </table>
-                    
-                    <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        <small>Updating this shift will affect all future attendance calculations for employees assigned to it.</small>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="start_time" class="form-label">Start Time*</label>
+                        <input type="time" class="form-control" id="start_time" name="start_time" value="{{ shift.start_time.strftime('%H:%M') }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="end_time" class="form-label">End Time*</label>
+                        <input type="time" class="form-control" id="end_time" name="end_time" value="{{ shift.end_time.strftime('%H:%M') }}" required>
                     </div>
                 </div>
-            </div>
-            
-            <div class="card shadow-sm">
-                <div class="card-header bg-success text-white">
-                    <h5 class="card-title mb-0">Weekend Configuration</h5>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="break_duration" class="form-label">Break Duration (hours)</label>
+                        <input type="number" class="form-control" id="break_duration" name="break_duration" step="0.1" min="0" value="{{ shift.break_duration }}">
+                        <div class="form-text">Duration of break period in hours (e.g., 1.0 for 1 hour)</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="grace_period_minutes" class="form-label">Grace Period (minutes)</label>
+                        <input type="number" class="form-control" id="grace_period_minutes" name="grace_period_minutes" min="0" value="{{ shift.grace_period_minutes }}">
+                        <div class="form-text">Minutes of grace period for late arrivals</div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <p><small>The weekend days configuration allows you to define which days should be considered weekends for employees on this shift.</small></p>
-                    <p><small>This is particularly useful for shift patterns that don't follow standard weekend days (Saturday and Sunday).</small></p>
-                    <ul class="mb-0">
-                        <li><small>0 = Monday</small></li>
-                        <li><small>1 = Tuesday</small></li>
-                        <li><small>2 = Wednesday</small></li>
-                        <li><small>3 = Thursday</small></li>
-                        <li><small>4 = Friday</small></li>
-                        <li><small>5 = Saturday</small></li>
-                        <li><small>6 = Sunday</small></li>
-                    </ul>
-                    <p class="mt-2 mb-0"><small>Example: <code>5,6</code> for Saturday and Sunday</small></p>
+                
+                <div class="mb-3">
+                    <label for="color_code" class="form-label">Color Code</label>
+                    <div class="input-group">
+                        <input type="color" class="form-control form-control-color" id="color_code" name="color_code" value="{{ shift.color_code }}">
+                        <span class="input-group-text">Color used to represent this shift in the scheduler</span>
+                    </div>
                 </div>
-            </div>
+                
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="is_overnight" name="is_overnight" {% if shift.is_overnight %}checked{% endif %}>
+                    <label class="form-check-label" for="is_overnight">Overnight Shift</label>
+                    <div class="form-text">Check if this shift extends past midnight into the next day</div>
+                </div>
+                
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if shift.is_active %}checked{% endif %}>
+                    <label class="form-check-label" for="is_active">Active</label>
+                    <div class="form-text">Inactive shifts won't be available for assignment</div>
+                </div>
+                
+                <div class="card bg-light mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">Shift Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Duration:</strong>
+                                <div>{{ shift.get_duration_hours() }} hours</div>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Currently Assigned to:</strong>
+                                <div>{{ shift.employees.count() }} employees</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4 d-flex justify-content-between">
+                    <a href="{{ url_for('shifts.index') }}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Shifts
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Save Changes
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize shift duration calculation
+        function calculateShiftDuration() {
+            var startTime = $('#start_time').val();
+            var endTime = $('#end_time').val();
+            
+            if(startTime && endTime) {
+                // Convert to Date objects for easier comparison
+                var start = new Date('2000-01-01T' + startTime + ':00');
+                var end = new Date('2000-01-01T' + endTime + ':00');
+                
+                // If end time is earlier than start time, it's an overnight shift
+                if(end < start) {
+                    $('#is_overnight').prop('checked', true);
+                } else {
+                    // Only automatically uncheck if the user hasn't explicitly set it
+                    if(!userSetOvernight) {
+                        $('#is_overnight').prop('checked', false);
+                    }
+                }
+            }
+        }
+        
+        // Track if user manually changed the overnight setting
+        var userSetOvernight = false;
+        $('#is_overnight').change(function() {
+            userSetOvernight = true;
+        });
+        
+        // Update calculations when times change
+        $('#start_time, #end_time').change(function() {
+            calculateShiftDuration();
+        });
+    });
+</script>
 {% endblock %}

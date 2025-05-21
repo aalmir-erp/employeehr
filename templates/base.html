@@ -197,10 +197,10 @@
                             </li>
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('attendance.raw_logs') }}">
-                                    <i class="bi bi-list-columns"></i> Raw Logs
+                                    <i class="bi bi-list-columns"></i> Raw Logs {{current_user.roles}}
                                 </a>
                             </li>
-                            {% if current_user.is_admin %}
+
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('attendance.missing_punches') }}">
@@ -230,7 +230,7 @@
                                     <i class="bi bi-cpu"></i> Process All Logs
                                 </a>
                             </li>
-                            {% endif %}
+
                         </ul>
                     </li>
                     <li class="nav-item dropdown">

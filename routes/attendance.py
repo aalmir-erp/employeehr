@@ -236,7 +236,7 @@ def employee_attendance(employee_id):
 @login_required
 def manual_entry():
     """Manually enter attendance data"""
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('attendance.index'))
     
@@ -403,7 +403,7 @@ def manual_entry():
 @login_required
 def batch_entry():
     """Batch attendance entry for multiple employees at once with support for multiple days"""
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('attendance.index'))
     
@@ -865,7 +865,7 @@ def batch_entry():
 @login_required
 def raw_logs():
     """View raw attendance logs"""
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('attendance.index'))
     
@@ -966,7 +966,7 @@ def raw_logs():
 @login_required
 def process_all_logs():
     """Process all unprocessed attendance logs with enhanced analysis"""
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('attendance.index'))
     
@@ -1008,7 +1008,7 @@ def process_all_logs():
 @login_required
 def missing_punches():
     """View and fix missing punches (check-in or check-out)"""
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('attendance.index'))
     
@@ -1128,7 +1128,7 @@ def missing_punches():
 @login_required
 def import_csv():
     """Import attendance data from CSV files in various formats"""
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('attendance.index'))
     
@@ -1747,7 +1747,7 @@ def save_attendance_data(records, device_id, create_missing=False):
 @login_required
 def import_march_data():
     """Import March data from the sample CSV file and show day/night shift examples"""
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to access this feature', 'danger')
         return redirect(url_for('attendance.index'))
         
