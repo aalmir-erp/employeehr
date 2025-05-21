@@ -248,6 +248,7 @@ def process_attendance_records(date=None, employee_id=None, recalculate=False):
     
     records = query.all()
     processed_count = 0
+    print (records, "   records  -----")
     
     for record in records:
         try:

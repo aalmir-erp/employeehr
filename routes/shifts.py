@@ -19,9 +19,9 @@ def index():
 @login_required
 def add_shift():
     """Add a new shift"""
-    if not current_user.is_admin:
-        flash('You do not have permission to access this page', 'danger')
-        return redirect(url_for('shifts.index'))
+    # if not current_user.is_admin or not current_user.has_role('hr'):
+    #     flash('You do not have permission to access this page', 'danger')
+    #     return redirect(url_for('shifts.index'))
     
     if request.method == 'POST':
         # Extract form data
@@ -32,6 +32,7 @@ def add_shift():
         grace_period_minutes = request.form.get('grace_period_minutes', 0)
         break_duration = request.form.get('break_duration', 0)
         is_active = 'is_active' in request.form
+        is_overnight = True if request.form.get('is_overnight') else False
         
         # Convert time strings to time objects
         try:
@@ -51,7 +52,9 @@ def add_shift():
             color_code=color_code,
             grace_period_minutes=grace_period_minutes,
             break_duration=break_duration,
-            is_active=is_active
+            is_active=is_active,
+            is_overnight=is_overnight
+
         )
         
         try:
@@ -69,7 +72,7 @@ def add_shift():
 @login_required
 def edit_shift(shift_id):
     """Edit an existing shift"""
-    if not current_user.is_admin:
+    if not current_user.is_admin or not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('shifts.index'))
     
@@ -81,6 +84,7 @@ def edit_shift(shift_id):
         shift.name = request.form.get('name')
         start_time = request.form.get('start_time')
         end_time = request.form.get('end_time')
+        shift.is_overnight = True if request.form.get('is_overnight') else False
         shift.color_code = request.form.get('color_code', '#000000')
         
         try:
@@ -125,7 +129,9 @@ def edit_shift(shift_id):
 @login_required
 def assign_shift():
     """Assign shifts to employees"""
-    if not current_user.is_admin:
+    print (current_user.has_role, "------------------------------------------------")
+    print (current_user.has_role('hr'))
+    if not current_user.is_admin and not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('shifts.index'))
     
@@ -250,7 +256,7 @@ def assign_shift():
 @login_required
 def scheduler():
     """Interactive shift scheduler with multiple view options (weekly/monthly/employee/shift)"""
-    if not current_user.is_admin:
+    if not current_user.is_admin or not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('shifts.index'))
     
@@ -478,7 +484,7 @@ def add_assignment():
     """Add a new shift assignment"""
     is_ajax_request = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     
-    if not current_user.is_admin:
+    if not current_user.is_admin or not current_user.has_role('hr'):
         if is_ajax_request:
             return jsonify({'success': False, 'message': 'Permission denied'})
         flash('You do not have permission to perform this action', 'danger')
@@ -576,7 +582,7 @@ def assignment_delete(assignment_id):
     """Delete a shift assignment"""
     is_ajax_request = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     
-    if not current_user.is_admin:
+    if not current_user.is_admin or not current_user.has_role('hr'):
         if is_ajax_request:
             return jsonify({'success': False, 'message': 'Permission denied'})
         flash('You do not have permission to perform this action', 'danger')
@@ -605,7 +611,7 @@ def assignment_delete(assignment_id):
 @login_required
 def holidays():
     """Manage holidays"""
-    if not current_user.is_admin:
+    if not current_user.is_admin or not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('shifts.index'))
     
@@ -664,7 +670,7 @@ def holidays():
 @login_required
 def add_holiday():
     """Add a new holiday"""
-    if not current_user.is_admin:
+    if not current_user.is_admin or not current_user.has_role('hr'):
         flash('You do not have permission to perform this action', 'danger')
         return redirect(url_for('shifts.holidays'))
     
@@ -705,7 +711,7 @@ def add_holiday():
 @login_required
 def delete_holiday(holiday_id):
     """Delete a holiday"""
-    if not current_user.is_admin:
+    if not current_user.is_admin or not current_user.has_role('hr'):
         flash('You do not have permission to perform this action', 'danger')
         return redirect(url_for('shifts.holidays'))
     
@@ -815,7 +821,7 @@ def api_employee_assignments(employee_id):
 @login_required
 def advanced_batch_delete():
     """Delete multiple shift assignments by criteria (department, employee, date range)"""
-    if not current_user.is_admin:
+    if not current_user.is_admin or not current_user.has_role('hr'):
         return jsonify({'success': False, 'message': 'Permission denied'}), 403
     
     try:
@@ -893,7 +899,7 @@ def advanced_batch_delete():
 @login_required
 def batch_assign():
     """Assign shifts to multiple employees/dates at once"""
-    if not current_user.is_admin:
+    if not current_user.is_admin or not current_user.has_role('hr'):
         return jsonify({'success': False, 'message': 'Permission denied'}), 403
     
     try:

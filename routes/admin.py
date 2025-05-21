@@ -72,6 +72,171 @@ def index():
         last_sync=last_sync
     )
 
+
+@bp.route('/users/edit_user/<int:user_id>', methods=['GET', 'POST'])
+@login_required
+def edit_user(user_id):
+    """Edit a user"""
+    user = User.query.get_or_404(user_id)
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        is_admin = request.form.get('is_admin') == '1'
+        is_active = 'is_active' in request.form
+        
+        # Check if username or email already exists for another user
+        existing_user = User.query.filter(
+            ((User.username == username) | (User.email == email)) & 
+            (User.id != user_id)
+        ).first()
+        
+        if existing_user:
+            flash('Username or email already in use by another user', 'danger')
+            return redirect(url_for('admin.edit_user', user_id=user_id))
+        
+        # Update user details
+        user.username = username
+        user.email = email
+        user.is_admin = is_admin
+        user.is_active = is_active
+        
+        db.session.commit()
+        flash(f'User "{username}" updated successfully', 'success')
+        return redirect(url_for('admin.users'))
+    
+    return render_template('admin/edit_user.html', user=user)
+
+@bp.route('/users/delete', methods=['POST'])
+@login_required
+def delete_user():
+    """Delete a user"""
+    user_id = request.form.get('user_id')
+    user = User.query.get_or_404(user_id)
+    
+    # Don't allow deleting yourself
+    if user.id == current_user.id:
+        flash('You cannot delete your own account', 'danger')
+        return redirect(url_for('admin.users'))
+    
+    username = user.username
+    db.session.delete(user)
+    db.session.commit()
+    
+    flash(f'User "{username}" deleted successfully', 'success')
+    return redirect(url_for('admin.users'))
+
+
+
+@bp.route('/users/add', methods=['GET', 'POST'])
+@login_required
+def add_user():
+    """Add a new user"""
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        is_admin = request.form.get('is_admin') == '1'
+        
+        # Check if user exists
+        existing_user = User.query.filter((User.username == username) | (User.email == email)).first()
+        if existing_user:
+            flash('Username or email already exists', 'danger')
+            return redirect(url_for('admin.add_user'))
+        
+        # Create new user
+        user = User(
+            username=username,
+            email=email,
+            is_admin=is_admin,
+            role ='hr'
+        )
+        user.set_password(password)
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        flash(f'User "{username}" added successfully', 'success')
+        return redirect(url_for('admin.users'))
+    
+    # Get employees for user linking
+    employees = Employee.query.filter_by(is_active=True).all()
+    return render_template('admin/add_user.html', employees=employees)
+
+
+@bp.route('/users')
+@login_required
+def users():
+    """Manage users"""
+    users = User.query.all()
+    
+    # Calculate statistics for the dashboard
+    total_count = len(users)
+    admin_count = sum(1 for u in users if u.is_admin)
+    active_count = sum(1 for u in users if u.is_active)
+    
+    stats = {
+        'total': total_count,
+        'admin': admin_count,
+        'admin_percent': (admin_count / total_count * 100) if total_count > 0 else 0,
+        'active': active_count,
+        'active_percent': (active_count / total_count * 100) if total_count > 0 else 0
+    }
+    
+    return render_template('admin/users.html', users=users, stats=stats)
+
+
+
+@bp.route('/users/reset-password/<int:user_id>', methods=['GET'])
+@login_required
+def reset_password_form(user_id):
+    """Display form to reset a user's password"""
+    if not current_user.is_admin:
+        flash('You do not have permission to reset passwords', 'danger')
+        return redirect(url_for('auth.login'))
+    
+    user = User.query.get_or_404(user_id)
+    return render_template('admin/reset_password.html', user=user)
+
+
+@bp.route('/users/reset-password', methods=['POST'])
+@login_required
+def reset_user_password():
+    """Process form to reset a user's password"""
+    # Ensure user is admin
+    if not current_user.is_admin:
+        flash('You do not have permission to reset passwords', 'danger')
+        return redirect(url_for('auth.login'))
+    user_id = request.form.get('user_id')
+    new_password = request.form.get('new_password')
+    confirm_password = request.form.get('confirm_password')
+    force_change = 'force_change' in request.form
+    
+    user = User.query.get_or_404(user_id)
+    
+    # Validate passwords
+    if not new_password or len(new_password) < 8:
+        flash('Password must be at least 8 characters long', 'danger')
+        return redirect(url_for('admin.reset_password_form', user_id=user.id))
+    
+    if new_password != confirm_password:
+        flash('Passwords do not match', 'danger')
+        return redirect(url_for('admin.reset_password_form', user_id=user.id))
+    
+    # Reset the password
+    user.set_password(new_password)
+    
+    # Set force_password_change flag if requested
+    if hasattr(user, 'force_password_change'):
+        user.force_password_change = force_change
+    
+    db.session.commit()
+    
+    flash(f'Password for "{user.username}" has been reset successfully', 'success')
+    return redirect(url_for('admin.users'))
+
+
+
 @bp.route('/employees')
 @login_required
 def employees():

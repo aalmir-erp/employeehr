@@ -193,17 +193,17 @@ def estimate_break_duration(logs):
     return round(total_break_time, 2), break_start, break_end
 
 
-
 def process_unprocessed_logs(limit=None):
     """
-    Process all unprocessed attendance logs
+    Process all unprocessed attendance logs with support for overnight shifts
+    
     Returns tuple: (records_created, logs_processed)
     """
     from utils.overtime_engine import calculate_overtime
-    from datetime import timedelta, date
-
+    
     print(f"DEBUG - Starting process_unprocessed_logs with limit={limit}")
     
+    # Get distinct employee-date combinations from unprocessed logs
     unprocessed_combinations = db.session.query(
         AttendanceLog.employee_id, 
         func.date(AttendanceLog.timestamp).label('log_date')
@@ -220,48 +220,145 @@ def process_unprocessed_logs(limit=None):
     records_created = 0
     logs_processed = 0
     
+    # Get all combinations for debugging
     all_combinations = list(unprocessed_combinations)
     print(f"DEBUG - Found {len(all_combinations)} unprocessed employee-date combinations")
-
-    processed_dates_by_employee = {}
-
+    for emp_id, log_date in all_combinations:
+        print(f"DEBUG - Will process employee {emp_id} on date {log_date}")
+    
+    # Process each employee-date combination
     for emp_id, log_date in all_combinations:
         print(f"DEBUG - Processing employee {emp_id} on date {log_date}")
         
-        logs = AttendanceLog.query.filter(
+        # First, check if this is the start of an overnight shift
+        # This means we need to look for logs on the next day as well
+        next_day = log_date + timedelta(days=1)
+        is_overnight = False
+        
+        # Fetch logs from the current day
+        current_day_logs = AttendanceLog.query.filter(
             AttendanceLog.employee_id == emp_id,
             func.date(AttendanceLog.timestamp) == log_date
         ).order_by(AttendanceLog.timestamp).all()
         
+        # Check if this could be the start of an overnight shift
+        # This is likely if the last log of the day is a check-in (IN) and no check-out (OUT)
+        if current_day_logs and current_day_logs[-1].log_type in ['IN', 'check_in']:
+            print(f"DEBUG - Last log of day {log_date} is a check-in, checking for overnight shift")
+            
+            # Fetch any logs from the next day
+            next_day_logs = AttendanceLog.query.filter(
+                AttendanceLog.employee_id == emp_id,
+                func.date(AttendanceLog.timestamp) == next_day
+            ).order_by(AttendanceLog.timestamp).all()
+            
+            # If there are logs on the next day and the first one is a check-out,
+            # this confirms an overnight shift
+            if next_day_logs and next_day_logs[0].log_type in ['OUT', 'check_out']:
+                is_overnight = True
+                print(f"DEBUG - Detected overnight shift for employee {emp_id} from {log_date} to {next_day}")
+                
+                # Combine logs from both days for processing
+                logs = current_day_logs + next_day_logs
+            else:
+                logs = current_day_logs
+        else:
+            # Also check if this is the end of an overnight shift that started the previous day
+            # In that case, we want to skip processing as it will be handled with the previous day
+            prev_day = log_date - timedelta(days=1)
+            prev_day_record = AttendanceRecord.query.filter(
+                AttendanceRecord.employee_id == emp_id,
+                AttendanceRecord.date == prev_day
+            ).filter(
+                AttendanceRecord.check_out == None
+            ).first()
+            
+            if prev_day_record and current_day_logs and current_day_logs[0].log_type in ['OUT', 'check_out']:
+                print(f"DEBUG - This appears to be the end of an overnight shift from {prev_day}, skipping")
+                # Process these logs with the previous day's records
+                for log in current_day_logs:
+                    if not log.is_processed:
+                        log.is_processed = True
+                        log.attendance_record_id = prev_day_record.id
+                        logs_processed += 1
+                        
+                # Update the previous day's record with the check-out time
+                prev_day_record.check_out = current_day_logs[0].timestamp
+                # Recalculate duration and work hours
+                prev_day_record.total_duration = calculate_total_duration(prev_day_record.check_in, prev_day_record.check_out)
+                prev_day_record.work_hours = max(0, prev_day_record.total_duration - (prev_day_record.break_duration or 0))
+                
+                # Save changes and recalculate overtime
+                db.session.commit()
+                try:
+                    calculate_overtime(prev_day_record, recalculate=True)
+                    db.session.commit()
+                except Exception as e:
+                    print(f"ERROR - Error calculating overtime for overnight record {prev_day_record.id}: {str(e)}")
+                    
+                # Skip further processing for this day
+                continue
+            else:
+                logs = current_day_logs
+        
+        # Filter to only unprocessed logs for actual processing
         unprocessed_logs = [log for log in logs if not log.is_processed]
         
-        if not unprocessed_logs:
-            continue
-            
-        check_in = logs[0].timestamp if logs else None
-        check_out = logs[-1].timestamp if logs else None
+        print(f"DEBUG - Found {len(logs)} total logs, {len(unprocessed_logs)} unprocessed")
         
-        if not check_in or not check_out or check_in == check_out:
+        if not unprocessed_logs:
+            print(f"DEBUG - No unprocessed logs for employee {emp_id} on {log_date}, skipping")
             continue
             
+        # Determine check-in and check-out times from logs
+        if logs:
+            # First log should be check-in
+            check_in_logs = [log for log in logs if log.log_type in ['IN', 'check_in']]
+            check_out_logs = [log for log in logs if log.log_type in ['OUT', 'check_out']]
+            
+            check_in = check_in_logs[0].timestamp if check_in_logs else None
+            check_out = check_out_logs[-1].timestamp if check_out_logs else None
+        else:
+            check_in = None
+            check_out = None
+        
+        # Skip if we don't have both check-in and check-out
+        if not check_in or not check_out:
+            print(f"DEBUG - Missing check-in ({check_in}) or check-out ({check_out}) for employee {emp_id}")
+            continue
+            
+        if check_in == check_out:
+            print(f"DEBUG - Invalid check-in/check-out times (same value) for employee {emp_id}: {check_in}")
+            continue
+            
+        # Calculate work metrics including actual break times
+        # Use all logs (processed and unprocessed) for better break detection
         break_duration, break_start, break_end = estimate_break_duration(logs)
-        shift_type = determine_shift_type(check_in, emp_id)
+        shift_type = determine_shift_type(check_in, emp_id)  # Use improved shift detection with employee ID
         total_duration = calculate_total_duration(check_in, check_out)
         
+        print(f"DEBUG - Work metrics: break_duration={break_duration}, break_start={break_start}, break_end={break_end}")
+        print(f"DEBUG - Work metrics: shift_type={shift_type}, total_duration={total_duration}")
+        
+        # Get or create attendance record
         record = AttendanceRecord.query.filter(
             AttendanceRecord.employee_id == emp_id,
             AttendanceRecord.date == log_date
         ).first()
         
         if not record:
-            record = AttendanceRecord(
-                employee_id=emp_id,
-                date=log_date
-            )
+            print(f"DEBUG - Creating new attendance record for employee {emp_id} on {log_date}")
+            record = AttendanceRecord()
+            record.employee_id = emp_id
+            record.date = log_date
             records_created += 1
-        
+        else:
+            print(f"DEBUG - Updating existing record {record.id} for employee {emp_id} on {log_date}")
+            
+        # Check if the date is a holiday or weekend
         is_holiday, is_weekend = check_holiday_and_weekend(emp_id, log_date)
         
+        # Update record with new data
         record.check_in = check_in
         record.check_out = check_out
         record.status = 'present'
@@ -272,25 +369,41 @@ def process_unprocessed_logs(limit=None):
         record.total_duration = total_duration
         record.is_holiday = is_holiday
         record.is_weekend = is_weekend
+        
+        # Save a flag to indicate that break_duration has been explicitly calculated
+        # from multiple breaks and should not be recalculated from break_start/break_end
         record.break_calculated = True
         
+        # Get the employee
         employee = Employee.query.get(emp_id)
         if employee and employee.current_shift_id:
+            # Assign the employee's current shift
             record.shift_id = employee.current_shift_id
         
+        # Calculate work hours (total duration minus breaks)
         work_hours = max(0, total_duration - break_duration)
         record.work_hours = work_hours
         
-        db.session.add(record)
-        db.session.flush()
+        print(f"DEBUG - Final record values: work_hours={work_hours}, is_holiday={is_holiday}, is_weekend={is_weekend}")
+        print(f"DEBUG - Break times: duration={break_duration}, start={break_start}, end={break_end}")
         
+        # Save the record to get an ID for association
+        db.session.add(record)
+        db.session.flush()  # Make sure record has an ID
+                
+        # Mark logs as processed
         for log in unprocessed_logs:
             log.is_processed = True
             log.attendance_record_id = record.id
             logs_processed += 1
         
         try:
+            # Save changes
             db.session.commit()
+            print(f"DEBUG - Successfully saved record {record.id}")
+            
+            # Now use the proper overtime calculation engine
+            # This ensures we're using the full rule-based system
             try:
                 calculate_overtime(record, recalculate=True)
             except Exception as e:
@@ -300,54 +413,51 @@ def process_unprocessed_logs(limit=None):
             db.session.rollback()
             print(f"ERROR - Database error while processing logs: {str(e)}")
             logging.error(f"Database error while processing logs: {str(e)}")
-        
-        if emp_id not in processed_dates_by_employee:
-            processed_dates_by_employee[emp_id] = set()
-        processed_dates_by_employee[emp_id].add(log_date)
 
-    print("DEBUG - Checking for missing dates to mark as absent (ignoring holidays/weekends)...")
-    for emp in Employee.query.all():
-        logs = AttendanceLog.query.filter_by(employee_id=emp.id).all()
-        if not logs:
-            continue
+        print("DEBUG - Checking for missing dates to mark as absent (ignoring holidays/weekends)...")
 
-        log_dates = sorted(set(log.timestamp.date() for log in logs))
-        if not log_dates:
-            continue
+        for emp in Employee.query.all():
+            logs = AttendanceLog.query.filter_by(employee_id=emp.id).all()
 
-        start_date = min(log_dates)
-        end_date = max(log_dates)
-        current_date = start_date
+            if not logs:
+                continue
+            log_dates = sorted(set(log.timestamp.date() for log in logs))
 
-        while current_date <= end_date:
-            attendance_exists = AttendanceRecord.query.filter_by(
-                employee_id=emp.id,
-                date=current_date
-            ).first()
+            if not log_dates:
+                continue
+            start_date = min(log_dates)
+            end_date = max(log_dates)
+            current_date = start_date
 
-            is_holiday, is_weekend = check_holiday_and_weekend(emp.id, current_date)
 
-            if not attendance_exists and not is_holiday and not is_weekend:
-                print(f"DEBUG - Marking absent for employee {emp.id} on {current_date}")
-                absent_record = AttendanceRecord(
-                    employee_id=emp.id,
-                    date=current_date,
-                    status='absent',
-                    check_in=None,
-                    check_out=None,
-                    work_hours=0,
-                    break_duration=0,
-                    is_holiday=False,
-                    is_weekend=False
-                )
-                db.session.add(absent_record)
-                records_created += 1
-            current_date += timedelta(days=1)
+            while current_date <= end_date:
+                    attendance_exists = AttendanceRecord.query.filter_by(
+                                employee_id = emp.id,
+                            date = current_date
+                                                ).first()
 
-    db.session.commit()
+                    is_holiday, is_weekend = check_holiday_and_weekend(emp.id, current_date)
+
+
+                    if not attendance_exists and not is_holiday and not is_weekend:
+                        print(f"DEBUG - Marking absent for employee {emp.id} on {current_date}")
+                        absent_record = AttendanceRecord(
+                                employee_id = emp.id,
+                            date = current_date,
+                            status = 'absent',
+                            check_in = None,
+                            check_out = None,
+                            work_hours = 0,
+                            break_duration = 0,
+                            is_holiday = False,
+                            is_weekend = False
+                                                          )
+                        db.session.add(absent_record)
+                        records_created += 1
+                    current_date += timedelta(days=1)
+    
     print(f"DEBUG - Finished processing. Created {records_created} records, processed {logs_processed} logs")
     return records_created, logs_processed
-
 
 
 def check_holiday_and_weekend(employee_id, date_obj):
@@ -376,18 +486,7 @@ def check_holiday_and_weekend(employee_id, date_obj):
         if general_holiday:
             is_holiday = True
             
-
-        # if isinstance(date_obj, str):
-        #     date_obj = datetime.strptime(date_obj, "%Y-%m-%d").date()
-        # elif isinstance(date_obj, datetime):
-        #     date_obj = date_obj.date()
-        # elif not isinstance(date_obj, date):
-        #     raise TypeError("Expected date_obj to be a date, got %s" % type(date_obj))
-
-
-
         # Check for recurring holiday (like New Year's Day every year)
-        
         recurring_holiday = Holiday.query.filter(
             func.extract('month', Holiday.date) == date_obj.month,
             func.extract('day', Holiday.date) == date_obj.day,
@@ -410,7 +509,7 @@ def check_holiday_and_weekend(employee_id, date_obj):
         weekend_days = employee.get_weekend_days(date_obj)
         
         # Debug logging to help diagnose weekend detection issues
-        print(f"DEBUG - Employee {employee_id , employee.id} Name {employee.name}, date {date_obj}, weekday {date_obj.weekday()}, weekend_days {weekend_days}")
+        print(f"DEBUG - Employee {employee_id}, date {date_obj}, weekday {date_obj.weekday()}, weekend_days {weekend_days}")
         
         # Check if the date's weekday is in the employee's weekend days
         is_weekend = date_obj.weekday() in weekend_days

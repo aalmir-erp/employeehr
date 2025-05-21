@@ -526,7 +526,7 @@ def employee_overtime(employee_id):
 
 @bp.route('/send_overtime_to_odoo', methods=['POST'])
 def send_overtime_to_odoo():
-    try:
+    if 1:
         data = request.get_json()
         run_id = 350
         overtime_data = data.get('overtime_data')
@@ -536,6 +536,47 @@ def send_overtime_to_odoo():
         DB = 'aalmir__2025_05_06'
         USER = 'admin'
         PASSWORD = '123'
+
+        print (overtime_data,"overtime_data")
+        print('ssssssssssssssss')
+        from_date = '2025-01-01'
+        to_date = '2025-05-31'
+        absent_data = {}
+
+        for entry in overtime_data:
+            code = entry['employee_id']
+            # emp_id = code_id_map.get(code)
+            print
+
+            if not code:
+                continue  # Skip if employee code not found
+            try:
+                emp_id = int(code.replace('EMP', '').lstrip('0'))  # "EMP0725" -> 725
+            except ValueError:
+                continue  #
+            print (emp_id,from_date , to_date, " llllllllllllllllllllllll" )
+            absent_records = AttendanceRecord.query.filter(
+                AttendanceRecord.employee_id == emp_id,
+                AttendanceRecord.created_at >= from_date,
+                AttendanceRecord.created_at <= to_date,
+                AttendanceRecord.status == 'absent'
+            ).order_by(AttendanceRecord.date).all()
+
+            absent_data[code] = absent_records
+
+        print (absent_data)
+
+
+
+
+    #     records = AttendanceRecord.query.filter(
+    #     AttendanceRecord.employee_id == employee_id,
+    #     AttendanceRecord.date >= from_date,
+    #     AttendanceRecord.date <= to_date,
+    #     AttendanceRecord.overtime_hours > 0
+    # ).order_by(AttendanceRecord.date).all()
+
+        return
 
         # Authenticate with Odoo
         common = xmlrpc.client.ServerProxy(f'{URL}/xmlrpc/2/common')
@@ -549,8 +590,8 @@ def send_overtime_to_odoo():
 
         return jsonify({'message': 'Data sent successfully to Odoo.', 'result': result}), 200
 
-    except Exception as e:
-        return jsonify({'message': 'Error sending data.', 'error': str(e)}), 500
+    # except Exception as e:
+        # return jsonify({'message': 'Error sending data.', 'error': str(e)}), 500
 
 
 @bp.route('/report', methods=['GET'])
@@ -657,3 +698,5 @@ def report():
         departments=unique_departments,
         selected_department=department
     )
+
+

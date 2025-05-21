@@ -88,9 +88,9 @@
                     </thead>
                     <tbody>
                         {% for result in results %}
-                                <tr data-employee-id="{{ result.employee_code }}" data-overtime='{{ "%.1f"|format(result.overt_time_weighted if result.overt_time_weighted is not none else 0) }}'>
+                                <tr data-employee-id="{{ result.employee_code }}" data-empid="{{ result.id }}" data-overtime='{{ "%.1f"|format(result.overt_time_weighted if result.overt_time_weighted is not none else 0) }}'>
 
-            <td><input type="checkbox" class="employeeCheckbox" data-employee-id="{{ result.employee_code }}" data-overtime='{{ "%.1f"|format(result.overt_time_weighted if result.overt_time_weighted is not none else 0) }}'></td>
+            <td><input type="checkbox" class="employeeCheckbox" data-employee-id="{{ result.employee_code }}" data-empid="{{ result.id }}" data-overtime='{{ "%.1f"|format(result.overt_time_weighted if result.overt_time_weighted is not none else 0) }}'></td>
 
                             <td>{{ result.employee_code }}</td>
                             <td>
@@ -250,16 +250,22 @@ $(document).ready(function() {
     $('#sendToOdooBtn').click(function() {
         var runId = $(this).data('run-id');
         var overtimeData = [];
-console.log("sssssssssssssssssssssss")
+        var from_date = $('#from_date').val()
+        var to_date = $('#to_date').val()
+        
+        console.log(to_date , from_date , "----------------------------------------------------------------")
         $('#overtimeTable tbody tr').each(function() {
             var checkbox = $(this).find('.employeeCheckbox');
             console.log(checkbox)
             if (checkbox.is(':checked')) {
                 console.log("yes here ")
+                var id = $(this).data('empid');
+        console.log(id, '---------------')
                 var employeeId = $(this).data('employee-id');
                 var overtime = $(this).data('overtime') || 0;
                 overtimeData.push({
                     employee_id: employeeId,
+                    id:id
                     total_overtime: parseFloat(overtime)
                 });
             }
