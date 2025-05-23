@@ -159,6 +159,14 @@
         .select2-container--bootstrap-5 .select2-selection--single .select2-selection__placeholder {
             color: #6c757d;
         }
+
+        /* custom css */
+        [data-bs-theme=light] .text-muted {
+            color: #3c445c !important;
+        }
+        [data-bs-theme=dark] .text-muted {
+            color: #a694ff !important;
+        }
     </style>
     
     {% block extra_head %}{% endblock %}
@@ -288,7 +296,7 @@
                             </li>
                         </ul>
                     </li>
-                    {% if current_user.is_admin %}
+                    {% if current_user.has_role('supervisor') or current_user.has_role('hr') %}
                     <li class="nav-item">
                         <a class="nav-link {% if request.path.startswith('/overtime') %}active{% endif %}" href="{{ url_for('overtime.index') }}">
                             <i class="bi bi-clock-history"></i> Overtime
@@ -302,10 +310,38 @@
                     {% endif %}
                     
                     {% if current_user.has_role('supervisor') or current_user.has_role('hr') %}
-                    <li class="nav-item">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {% if request.path.startswith('/admin') %}active{% endif %}" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-gear"></i> HR
+                        </a>
+                        <ul class="dropdown-menu">
+
+                    <li class="dropdown-item">
                         <a class="nav-link {% if request.path.startswith('/bonus') %}active{% endif %}" href="{{ url_for('bonus.index') }}">
                             <i class="bi bi-award"></i> Bonus System
                         </a>
+                    </li>
+                     <li>
+                                <a class="dropdown-item" href="{{ url_for('admin.employees') }}">
+                                    <i class="bi bi-people"></i> Employees
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('admin.overtime_eligibility') }}">
+                                    <i class="bi bi-clock-history"></i> Overtime Settings
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('admin.weekend_config') }}">
+                                    <i class="bi bi-calendar-week"></i> Weekend Settings
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('admin.employee_weekend_config') }}">
+                                    <i class="bi bi-person-badge"></i> Employee Weekend Config
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                     {% endif %}
                     

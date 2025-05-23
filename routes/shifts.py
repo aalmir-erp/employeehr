@@ -72,7 +72,7 @@ def add_shift():
 @login_required
 def edit_shift(shift_id):
     """Edit an existing shift"""
-    if not current_user.is_admin or not current_user.has_role('hr'):
+    if not current_user.is_admin and not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('shifts.index'))
     
@@ -256,7 +256,7 @@ def assign_shift():
 @login_required
 def scheduler():
     """Interactive shift scheduler with multiple view options (weekly/monthly/employee/shift)"""
-    if not current_user.is_admin or not current_user.has_role('hr'):
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('shifts.index'))
     

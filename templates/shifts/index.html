@@ -61,7 +61,7 @@
                             </td>
                             <td>
                                 <div class="btn-group" role="group">
-                                    {% if current_user.is_admin %}
+                                  
                                     <a href="{{ url_for('shifts.edit_shift', shift_id=shift.id) }}" class="btn btn-sm btn-outline-primary" title="Edit Shift">
                                         <i class="bi bi-pencil"></i>
                                     </a>
@@ -70,7 +70,7 @@
                                            data-shift-id="{{ shift.id }}" data-shift-name="{{ shift.name }}" title="Delete Shift">
                                         <i class="bi bi-trash"></i>
                                     </button>
-                                    {% endif %}
+                            
                                     <a href="{{ url_for('shifts.assign_shift') }}?shift_id={{ shift.id }}" class="btn btn-sm btn-outline-success" title="Assign Employees">
                                         <i class="bi bi-people"></i>
                                     </a>

@@ -18,7 +18,7 @@ bp = Blueprint('overtime', __name__)
 @login_required
 def index():
     """Show overview of overtime rules and statistics"""
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('main.index'))
     
@@ -71,7 +71,7 @@ def index():
 @login_required
 def rules():
     """Show list of all overtime rules"""
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('main.index'))
     
@@ -84,7 +84,7 @@ def rules():
 @login_required
 def add_rule():
     """Add a new overtime rule"""
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('main.index'))
     
@@ -203,7 +203,7 @@ def add_rule():
 @login_required
 def edit_rule(rule_id):
     """Edit an existing overtime rule"""
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('main.index'))
     
@@ -304,7 +304,7 @@ def edit_rule(rule_id):
 @login_required
 def delete_rule(rule_id):
     """Delete an overtime rule"""
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('main.index'))
     
@@ -330,7 +330,7 @@ def delete_rule(rule_id):
 @login_required
 def toggle_rule(rule_id):
     """Toggle rule active status"""
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('main.index'))
     
@@ -354,7 +354,7 @@ def toggle_rule(rule_id):
 @login_required
 def recalculate():
     """Recalculate overtime for specific date or employee"""
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('main.index'))
     
@@ -428,7 +428,7 @@ def employee_overtime(employee_id):
     employee = Employee.query.get_or_404(employee_id)
     
     # Check permissions - admins can view any employee, users can only view themselves
-    if not current_user.is_admin and (not current_user.id or current_user.id != employee.user_id):
+    if not current_user.is_admin and not current_user.has_role('hr') and (not current_user.id or current_user.id != employee.user_id):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('main.index'))
     
@@ -598,7 +598,7 @@ def send_overtime_to_odoo():
 @login_required
 def report():
     """Show overtime report"""
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('main.index'))
     

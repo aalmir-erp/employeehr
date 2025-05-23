@@ -236,7 +236,7 @@ def employee_attendance(employee_id):
 @login_required
 def manual_entry():
     """Manually enter attendance data"""
-    if not current_user.is_admin and  not current_user.has_role('hr'):
+    if not current_user.is_admin:
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('attendance.index'))
     
@@ -403,7 +403,7 @@ def manual_entry():
 @login_required
 def batch_entry():
     """Batch attendance entry for multiple employees at once with support for multiple days"""
-    if not current_user.is_admin and  not current_user.has_role('hr'):
+    if not current_user.is_admin:
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('attendance.index'))
     
@@ -865,7 +865,7 @@ def batch_entry():
 @login_required
 def raw_logs():
     """View raw attendance logs"""
-    if not current_user.is_admin and  not current_user.has_role('hr'):
+    if not current_user.is_admin:
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('attendance.index'))
     
@@ -979,14 +979,50 @@ def process_all_logs():
     # Handle POST request (process logs)
     if request.method == 'POST':
         try:
-            # Process logs with enhanced logic - overtime will be automatically calculated now
-            records_created, logs_processed = process_unprocessed_logs()
+            # Get date range parameters if provided
+            date_from_str = request.form.get('date_from')
+            date_to_str = request.form.get('date_to')
+            
+            # Convert date strings to date objects if provided
+            date_from = None
+            date_to = None
+            
+            if date_from_str:
+                try:
+                    date_from = datetime.strptime(date_from_str, '%Y-%m-%d').date()
+                except ValueError:
+                    flash('Invalid start date format', 'warning')
+            
+            if date_to_str:
+                try:
+                    date_to = datetime.strptime(date_to_str, '%Y-%m-%d').date()
+                except ValueError:
+                    flash('Invalid end date format', 'warning')
+            
+            # Process logs with enhanced logic and date filtering
+            records_created, logs_processed = process_unprocessed_logs(
+                date_from=date_from, 
+                date_to=date_to
+            )
             
             # Process any overtime that might have been missed (records without overtime)
             from utils.overtime_engine import process_attendance_records
             overtime_processed = process_attendance_records(recalculate=True)
             
-            flash(f'Successfully processed {logs_processed} logs, created {records_created} new attendance records, and calculated overtime for {overtime_processed} records', 'success')
+            # Build success message with date range info if provided
+            message = f'Successfully processed {logs_processed} logs, created {records_created} new attendance records, and calculated overtime for {overtime_processed} records'
+            
+            if date_from or date_to:
+                date_range_msg = " for "
+                if date_from:
+                    date_range_msg += f"dates from {date_from.strftime('%Y-%m-%d')}"
+                if date_from and date_to:
+                    date_range_msg += " to "
+                if date_to:
+                    date_range_msg += f"{date_to.strftime('%Y-%m-%d')}"
+                message += date_range_msg
+            
+            flash(message, 'success')
             
             # Update statistics after processing
             stats = get_processing_stats()
@@ -995,7 +1031,9 @@ def process_all_logs():
             results = {
                 'records_created': records_created,
                 'logs_processed': logs_processed,
-                'overtime_processed': overtime_processed
+                'overtime_processed': overtime_processed,
+                'date_from': date_from.strftime('%Y-%m-%d') if date_from else None,
+                'date_to': date_to.strftime('%Y-%m-%d') if date_to else None
             }
         except Exception as e:
             db.session.rollback()
@@ -1008,7 +1046,7 @@ def process_all_logs():
 @login_required
 def missing_punches():
     """View and fix missing punches (check-in or check-out)"""
-    if not current_user.is_admin and  not current_user.has_role('hr'):
+    if not current_user.is_admin:
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('attendance.index'))
     
@@ -1747,7 +1785,7 @@ def save_attendance_data(records, device_id, create_missing=False):
 @login_required
 def import_march_data():
     """Import March data from the sample CSV file and show day/night shift examples"""
-    if not current_user.is_admin and  not current_user.has_role('hr'):
+    if not current_user.is_admin:
         flash('You do not have permission to access this feature', 'danger')
         return redirect(url_for('attendance.index'))
         
@@ -2082,184 +2120,184 @@ def api_punch():
         current_app.logger.error(f"Error in attendance punch API: {str(e)}")
         return jsonify({'error': 'Server error'}), 500
 
-@bp.route('/test_break_detection')
-def test_break_detection():
-    """Test endpoint for break time detection"""
-    if not current_user.is_admin:
-        flash('You do not have permission to access this page', 'danger')
-        return redirect(url_for('attendance.index'))
+# @bp.route('/test_break_detection')
+# def test_break_detection():
+#     """Test endpoint for break time detection"""
+#     if not current_user.is_admin:
+#         flash('You do not have permission to access this page', 'danger')
+#         return redirect(url_for('attendance.index'))
     
-    try:
-        # Create a test record with explicit break times
-        test_date = date(2025, 6, 1)
+#     try:
+#         # Create a test record with explicit break times
+#         test_date = date(2025, 6, 1)
         
-        # Check if record already exists
-        existing = AttendanceRecord.query.filter(
-            AttendanceRecord.employee_id == 260,
-            AttendanceRecord.date == test_date
-        ).first()
+#         # Check if record already exists
+#         existing = AttendanceRecord.query.filter(
+#             AttendanceRecord.employee_id == 260,
+#             AttendanceRecord.date == test_date
+#         ).first()
         
-        if existing:
-            # Update existing record
-            record = existing
-            message1 = f"Updating existing record {record.id} for break time test"
-        else:
-            # Create new record
-            record = AttendanceRecord()
-            record.employee_id = 260
-            record.date = test_date
-            record.shift_type = 'day'
-            record.status = 'present'
-            message1 = "Creating new record for break time test"
+#         if existing:
+#             # Update existing record
+#             record = existing
+#             message1 = f"Updating existing record {record.id} for break time test"
+#         else:
+#             # Create new record
+#             record = AttendanceRecord()
+#             record.employee_id = 260
+#             record.date = test_date
+#             record.shift_type = 'day'
+#             record.status = 'present'
+#             message1 = "Creating new record for break time test"
         
-        # Set explicit check-in and check-out times
-        record.check_in = datetime(2025, 6, 1, 8, 0, 0)
-        record.check_out = datetime(2025, 6, 1, 17, 0, 0)
+#         # Set explicit check-in and check-out times
+#         record.check_in = datetime(2025, 6, 1, 8, 0, 0)
+#         record.check_out = datetime(2025, 6, 1, 17, 0, 0)
         
-        # Set explicit break times
-        record.break_start = datetime(2025, 6, 1, 12, 0, 0)
-        record.break_end = datetime(2025, 6, 1, 13, 0, 0)
-        record.break_duration = 1.0
+#         # Set explicit break times
+#         record.break_start = datetime(2025, 6, 1, 12, 0, 0)
+#         record.break_end = datetime(2025, 6, 1, 13, 0, 0)
+#         record.break_duration = 1.0
         
-        # Calculate total hours
-        record.total_duration = 9.0
-        record.work_hours = 8.0
+#         # Calculate total hours
+#         record.total_duration = 9.0
+#         record.work_hours = 8.0
         
-        # Save the record
-        db.session.add(record)
-        db.session.commit()
+#         # Save the record
+#         db.session.add(record)
+#         db.session.commit()
         
-        # Verify the record was saved correctly
-        saved = AttendanceRecord.query.get(record.id)
-        message2 = f"Saved test record with break_start={saved.break_start}, break_end={saved.break_end}"
+#         # Verify the record was saved correctly
+#         saved = AttendanceRecord.query.get(record.id)
+#         message2 = f"Saved test record with break_start={saved.break_start}, break_end={saved.break_end}"
         
-        # TEST 2: Create logs to test auto-detection of breaks
-        test_date2 = date(2025, 6, 2)
+#         # TEST 2: Create logs to test auto-detection of breaks
+#         test_date2 = date(2025, 6, 2)
         
-        # Clear any existing logs for this date and employee
-        AttendanceLog.query.filter(
-            AttendanceLog.employee_id == 260,
-            func.date(AttendanceLog.timestamp) == test_date2
-        ).delete()
+#         # Clear any existing logs for this date and employee
+#         AttendanceLog.query.filter(
+#             AttendanceLog.employee_id == 260,
+#             func.date(AttendanceLog.timestamp) == test_date2
+#         ).delete()
         
-        # Clear any existing attendance record
-        AttendanceRecord.query.filter(
-            AttendanceRecord.employee_id == 260,
-            AttendanceRecord.date == test_date2
-        ).delete()
+#         # Clear any existing attendance record
+#         AttendanceRecord.query.filter(
+#             AttendanceRecord.employee_id == 260,
+#             AttendanceRecord.date == test_date2
+#         ).delete()
         
-        # Create test logs with multiple breaks
-        logs = [
-            # Employee checks in at 8:00 AM
-            AttendanceLog(
-                employee_id=260,
-                device_id=3,
-                timestamp=datetime(2025, 6, 2, 8, 0, 0),
-                log_type='check_in',
-                is_processed=False
-            ),
-            # Short mid-morning break (10:00-10:15 AM)
-            AttendanceLog(
-                employee_id=260,
-                device_id=3,
-                timestamp=datetime(2025, 6, 2, 10, 0, 0),
-                log_type='check_out',
-                is_processed=False
-            ),
-            AttendanceLog(
-                employee_id=260,
-                device_id=3,
-                timestamp=datetime(2025, 6, 2, 10, 15, 0),
-                log_type='check_in',
-                is_processed=False
-            ),
-            # Lunch break (12:00-1:00 PM)
-            AttendanceLog(
-                employee_id=260,
-                device_id=3,
-                timestamp=datetime(2025, 6, 2, 12, 0, 0),
-                log_type='check_out',
-                is_processed=False
-            ),
-            AttendanceLog(
-                employee_id=260,
-                device_id=3,
-                timestamp=datetime(2025, 6, 2, 13, 0, 0),
-                log_type='check_in',
-                is_processed=False
-            ),
-            # Short afternoon break (3:00-3:10 PM)
-            AttendanceLog(
-                employee_id=260,
-                device_id=3,
-                timestamp=datetime(2025, 6, 2, 15, 0, 0),
-                log_type='check_out',
-                is_processed=False
-            ),
-            AttendanceLog(
-                employee_id=260,
-                device_id=3,
-                timestamp=datetime(2025, 6, 2, 15, 10, 0),
-                log_type='check_in',
-                is_processed=False
-            ),
-            # Employee checks out at 5:00 PM
-            AttendanceLog(
-                employee_id=260,
-                device_id=3,
-                timestamp=datetime(2025, 6, 2, 17, 0, 0),
-                log_type='check_out',
-                is_processed=False
-            )
-        ]
+#         # Create test logs with multiple breaks
+#         logs = [
+#             # Employee checks in at 8:00 AM
+#             AttendanceLog(
+#                 employee_id=260,
+#                 device_id=3,
+#                 timestamp=datetime(2025, 6, 2, 8, 0, 0),
+#                 log_type='check_in',
+#                 is_processed=False
+#             ),
+#             # Short mid-morning break (10:00-10:15 AM)
+#             AttendanceLog(
+#                 employee_id=260,
+#                 device_id=3,
+#                 timestamp=datetime(2025, 6, 2, 10, 0, 0),
+#                 log_type='check_out',
+#                 is_processed=False
+#             ),
+#             AttendanceLog(
+#                 employee_id=260,
+#                 device_id=3,
+#                 timestamp=datetime(2025, 6, 2, 10, 15, 0),
+#                 log_type='check_in',
+#                 is_processed=False
+#             ),
+#             # Lunch break (12:00-1:00 PM)
+#             AttendanceLog(
+#                 employee_id=260,
+#                 device_id=3,
+#                 timestamp=datetime(2025, 6, 2, 12, 0, 0),
+#                 log_type='check_out',
+#                 is_processed=False
+#             ),
+#             AttendanceLog(
+#                 employee_id=260,
+#                 device_id=3,
+#                 timestamp=datetime(2025, 6, 2, 13, 0, 0),
+#                 log_type='check_in',
+#                 is_processed=False
+#             ),
+#             # Short afternoon break (3:00-3:10 PM)
+#             AttendanceLog(
+#                 employee_id=260,
+#                 device_id=3,
+#                 timestamp=datetime(2025, 6, 2, 15, 0, 0),
+#                 log_type='check_out',
+#                 is_processed=False
+#             ),
+#             AttendanceLog(
+#                 employee_id=260,
+#                 device_id=3,
+#                 timestamp=datetime(2025, 6, 2, 15, 10, 0),
+#                 log_type='check_in',
+#                 is_processed=False
+#             ),
+#             # Employee checks out at 5:00 PM
+#             AttendanceLog(
+#                 employee_id=260,
+#                 device_id=3,
+#                 timestamp=datetime(2025, 6, 2, 17, 0, 0),
+#                 log_type='check_out',
+#                 is_processed=False
+#             )
+#         ]
         
-        # Add logs to the session
-        for log in logs:
-            db.session.add(log)
-        db.session.commit()
+#         # Add logs to the session
+#         for log in logs:
+#             db.session.add(log)
+#         db.session.commit()
         
-        message3 = f"Created test logs for 2025-06-02"
+#         message3 = f"Created test logs for 2025-06-02"
         
-        # Process the logs
-        from utils.attendance_processor import process_unprocessed_logs
-        records_created, logs_processed = process_unprocessed_logs()
+#         # Process the logs
+#         from utils.attendance_processor import process_unprocessed_logs
+#         records_created, logs_processed = process_unprocessed_logs()
         
-        # Check if the attendance record was created with break times
-        result = AttendanceRecord.query.filter(
-            AttendanceRecord.employee_id == 260,
-            AttendanceRecord.date == test_date2
-        ).first()
+#         # Check if the attendance record was created with break times
+#         result = AttendanceRecord.query.filter(
+#             AttendanceRecord.employee_id == 260,
+#             AttendanceRecord.date == test_date2
+#         ).first()
         
-        if result:
-            message4 = f"Record created with break_start={result.break_start}, break_end={result.break_end}"
-        else:
-            message4 = "No record created for the test logs"
+#         if result:
+#             message4 = f"Record created with break_start={result.break_start}, break_end={result.break_end}"
+#         else:
+#             message4 = "No record created for the test logs"
         
-        # Check if this is an API call
-        if request.headers.get('Accept', '').find('application/json') != -1:
-            # Return JSON response
-            results = {
-                "test1_record_id": record.id if record else None,
-                "test1_break_start": saved.break_start.strftime('%Y-%m-%d %H:%M:%S') if saved.break_start else None,
-                "test1_break_end": saved.break_end.strftime('%Y-%m-%d %H:%M:%S') if saved.break_end else None,
-                "test2_record_id": result.id if result else None,
-                "test2_break_start": result.break_start.strftime('%Y-%m-%d %H:%M:%S') if result and result.break_start else None,
-                "test2_break_end": result.break_end.strftime('%Y-%m-%d %H:%M:%S') if result and result.break_end else None,
-                "records_created": records_created,
-                "logs_processed": logs_processed,
-                "messages": [message1, message2, message3, message4]
-            }
-            return jsonify(results)
+#         # Check if this is an API call
+#         if request.headers.get('Accept', '').find('application/json') != -1:
+#             # Return JSON response
+#             results = {
+#                 "test1_record_id": record.id if record else None,
+#                 "test1_break_start": saved.break_start.strftime('%Y-%m-%d %H:%M:%S') if saved.break_start else None,
+#                 "test1_break_end": saved.break_end.strftime('%Y-%m-%d %H:%M:%S') if saved.break_end else None,
+#                 "test2_record_id": result.id if result else None,
+#                 "test2_break_start": result.break_start.strftime('%Y-%m-%d %H:%M:%S') if result and result.break_start else None,
+#                 "test2_break_end": result.break_end.strftime('%Y-%m-%d %H:%M:%S') if result and result.break_end else None,
+#                 "records_created": records_created,
+#                 "logs_processed": logs_processed,
+#                 "messages": [message1, message2, message3, message4]
+#             }
+#             return jsonify(results)
             
-        # Otherwise, return the HTML template
-        return render_template('attendance/test_break_detection.html', 
-                               direct_test=saved, 
-                               log_test=result,
-                               records_created=records_created,
-                               logs_processed=logs_processed)
+#         # Otherwise, return the HTML template
+#         return render_template('attendance/test_break_detection.html', 
+#                                direct_test=saved, 
+#                                log_test=result,
+#                                records_created=records_created,
+#                                logs_processed=logs_processed)
         
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Error in break detection test: {str(e)}")
-        flash(f"Error in test: {str(e)}", "danger")
-        return redirect(url_for('attendance.index'))
+#     except Exception as e:
+#         db.session.rollback()
+#         current_app.logger.error(f"Error in break detection test: {str(e)}")
+#         flash(f"Error in test: {str(e)}", "danger")
+#         return redirect(url_for('attendance.index'))

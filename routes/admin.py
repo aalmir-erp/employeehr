@@ -8,17 +8,19 @@ from models import User, Employee, Shift, ShiftAssignment, AttendanceDevice, Odo
 # Create blueprint
 bp = Blueprint('admin', __name__, url_prefix='/admin')
 
-@bp.before_request
-def before_request():
-    """Ensure only admin users can access admin routes"""
-    if not current_user.is_authenticated or not current_user.is_admin:
-        flash('You do not have permission to access the admin area', 'danger')
-        return redirect(url_for('auth.login'))
+# @bp.before_request
+# def before_request():
+#     """Ensure only admin users can access admin routes"""
+#     if not current_user.is_authenticated or not current_user.is_admin:
+#         flash('You do not have permission to access the admin area', 'danger')
+#         return redirect(url_for('auth.login'))
 
 @bp.route('/')
 @login_required
 def index():
     """Admin dashboard index"""
+    if not current_user.is_authenticated or not current_user.is_admin:
+                flash('You do not have permission to access the admin area', 'danger')
     # Get counts for dashboard
     total_employees = Employee.query.count()
     active_employees = Employee.query.filter_by(is_active=True).count()
@@ -379,9 +381,9 @@ def update_overtime_eligibility():
 @login_required
 def update_employee_overtime_eligibility(employee_id):
     """Update overtime eligibility for a specific employee"""
-    if not current_user.is_admin:
-        flash('You do not have permission to perform this action', 'danger')
-        return redirect(url_for('admin.index'))
+    # if not current_user.is_admin:
+    #     flash('You do not have permission to perform this action', 'danger')
+    #     return redirect(url_for('admin.index'))
     
     # If employee_id is 0 or invalid, redirect to the main overtime page
     # Get the employee

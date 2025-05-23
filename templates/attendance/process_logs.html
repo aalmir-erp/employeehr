@@ -49,8 +49,21 @@
                 <div class="card-body">
                     <form method="post" action="{{ url_for('attendance.process_all_logs') }}">
                         <p>Ready to process {{ stats.unprocessed_logs|default(0) }} unprocessed logs?</p>
+                        
+                        <div class="mb-3">
+                            <label for="date_from" class="form-label">Start Date</label>
+                            <input type="date" class="form-control" id="date_from" name="date_from">
+                            <small class="text-muted">Optional: Only process logs from this date</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="date_to" class="form-label">End Date</label>
+                            <input type="date" class="form-control" id="date_to" name="date_to">
+                            <small class="text-muted">Optional: Only process logs until this date</small>
+                        </div>
+                        
                         <button type="submit" class="btn btn-primary" {% if stats.unprocessed_logs == 0 %}disabled{% endif %}>
-                            <i class="bi bi-cpu"></i> Process All Logs
+                            <i class="bi bi-cpu"></i> Process Logs
                         </button>
                     </form>
                 </div>
@@ -73,6 +86,16 @@
                             <a href="{{ url_for('attendance.raw_logs', processed='1') }}" class="alert-link">{{ results.logs_processed }} logs</a> 
                             and created 
                             <a href="{{ url_for('attendance.daily') }}" class="alert-link">{{ results.records_created }} new attendance records</a>.
+                            {% if results.date_from or results.date_to %}
+                            <br>
+                            <span class="text-info">
+                                <i class="bi bi-calendar-range"></i> 
+                                Date range: 
+                                {% if results.date_from %}from {{ results.date_from }}{% endif %}
+                                {% if results.date_from and results.date_to %} to {% endif %}
+                                {% if results.date_to %}{{ results.date_to }}{% endif %}
+                            </span>
+                            {% endif %}
                         </p>
                         {% if results.overtime_processed is defined %}
                         <p>
