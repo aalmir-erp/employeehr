@@ -22,9 +22,19 @@
                 </div>
                 <div class="card-body">
                     <form method="post" action="{{ url_for('shifts.assign_shift') }}">
+                         <div class="mb-3">
+                        <label for="department" class="form-label">Department</label>
+                        <select class="form-select" id="department" name="department">
+                            <option value="all" {% if selected_department == 'all' %}selected{% endif %}>All Departments</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept }}" {% if dept == selected_department %}selected{% endif %}>{{ dept }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
                         <div class="mb-3">
                             <label for="employee_id" class="form-label">Employee <span class="text-danger">*</span></label>
-                            <select class="form-select" id="employee_id" name="employee_id" required>
+                            <select class="form-select" multiple id="employee_id" name="employee_id" required>
                                 <option value="">Select an employee</option>
                                 {% for employee in employees %}
                                 <option value="{{ employee.id }}">{{ employee.name }} ({{ employee.department or 'No Dept' }})</option>
@@ -211,6 +221,54 @@
                 e.preventDefault();
             }
         });
+
+
+
+
+
+        /////////////////////
+ $('#department').on('change', function () {
+        var department = $(this).val();
+
+        // Store current selections
+        // var selectedEmployeeIds = $('#employee_id').val() || [];
+
+        $.ajax({
+            url: "{{ url_for('shifts.get_employees_by_department') }}",
+            method: 'GET',
+            data: { department: department },
+            success: function (response) {
+                var $employeeSelect = $('#employee_id');
+                $employeeSelect.empty();  // Clear existing options
+
+                if (response.length === 0) {
+                    $employeeSelect.append('<option value="">No employees found</option>');
+                } else {
+                    $employeeSelect.append('<option value="">Select an employee</option>');
+                    $.each(response, function (index, employee) {
+                        // var isSelected = selectedEmployeeIds.includes(String(employee.id));  // Always compare as strings
+
+                        $employeeSelect.append(
+                            $('<option>', {
+                                value: employee.id,
+                                text: employee.name + ' (' + (employee.department || 'No Dept') + ')',
+                                selected: true
+                            })
+                        );
+                    });
+                }
+
+                // Optional: Trigger change event if you have dependent logic
+                $employeeSelect.trigger('change');
+            },
+            error: function () {
+                alert('Failed to load employees. Please try again.');
+            }
+        });
+    });
+       
+
+
     });
 </script>
 {% endblock %}

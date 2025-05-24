@@ -270,6 +270,8 @@
         
         // Edit single employee modal
         const editEmployeeModal = document.getElementById('editEmployeeModal');
+        console.log(" 00000000000000000000000000000000000000000 ")
+
         editEmployeeModal.addEventListener('show.bs.modal', function(event) {
             const button = event.relatedTarget;
             const employeeId = button.getAttribute('data-employee-id');
@@ -277,6 +279,8 @@
             const weekdayEligible = button.getAttribute('data-weekday') === 'true';
             const weekendEligible = button.getAttribute('data-weekend') === 'true';
             const holidayEligible = button.getAttribute('data-holiday') === 'true';
+            console.log(employeeId)
+            console.log("")
             
             // Set form action
             const form = document.getElementById('editEmployeeForm');

@@ -125,6 +125,24 @@ def edit_shift(shift_id):
                           end_time=end_time_str,
                           weekend_days=weekend_days_str)
 
+@bp.route('/get_employees_by_department', methods=['GET'])
+@login_required
+def get_employees_by_department():
+    print(" in get_employees_by_department ")
+    department = request.args.get('department')
+    print(department)
+    query = Employee.query.filter_by(is_active=True)
+    
+    if department and department != 'all':
+        query = query.filter(Employee.department == department)
+    
+    employees = query.order_by(Employee.name).all()
+    employee_data = [{'id': e.id, 'name': e.name, 'department': e.department or 'No Dept'} for e in employees]
+    print(employee_data, "employee_data")
+    
+    return jsonify(employee_data)
+
+
 @bp.route('/assign', methods=['GET', 'POST'])
 @login_required
 def assign_shift():
@@ -161,7 +179,11 @@ def assign_shift():
     
     # Handle POST request (new assignment)
     if request.method == 'POST':
-        employee_id = request.form.get('employee_id')
+        employee_ids = request.form.getlist('employee_id')
+        # employee_ids = map(int, request.form.getlist('employee_id'))
+
+        print(employee_ids)
+        print(" =========================================== ")
         shift_id = request.form.get('shift_id')
         start_date = request.form.get('start_date')
         end_date = request.form.get('end_date')
@@ -169,7 +191,7 @@ def assign_shift():
         
         try:
             # Convert data types
-            employee_id = int(employee_id)
+            # employee_id = int(employee_id)
             shift_id = int(shift_id)
             start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
@@ -180,39 +202,46 @@ def assign_shift():
             current_date = start_date
             
             while current_date <= end_date:
-                # Only create assignment if this weekday is selected
-                if current_date.weekday() in days_of_week:
-                    # Check if assignment already exists
-                    existing = ShiftAssignment.query.filter_by(
-                        employee_id=employee_id,
-                        start_date=current_date
-                    ).first()
-                    
-                    if existing:
-                        # Update existing assignment
-                        existing.shift_id = shift_id
-                        db.session.add(existing)
-                        created_count += 1
-                    else:
-                        # Create new assignment
-                        assignment = ShiftAssignment(
+                for employee_id in employee_ids:
+                    if employee_id ==0 or employee_id=='0':
+                        continue
+                    print (employee_id, "employee_id ------------------------")
+                    print (current_date.weekday(), "current_date.weekday()")
+                    print(days_of_week, "days_of_week ----")
+                    # Only create assignment if this weekday is selected
+                    if current_date.weekday() in days_of_week:
+                        # Check if assignment already exists
+                        existing = ShiftAssignment.query.filter_by(
                             employee_id=employee_id,
-                            shift_id=shift_id,
-                            start_date=current_date,
-                            end_date=current_date  # Single day assignment
-                        )
-                        db.session.add(assignment)
+                            start_date=current_date
+                        ).first()
+                        print (existing, "existing")
                         
-                        # Update the employee's current_shift_id as well
-                        employee = Employee.query.get(employee_id)
-                        if employee:
-                            employee.current_shift_id = shift_id
-                            db.session.add(employee)
+                        if existing:
+                            # Update existing assignment
+                            existing.shift_id = shift_id
+                            db.session.add(existing)
+                            created_count += 1
+                        else:
+                            # Create new assignment
+                            assignment = ShiftAssignment(
+                                employee_id=employee_id,
+                                shift_id=shift_id,
+                                start_date=current_date,
+                                end_date=current_date  # Single day assignment
+                            )
+                            db.session.add(assignment)
                             
-                        created_count += 1
-                
-                # Move to next day
-                current_date += timedelta(days=1)
+                            # Update the employee's current_shift_id as well
+                            employee = Employee.query.get(employee_id)
+                            if employee:
+                                employee.current_shift_id = shift_id
+                                db.session.add(employee)
+                                
+                            created_count += 1
+                    
+                    # Move to next day
+                    current_date += timedelta(days=1)
             
             db.session.commit()
             flash(f'Successfully created {created_count} shift assignments', 'success')
