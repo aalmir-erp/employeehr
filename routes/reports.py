@@ -139,6 +139,7 @@ def dashboard():
             x=1
 
         absent_days = sum(1 for r in emp_records if r.status == 'absent')
+        weekdays_work_days = sum(1 for r in emp_records if r.is_weekend == True)
         late_count = sum(1 for r in emp_records if r.status == 'late')
         early_out_count = sum(1 for r in emp_records if r.status in ['early_out', 'early-out'])
         missing_count = sum(1 for r in emp_records if r.status not in ['present', 'absent', 'late', 'early_out', 'early-out'])
@@ -155,7 +156,7 @@ def dashboard():
             'missing_count': missing_count,
             'total_hours': total_hours,
             'overtime_hours': overtime_hours,
-            'expected_time':hours*present_days
+            'expected_time':hours*(present_days-weekdays_work_days)
         })
     
     # Sort by name (you could add other sort options)
