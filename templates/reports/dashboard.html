@@ -243,6 +243,8 @@
                             <th>Early Out</th>
                             <th>Missing In/Out</th>
                             <th>Work Hours</th>
+                            <th>Expected Time
+                                </th>
                             <th>Overtime</th>
                             <th>Actions</th>
                         </tr>
@@ -276,6 +278,7 @@
                                 <span class="badge bg-secondary rounded-pill">{{ emp_summary.missing_count }}</span>
                             </td>
                             <td class="text-center">{{ emp_summary.total_hours|round(1) }}</td>
+                            <td class="text-center">{{ emp_summary.expected_time|round(1) }}</td>
                             <td class="text-center">{{ emp_summary.overtime_hours|round(1) }}</td>
                             <td>
                                 <div class="btn-group btn-group-sm">

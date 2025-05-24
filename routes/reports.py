@@ -115,8 +115,29 @@ def dashboard():
     # Prepare employee summary data
     employee_summary = []
     for employee in employees:
+        hours = 0
+        if employee.current_shift:
+            start_time = employee.current_shift.start_time  # datetime.time object
+            end_time = employee.current_shift.end_time  # datetime.time object
+
+            # Combine with today's date to make full datetime objects
+            start_dt = datetime.combine(date.today(), start_time)
+            end_dt = datetime.combine(date.today(), end_time)
+
+            # If the shift goes past midnight (e.g., 10 PM to 6 AM), add 1 day to end_dt
+            if end_dt < start_dt:
+                end_dt += timedelta(days=1)
+
+            # Calculate duration
+            duration = end_dt - start_dt
+
+        # Optional: get duration in hours, minutes, etc.
+            hours = duration.total_seconds() / 3600
         emp_records = [r for r in records if r.employee_id == employee.id]
         present_days = sum(1 for r in emp_records if r.status == 'present')
+        if present_days >1:
+            x=1
+
         absent_days = sum(1 for r in emp_records if r.status == 'absent')
         late_count = sum(1 for r in emp_records if r.status == 'late')
         early_out_count = sum(1 for r in emp_records if r.status in ['early_out', 'early-out'])
@@ -133,7 +154,8 @@ def dashboard():
             'early_out_count': early_out_count,
             'missing_count': missing_count,
             'total_hours': total_hours,
-            'overtime_hours': overtime_hours
+            'overtime_hours': overtime_hours,
+            'expected_time':hours*present_days
         })
     
     # Sort by name (you could add other sort options)
