@@ -160,16 +160,16 @@
                         <tr>
                             <td>{{ record.date.strftime('%Y-%m-%d') }}</td>
                             <td>{{ record.date.strftime('%a') }}</td>
-                            <td>{{ "%.1f"|format(record.work_hours if record.work_hours is not none else 0) }}</td>
-                            <td>{{ "%.1f"|format((record.work_hours if record.work_hours is not none else 0) - (record.overtime_hours if record.overtime_hours is not none else 0)) }}</td>
-                            <td>{{ "%.1f"|format(record.overtime_hours if record.overtime_hours is not none else 0) }}</td>
-                            <td>{{ "%.1f"|format(record.regular_overtime_hours if record.regular_overtime_hours is not none else 0) }}</td>
-                            <td>{{ "%.1f"|format(record.weekend_overtime_hours if record.weekend_overtime_hours is not none else 0) }}</td>
-                            <td>{{ "%.1f"|format(record.holiday_overtime_hours if record.holiday_overtime_hours is not none else 0) }}</td>
-                            <td>{{ "%.2f"|format(record.overtime_rate if record.overtime_rate is not none else 0) }}x</td>
-                            <td>{{ "%.2f"|format(record.overt_time_weighted if record.overt_time_weighted is not none else 0) }}</td>
+                            <td>{{ "%.1f"|format(record.work_hours or 0) }}</td>
+                            <td>{{ "%.1f"|format((record.work_hours or 0) - (record.overtime_hours or 0)) }}</td>
+                            <td>{{ "%.1f"|format(record.eligible_overtime_hours or 0) }}</td>
+                            <td>{{ "%.1f"|format(record.eligible_regular_overtime_hours or 0) }}</td>
+                            <td>{{ "%.1f"|format(record.eligible_weekend_overtime_hours or 0) }}</td>
+                            <td>{{ "%.1f"|format(record.eligible_holiday_overtime_hours or 0) }}</td>
                             
-                            <td>{{ "%.1f"|format(record.overtime_night_hours if record.overtime_night_hours is not none else 0) }}</td>
+                            <td>{{ "%.2f"|format(record.overtime_rate or 0) }}x</td>
+                            <td>{{ "%.2f"|format(record.eligible_overt_time_weighted or 0) }}</td>
+                            <td>{{ "%.1f"|format(record.overtime_night_hours or 0) }}</td>
                             <td>
                                 {% if record.overtime_rule %}
                                 <span class="badge bg-info">{{ record.overtime_rule.name }}</span>
@@ -180,13 +180,15 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="11" class="text-center py-3">
+                            <td colspan="12" class="text-center py-3">
                                 <p class="text-muted mb-0">No overtime records found for the selected period.</p>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
+                
+                
             </div>
         </div>
     </div>

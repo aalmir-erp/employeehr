@@ -422,68 +422,66 @@ def recalculate():
 @bp.route('/employee/<int:employee_id>', methods=['GET'])
 @login_required
 def employee_overtime(employee_id):
-    """Show overtime details for a specific employee"""
-    
-    # Get employee
     employee = Employee.query.get_or_404(employee_id)
-    
-    # Check permissions - admins can view any employee, users can only view themselves
+
     if not current_user.is_admin and not current_user.has_role('hr') and (not current_user.id or current_user.id != employee.user_id):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('main.index'))
-    
-    # Get date range from query parameters
+
     from_date_str = request.args.get('from_date')
     to_date_str = request.args.get('to_date')
-    
     from_date = None
     to_date = None
-    
+
     if from_date_str:
         try:
             from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
         except ValueError:
-            flash('Invalid from date format. Use YYYY-MM-DD format.', 'danger')
-    
+            flash('Invalid from date format.', 'danger')
+
     if to_date_str:
         try:
             to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
         except ValueError:
-            flash('Invalid to date format. Use YYYY-MM-DD format.', 'danger')
-    
-    # Default to current month if no dates specified
+            flash('Invalid to date format.', 'danger')
+
     if not from_date:
         from_date = date.today().replace(day=1)
-    
     if not to_date:
-        # Last day of the same month
         next_month = from_date.replace(month=from_date.month + 1 if from_date.month < 12 else 1,
                                        year=from_date.year if from_date.month < 12 else from_date.year + 1)
-        to_date = (next_month - timedelta(days=1))
-    
-    # Get overtime records
+        to_date = next_month - timedelta(days=1)
+
     records = AttendanceRecord.query.filter(
         AttendanceRecord.employee_id == employee_id,
         AttendanceRecord.date >= from_date,
         AttendanceRecord.date <= to_date,
         AttendanceRecord.overtime_hours > 0
     ).order_by(AttendanceRecord.date).all()
-    # Calculate summary statistics
-    total_hours = sum(r.overtime_hours or 0 for r in records)
-    total_weekday_overtime = sum(r.regular_overtime_hours or 0 for r in records)
-    total_weekend_overtime = sum(r.weekend_overtime_hours or 0 for r in records)
-    total_holiday_overtime = sum(r.holiday_overtime_hours or 0 for r in records)
-    
-    weighted_sum = sum((r.overtime_hours or 0) * (r.overtime_rate or 0) for r in records)
+
+    # Apply eligibility checks
+    for r in records:
+        r.eligible_regular_overtime_hours = r.regular_overtime_hours if employee.eligible_for_weekday_overtime else 0
+        r.eligible_weekend_overtime_hours = r.weekend_overtime_hours if employee.eligible_for_weekend_overtime else 0
+        r.eligible_holiday_overtime_hours = r.holiday_overtime_hours if employee.eligible_for_holiday_overtime else 0
+        r.eligible_overtime_hours = (
+            r.eligible_regular_overtime_hours +
+            r.eligible_weekend_overtime_hours +
+            r.eligible_holiday_overtime_hours
+        )
+        r.eligible_overt_time_weighted = r.eligible_overtime_hours * (r.overtime_rate or 0)
+
+    total_hours = sum(r.eligible_overtime_hours for r in records)
+    total_weekday_overtime = sum(r.eligible_regular_overtime_hours for r in records)
+    total_weekend_overtime = sum(r.eligible_weekend_overtime_hours for r in records)
+    total_holiday_overtime = sum(r.eligible_holiday_overtime_hours for r in records)
+    weighted_sum = sum(r.eligible_overt_time_weighted for r in records)
     avg_rate = weighted_sum / total_hours if total_hours > 0 else 0
-    
-    # Group by week for weekly summary
+
     weekly_summary = {}
-    for record in records:
-        # Get the Monday of the week
-        week_start = record.date - timedelta(days=record.date.weekday())
+    for r in records:
+        week_start = r.date - timedelta(days=r.date.weekday())
         week_key = week_start.strftime('%Y-%m-%d')
-        
         if week_key not in weekly_summary:
             weekly_summary[week_key] = {
                 'start_date': week_start,
@@ -494,22 +492,20 @@ def employee_overtime(employee_id):
                 'holiday_hours': 0,
                 'weighted_sum': 0
             }
-        
-        weekly_summary[week_key]['hours'] += record.overtime_hours or 0
-        weekly_summary[week_key]['weekday_hours'] += record.regular_overtime_hours or 0
-        weekly_summary[week_key]['weekend_hours'] += record.weekend_overtime_hours or 0
-        weekly_summary[week_key]['holiday_hours'] += record.holiday_overtime_hours or 0
-        weekly_summary[week_key]['weighted_sum'] += (record.overtime_hours or 0) * (record.overtime_rate or 0)
-    
-    # Calculate average rate for each week
+
+        weekly_summary[week_key]['hours'] += r.eligible_overtime_hours
+        weekly_summary[week_key]['weekday_hours'] += r.eligible_regular_overtime_hours
+        weekly_summary[week_key]['weekend_hours'] += r.eligible_weekend_overtime_hours
+        weekly_summary[week_key]['holiday_hours'] += r.eligible_holiday_overtime_hours
+        weekly_summary[week_key]['weighted_sum'] += r.eligible_overt_time_weighted
+
     for week in weekly_summary.values():
         week['avg_rate'] = week['weighted_sum'] / week['hours'] if week['hours'] > 0 else 0
-    
-    # Sort weeks by start date
+
     weeks = sorted(weekly_summary.values(), key=lambda w: w['start_date'])
-    
+
     return render_template(
-        'overtime/employee_detail.html', 
+        'overtime/employee_detail.html',
         employee=employee,
         records=records,
         from_date=from_date,
@@ -521,8 +517,6 @@ def employee_overtime(employee_id):
         avg_rate=avg_rate,
         weeks=weeks
     )
-
-
 
 @bp.route('/send_overtime_to_odoo', methods=['POST'])
 def send_overtime_to_odoo():
@@ -598,11 +592,11 @@ def send_overtime_to_odoo():
 @login_required
 def report():
     """Show overtime report"""
-    if not current_user.is_admin and  not current_user.has_role('hr'):
+    if not current_user.is_admin and not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('main.index'))
     
-    # Get date range from query parameters
+    # Date range filters
     from_date_str = request.args.get('from_date')
     to_date_str = request.args.get('to_date')
     department = request.args.get('department')
@@ -622,21 +616,23 @@ def report():
         except ValueError:
             flash('Invalid to date format. Use YYYY-MM-DD format.', 'danger')
     
-    # Default to current month if no dates specified
+    # Defaults if no dates
     if not from_date:
         from_date = date.today().replace(day=1)
-    
     if not to_date:
         next_month = from_date.replace(month=from_date.month + 1 if from_date.month < 12 else 1,
                                       year=from_date.year if from_date.month < 12 else from_date.year + 1)
         to_date = (next_month - timedelta(days=1))
     
-    # Build query for overtime report including absent days count
+    # Query with eligibility fields
     query = db.session.query(
         Employee.id,
         Employee.name,
         Employee.employee_code,
         Employee.department,
+        Employee.eligible_for_weekday_overtime,
+        Employee.eligible_for_weekend_overtime,
+        Employee.eligible_for_holiday_overtime,
         func.coalesce(func.sum(AttendanceRecord.overtime_hours), 0).label('total_overtime'),
         func.coalesce(func.sum(AttendanceRecord.regular_overtime_hours), 0).label('weekday_overtime'),
         func.coalesce(func.sum(AttendanceRecord.weekend_overtime_hours), 0).label('weekend_overtime'),
@@ -657,28 +653,29 @@ def report():
         Employee.is_active == True
     )
     
-    # Apply department filter if specified
     if department:
         query = query.filter(Employee.department == department)
     
-    # Group and order results
     results = query.group_by(
         Employee.id,
         Employee.name,
         Employee.employee_code,
-        Employee.department
+        Employee.department,
+        Employee.eligible_for_weekday_overtime,
+        Employee.eligible_for_weekend_overtime,
+        Employee.eligible_for_holiday_overtime
     ).order_by(
         desc('total_overtime')
     ).all()
     
-    # Calculate totals
+    # Calculate totals with eligibility check
     total_overtime = sum(r.total_overtime or 0 for r in results)
-    total_weekday_overtime = sum(r.weekday_overtime or 0 for r in results)
+    total_weekday_overtime = sum(r.weekday_overtime if r.eligible_for_weekday_overtime else 0 for r in results)
+    total_weekend_overtime = sum(r.weekend_overtime if r.eligible_for_weekend_overtime else 0 for r in results)
+    total_holiday_overtime = sum(r.holiday_overtime if r.eligible_for_holiday_overtime else 0 for r in results)
     total_absents = sum(r.absent_days or 0 for r in results)
-    total_weekend_overtime = sum(r.weekend_overtime or 0 for r in results)
-    total_holiday_overtime = sum(r.holiday_overtime or 0 for r in results)
     
-    # Get departments for dropdown
+    # Get unique departments for dropdown
     departments = db.session.query(Employee.department).filter(
         Employee.department.isnot(None)
     ).distinct().order_by(Employee.department).all()
@@ -686,15 +683,15 @@ def report():
     unique_departments = [dept[0] for dept in departments if dept[0]]
     
     return render_template(
-        'overtime/report.html', 
+        'overtime/report.html',
         results=results,
         from_date=from_date,
         to_date=to_date,
         total_overtime=total_overtime,
-        total_absents=total_absents,
         total_weekday_overtime=total_weekday_overtime,
         total_weekend_overtime=total_weekend_overtime,
         total_holiday_overtime=total_holiday_overtime,
+        total_absents=total_absents,
         departments=unique_departments,
         selected_department=department
     )
