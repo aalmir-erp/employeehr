@@ -208,14 +208,14 @@ def employee_attendance(employee_id):
             
             # Adjust break start to be in the middle of the work period
             # minus half the break duration
-            break_start = midpoint - timedelta(hours=record.break_duration / 2)
-            
-            # Break end time is break start plus break duration
-            break_end = break_start + timedelta(hours=record.break_duration)
+            # break_start = midpoint - timedelta(hours=record.break_duration / 2)
+            #
+            # # Break end time is break start plus break duration
+            # break_end = break_start + timedelta(hours=record.break_duration)
             
             # Store these times in the record object for use in the template
-            record.break_start_time = break_start
-            record.break_end_time = break_end
+            # record.break_start_time = break_start
+            # record.break_end_time = break_end
         else:
             record.break_start_time = None
             record.break_end_time = None
