@@ -89,7 +89,7 @@ def estimate_break_duration(logs):
     
     if not logs or len(logs) < 3:  # Need at least check-in, break, check-out
         print(f"DEBUG - Not enough logs to detect break: {len(logs) if logs else 0} logs")
-        return 0, None, None
+        return 1, None, None
         
     # Sort logs by timestamp
     sorted_logs = sorted(logs, key=lambda x: x.timestamp)
@@ -159,13 +159,17 @@ def estimate_break_duration(logs):
     # Default to returning None for break_start/break_end in this case
     if total_break_time < 0.1:
         print(f"DEBUG - Total break time too small: {total_break_time:.2f} hours")
+        if total_break_time < 1:
+            total_break_time = 1
         return total_break_time, None, None
     
     # Find the most appropriate break using our sophisticated algorithm
     # First check if we have any breaks detected
     if not detected_breaks:
         print(f"DEBUG - No out-in sequences detected for breaks")
-        return 0, None, None
+        if total_break_time < 1:
+            total_break_time = 1
+        return total_break_time, None, None
     
     # Sort breaks by total score (lunch + duration score)
     sorted_breaks = sorted(detected_breaks, key=lambda x: (x['total_score'], x['duration']), reverse=True)
@@ -190,6 +194,10 @@ def estimate_break_duration(logs):
         print(f"DEBUG - Break {i+1}: {brk['duration']:.2f} hours from {brk['start']} to {brk['end']} - score: {brk['total_score']} {'(PRIMARY)' if is_primary else ''}")
     
     print(f"DEBUG - Final break result: {round(total_break_time, 2):.2f} hours total, primary break: start={break_start}, end={break_end}")
+    print (" --------------------------------------- ")
+    # total_break_time = 4
+    if  total_break_time <1:
+        total_break_time = 1
     return round(total_break_time, 2), break_start, break_end
 
 
@@ -413,7 +421,7 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
         
         # Save a flag to indicate that break_duration has been explicitly calculated
         # from multiple breaks and should not be recalculated from break_start/break_end
-        record.break_calculated = True
+        record.break_calculated = False
         
         # Get the employee
         employee = Employee.query.get(emp_id)
