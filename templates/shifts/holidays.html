@@ -98,7 +98,7 @@
                                 </span>
                             </td>
                             <td>
-                                {% if holiday.is_employee_specific %}
+                                {% if holiday.is_employee_specific and holiday.employee %}
                                     {{ holiday.employee.name }}
                                 {% else %}
                                     <span class="badge bg-primary">Company-wide</span>
