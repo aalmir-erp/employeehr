@@ -3,6 +3,7 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import Text, TypeDecorator
 import json
+from sqlalchemy import and_, func, or_
 
 # Import db from db.py to avoid circular imports
 from db import db
@@ -144,6 +145,7 @@ class Employee(db.Model):
         """
         
         if self.weekend_days:
+            print(self.weekend_days,"=========================self.weekend_days1")
             return self.weekend_days
         
         if date_obj:
@@ -155,15 +157,18 @@ class Employee(db.Model):
            
             if shift_assignment and shift_assignment.shift:
                 if shift_assignment.shift.weekend_days:
+                    print(shift_assignment.shift.weekend_days,'============================shift_assignment.shift.weekend_days2')
                     return shift_assignment.shift.weekend_days
         
         if self.current_shift_id:
             shift = Shift.query.get(self.current_shift_id)
             if shift and shift.weekend_days:
+                print(shift.weekend_days,"===================================================shift.weekend_days")
                 return shift.weekend_days
         
         system_config = SystemConfig.query.first()
         if system_config and system_config.weekend_days:
+            print(system_config.weekend_days,"-=============================================system_config.weekend_days56")
             return system_config.weekend_days
         
         return [5, 6] 
@@ -285,13 +290,19 @@ class AttendanceRecord(db.Model):
             self.work_hours = max(0, duration - actual_break_duration)
             return self.work_hours
         return 0
+
+
         
     def calculate_overtime(self, standard_hours=None):
         """
         Calculate overtime hours and rate using assigned rule or system defaults
         Returns tuple (overtime_hours, overtime_rate)
         """
-        # Set default standard hours if not provided
+        employee = self.employee
+        print(employee,self.date,"=================================================================self.date")
+        if employee:
+            self.is_holiday, self.is_weekend = self.check_holiday_and_weekend(employee, self.date)
+        print(self.is_holiday, self.is_weekend,"=====================================wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww")
         if standard_hours is None:
             if self.shift_id and self.shift:
                 # Use shift duration as standard hours
@@ -464,6 +475,68 @@ class AttendanceRecord(db.Model):
             self.overt_time_weighted =  self.overtime_hours *  self.overtime_rate
             
             return overtime_eligible, default_rate
+
+    def check_holiday_and_weekend(self,employee_id, date_obj):
+        """
+        Check if a given date is a holiday or weekend for a specific employee
+        Returns tuple: (is_holiday, is_weekend)
+        """
+        # Check if it's a holiday
+        is_holiday = False
+        print(employee_id.id,"date_obj================================",date_obj)
+        
+        # Check for employee-specific holiday
+        holiday = Holiday.query.filter(
+            Holiday.date == date_obj,
+            Holiday.employee_id == employee_id.id
+        ).first()
+        
+        
+        if holiday:
+            is_holiday = True
+        else:
+            # Check for general holiday (non-employee-specific)
+            general_holiday = Holiday.query.filter(
+                Holiday.date == date_obj,
+                Holiday.is_employee_specific == False
+            ).first()
+            
+            if general_holiday:
+                is_holiday = True
+                
+            # Check for recurring holiday (like New Year's Day every year)
+            recurring_holiday = Holiday.query.filter(
+                func.extract('month', Holiday.date) == date_obj.month,
+                func.extract('day', Holiday.date) == date_obj.day,
+                Holiday.is_recurring == True,
+                or_(
+                    Holiday.is_employee_specific == False,
+                    Holiday.employee_id == employee_id.id
+                )
+            ).first()
+            
+            if recurring_holiday:
+                is_holiday = True
+        
+        # Check if it's a weekend based on the employee's configuration
+        employee = Employee.query.get(employee_id.id)
+        is_weekend = False
+        
+        if employee:
+            # Use the employee's weekend days (this automatically follows the priority logic)
+            weekend_days = employee.get_weekend_days(date_obj)
+            
+            # Debug logging to help diagnose weekend detection issues
+            print(f"DEBUG - Employee {employee_id}, date {date_obj}, weekday {date_obj.weekday()}, weekend_days {weekend_days}")
+            
+            # Check if the date's weekday is in the employee's weekend days
+            is_weekend = date_obj.weekday() in weekend_days
+            
+            # Extra verification - Sunday is weekday 6
+            if date_obj.weekday() == 6 and 6 in weekend_days:
+                is_weekend = True
+        
+        return is_holiday, is_weekend
 
 class Shift(db.Model):
     id = db.Column(db.Integer, primary_key=True)
