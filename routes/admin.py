@@ -617,7 +617,7 @@ def update_employee_weekend_config():
     db.session.commit()
     
     flash(f'Weekend days updated for {employee.name}', 'success')
-    return redirect(url_for('admin.employee_weekend_config'))
+    return redirect(url_for('admin.overtime_eligibility'))
 
 @bp.route('/bulk-update-weekend-config', methods=['POST']) 
 @login_required

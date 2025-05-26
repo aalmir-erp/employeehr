@@ -54,7 +54,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <!-- <div class="col-md-4">
                     <div class="card h-100">
                         <div class="card-header">Employee-specific Weekend Days</div>
                         <div class="card-body">
@@ -73,7 +73,7 @@
                             </button>
                         </div>
                     </div>
-                </div>
+                </div> -->
             </div>
         </div>
     </div>
@@ -296,6 +296,12 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Day names mapping
     const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const selectAllCheckbox = document.getElementById('employee-selector');
+
+        // "Select All" toggles all employee checkboxes
+        selectAllCheckbox.addEventListener('change', function() {
+                console.log('====================================================')
+        });
     
     // Fetch weekend configuration data
     fetch('{{ url_for("admin.api_weekend_config") }}')

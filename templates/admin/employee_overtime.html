@@ -102,6 +102,73 @@
                         </div>
                     </form>
                 </div>
+
+                <div class="card-body">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">Employee Weekend Days Settings</h5>
+                    </div>
+                    <form id="employee-weekend-form" method="POST" action="{{ url_for('admin.update_employee_weekend_config') }}">
+                        <input type="hidden" id="modal-employee-id" name="employee_id" value="{{ employee.id }}">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Employee Weekend Days</label>
+                            <div class="form-text mb-2">These days will be considered weekends for this specific employee.</div>
+                            
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="weekend_days" value="0" id="emp-monday"
+                                    {% if employee.weekend_days is not none and 0 in employee.weekend_days %}checked{% endif %}>
+                                <label class="form-check-label" for="emp-monday">Monday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="weekend_days" value="1" id="emp-tuesday"
+                                    {% if employee.weekend_days is not none and 1 in employee.weekend_days %}checked{% endif %}>
+                                <label class="form-check-label" for="emp-tuesday">Tuesday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="weekend_days" value="2" id="emp-wednesday"
+                                    {% if employee.weekend_days is not none and 2 in employee.weekend_days %}checked{% endif %}>
+                                <label class="form-check-label" for="emp-wednesday">Wednesday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="weekend_days" value="3" id="emp-thursday"
+                                    {% if employee.weekend_days is not none and 3 in employee.weekend_days %}checked{% endif %}>
+                                <label class="form-check-label" for="emp-thursday">Thursday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="weekend_days" value="4" id="emp-friday"
+                                    {% if employee.weekend_days is not none and 4 in employee.weekend_days %}checked{% endif %}>
+                                <label class="form-check-label" for="emp-friday">Friday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="weekend_days" value="5" id="emp-saturday"
+                                    {% if employee.weekend_days is not none and 5 in employee.weekend_days %}checked{% endif %}>
+                                <label class="form-check-label" for="emp-saturday">Saturday</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="weekend_days" value="6" id="emp-sunday"
+                                    {% if employee.weekend_days is not none and 6 in employee.weekend_days %}checked{% endif %}>
+                                <label class="form-check-label" for="emp-sunday">Sunday</label>
+                            </div>
+                        </div>
+                        
+                        
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="emp-use-default" name="use_default" {% if employee.weekend_days is none %}checked{% endif %}>
+                            <label class="form-check-label" for="emp-use-default">
+                                Use shift/system defaults (no override)
+                            </label>
+                            <div class="form-text">
+                                Check this if you want to use the shift-specific or system-wide weekend settings instead of employee-specific settings.
+                            </div>
+                        </div>
+                        <button style="float: right;" type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> Save Changes
+                        </button>
+                    </form>
+                </div>
+
+
             </div>
         </div>
     </div>
