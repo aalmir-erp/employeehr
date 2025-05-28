@@ -4,6 +4,7 @@ Routes for employee bonus management system
 from datetime import datetime
 from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify, current_app
 from flask_login import login_required, current_user
+from markupsafe import Markup
 from sqlalchemy import func
 import csv
 from io import StringIO
@@ -15,7 +16,7 @@ from models import (
 from utils.decorators import role_required
 from utils.wassenger import send_whatsapp_notifications
 
-bp = Blueprint('bonus', __name__, url_prefix='/bonus')
+bp = Blueprint('bonus', __name__)
 
 
 @bp.route('/')
@@ -29,7 +30,7 @@ def index():
         return redirect(url_for('bonus.supervisor_dashboard'))
     else:
         flash('You do not have permission to access the bonus system.', 'warning')
-        return redirect(url_for('index'))
+        return redirect(url_for('index.index'))
 
 
 @bp.route('/hr/dashboard')
@@ -82,7 +83,7 @@ def supervisor_dashboard():
     
     if not supervisor_department:
         flash('You are not assigned to a department.', 'warning')
-        return redirect(url_for('index'))
+        return redirect(url_for('index.index'))
     
     # Get active evaluation periods
     active_periods = BonusEvaluationPeriod.query.filter(
@@ -441,10 +442,59 @@ def supervisor_submit(period_id):
     )
 
 
+@bp.route('/submission/<int:submission_id>/save_score', methods=['POST'])
+@login_required
+def save_single_score(submission_id):
+    """Save a single evaluation score via AJAX"""
+    submission = BonusSubmission.query.get_or_404(submission_id)
+    
+    # Check permissions
+    if not (current_user.has_role('supervisor') or current_user.has_role('hr')):
+        return jsonify({'success': False, 'error': 'Permission denied'})
+    
+    if submission.status != 'draft':
+        return jsonify({'success': False, 'error': 'Cannot edit submitted evaluations'})
+    
+    try:
+        employee_id = int(request.form.get('employee_id'))
+        question_id = int(request.form.get('question_id'))
+        value = int(request.form.get('value'))
+        
+        # Validate score range
+        question = BonusQuestion.query.get(question_id)
+        if not question or value < question.min_value or value > question.max_value:
+            return jsonify({'success': False, 'error': 'Invalid score value'})
+        
+        # Find or create evaluation
+        evaluation = BonusEvaluation.query.filter_by(
+            submission_id=submission_id,
+            employee_id=employee_id,
+            question_id=question_id
+        ).first()
+        
+        if evaluation:
+            evaluation.value = value
+        else:
+            evaluation = BonusEvaluation(
+                submission_id=submission_id,
+                employee_id=employee_id,
+                question_id=question_id,
+                value=value
+            )
+            db.session.add(evaluation)
+        
+        db.session.commit()
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+
 @bp.route('/submission/<int:submission_id>/edit', methods=['GET'])
 @login_required
 def edit_submission(submission_id):
-    """Edit a bonus submission"""
+    """Edit a bonus submission - NEW WORKING VERSION"""
     submission = BonusSubmission.query.get_or_404(submission_id)
     
     # Check permissions
@@ -481,6 +531,16 @@ def edit_submission(submission_id):
             evaluation_matrix[eval.employee_id] = {}
         evaluation_matrix[eval.employee_id][eval.question_id] = eval
     
+    # Get existing evaluations and organize them properly
+    evaluations = BonusEvaluation.query.filter_by(submission_id=submission.id).all()
+    
+    # Create evaluation matrix that the template expects
+    evaluation_matrix = {}
+    for eval in evaluations:
+        if eval.employee_id not in evaluation_matrix:
+            evaluation_matrix[eval.employee_id] = {}
+        evaluation_matrix[eval.employee_id][eval.question_id] = eval
+    
     return render_template(
         'bonus/edit_submission.html',
         submission=submission,
@@ -494,92 +554,171 @@ def edit_submission(submission_id):
 @login_required
 def save_evaluation():
     """API endpoint to save a single evaluation"""
-    # Get JSON data
-    data = request.json
-    
-    submission_id = data.get('submission_id')
-    employee_id = data.get('employee_id')
-    question_id = data.get('question_id')
-    value = data.get('value')
-    
-    if not all([submission_id, employee_id, question_id, value is not None]):
-        return jsonify({'status': 'error', 'message': 'Missing required fields'}), 400
-    
-    # Fetch submission
-    submission = BonusSubmission.query.get_or_404(submission_id)
-    
-    # Check permissions
-    if not current_user.has_role('hr') and (submission.submitted_by != current_user.id):
-        return jsonify({'status': 'error', 'message': 'Permission denied'}), 403
-    
-    # Check if submission is editable
-    if submission.status not in ['draft', 'rejected']:
-        return jsonify({'status': 'error', 'message': 'Submission is not editable'}), 400
-    
-    # Validate value
-    question = BonusQuestion.query.get_or_404(question_id)
-    if value < question.min_value or value > question.max_value:
+    try:
+        # Get JSON data
+        data = request.json
+        current_app.logger.debug(f"Received evaluation save request: {data}")
+        
+        if not data:
+            return jsonify({'status': 'error', 'message': 'No JSON data received'}), 400
+        
+        submission_id = data.get('submission_id')
+        employee_id = data.get('employee_id') 
+        question_id = data.get('question_id')
+        value = data.get('value')
+        
+        current_app.logger.debug(f"Parsed data: submission_id={submission_id}, employee_id={employee_id}, question_id={question_id}, value={value}")
+        
+        if not all([submission_id, employee_id, question_id, value is not None]):
+            return jsonify({'status': 'error', 'message': 'Missing required fields'}), 400
+        
+        # Fetch submission
+        submission = BonusSubmission.query.get_or_404(submission_id)
+        
+        # Check permissions
+        if not current_user.has_role('hr') and (submission.submitted_by != current_user.id):
+            return jsonify({'status': 'error', 'message': 'Permission denied'}), 403
+        
+        # Check if submission is editable
+        if submission.status not in ['draft', 'rejected']:
+            return jsonify({'status': 'error', 'message': 'Submission is not editable'}), 400
+        
+        # Validate value
+        question = BonusQuestion.query.get_or_404(question_id)
+        if value < question.min_value or value > question.max_value:
+            return jsonify({
+                'status': 'error', 
+                'message': f'Value must be between {question.min_value} and {question.max_value}'
+            }), 400
+        
+        # Find or create evaluation
+        evaluation = BonusEvaluation.query.filter_by(
+            submission_id=submission_id,
+            employee_id=employee_id,
+            question_id=question_id
+        ).first()
+        
+        if evaluation:
+            old_value = evaluation.value
+            evaluation.value = value
+            evaluation.updated_at = datetime.now()
+            
+            # Create audit log entry
+            log = BonusAuditLog(
+                submission_id=submission_id,
+                employee_id=employee_id,
+                question_id=question_id,
+                action='updated',
+                old_value=old_value,
+                new_value=value,
+                user_id=current_user.id
+            )
+            
+            db.session.add(log)
+        else:
+            evaluation = BonusEvaluation(
+                submission_id=submission_id,
+                employee_id=employee_id,
+                question_id=question_id,
+                value=value
+            )
+            
+            db.session.add(evaluation)
+            
+            # Create audit log entry
+            log = BonusAuditLog(
+                submission_id=submission_id,
+                employee_id=employee_id,
+                question_id=question_id,
+                action='created',
+                new_value=value,
+                user_id=current_user.id
+            )
+            
+            db.session.add(log)
+        
+        db.session.commit()
+        current_app.logger.debug(f"Successfully saved evaluation: employee_id={employee_id}, question_id={question_id}, value={value}")
+        
+        # Calculate total points for this employee
+        employee_points = submission.calculate_total_points(employee_id)
+        
         return jsonify({
-            'status': 'error', 
-            'message': f'Value must be between {question.min_value} and {question.max_value}'
-        }), 400
-    
-    # Find or create evaluation
-    evaluation = BonusEvaluation.query.filter_by(
-        submission_id=submission_id,
-        employee_id=employee_id,
-        question_id=question_id
-    ).first()
-    
-    if evaluation:
-        old_value = evaluation.value
-        evaluation.value = value
-        evaluation.updated_at = datetime.now()
+            'status': 'success', 
+            'message': 'Evaluation saved successfully',
+            'total_points': employee_points.get(employee_id, 0)
+        })
         
-        # Create audit log entry
-        log = BonusAuditLog(
+    except Exception as e:
+        current_app.logger.error(f"Error saving evaluation: {str(e)}")
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': 'Failed to save evaluation'}), 500
+
+
+@bp.route('/save_single_evaluation', methods=['POST'])
+@login_required
+def save_single_evaluation():
+    """Save a single evaluation score via form submission"""
+    try:
+        submission_id = request.form.get('submission_id')
+        employee_id = request.form.get('employee_id')
+        question_id = request.form.get('question_id')
+        value = request.form.get('value')
+        
+        current_app.logger.debug(f"Form submission - submission_id={submission_id}, employee_id={employee_id}, question_id={question_id}, value={value}")
+        
+        if not all([submission_id, employee_id, question_id, value]):
+            flash('Missing required data', 'error')
+            return redirect(request.referrer)
+        
+        value = float(value)
+        submission = BonusSubmission.query.get_or_404(submission_id)
+        
+        # Check permissions
+        if not current_user.has_role('hr') and (submission.submitted_by != current_user.id):
+            flash('Permission denied', 'error')
+            return redirect(request.referrer)
+        
+        # Check if submission is editable
+        if submission.status not in ['draft', 'rejected']:
+            flash('Submission is not editable', 'error')
+            return redirect(request.referrer)
+        
+        # Validate value
+        question = BonusQuestion.query.get_or_404(question_id)
+        if value < question.min_value or value > question.max_value:
+            flash(f'Value must be between {question.min_value} and {question.max_value}', 'error')
+            return redirect(request.referrer)
+        
+        # Find or create evaluation
+        evaluation = BonusEvaluation.query.filter_by(
             submission_id=submission_id,
             employee_id=employee_id,
-            question_id=question_id,
-            action='updated',
-            old_value=old_value,
-            new_value=value,
-            user_id=current_user.id
-        )
+            question_id=question_id
+        ).first()
         
-        db.session.add(log)
-    else:
-        evaluation = BonusEvaluation(
-            submission_id=submission_id,
-            employee_id=employee_id,
-            question_id=question_id,
-            value=value
-        )
+        if evaluation:
+            evaluation.value = value
+            evaluation.updated_at = datetime.now()
+        else:
+            evaluation = BonusEvaluation(
+                submission_id=submission_id,
+                employee_id=employee_id,
+                question_id=question_id,
+                value=value
+            )
+            db.session.add(evaluation)
         
-        db.session.add(evaluation)
+        db.session.commit()
+        current_app.logger.debug(f"Successfully saved evaluation: employee_id={employee_id}, question_id={question_id}, value={value}")
         
-        # Create audit log entry
-        log = BonusAuditLog(
-            submission_id=submission_id,
-            employee_id=employee_id,
-            question_id=question_id,
-            action='created',
-            new_value=value,
-            user_id=current_user.id
-        )
+        return redirect(request.referrer)
         
-        db.session.add(log)
-    
-    db.session.commit()
-    
-    # Calculate total points for this employee
-    employee_points = submission.calculate_total_points(employee_id)
-    
-    return jsonify({
-        'status': 'success', 
-        'message': 'Evaluation saved successfully',
-        'total_points': employee_points.get(employee_id, 0)
-    })
+    except Exception as e:
+        current_app.logger.error(f"Error saving single evaluation: {str(e)}")
+        db.session.rollback()
+        flash('Failed to save evaluation', 'error')
+        return redirect(request.referrer)
 
 
 @bp.route('/submission/<int:submission_id>/submit', methods=['POST'])
@@ -688,9 +827,34 @@ def view_submission(submission_id):
     # Create a map of user IDs for approvers
     user_map = {}
     if submission.approvers:
-        user_ids = [int(uid) for uid in submission.approvers]
-        users = User.query.filter(User.id.in_(user_ids)).all()
-        user_map = {str(user.id): user for user in users}
+        try:
+            # Handle different possible formats of approvers
+            if isinstance(submission.approvers, list):
+                user_ids = [int(uid) for uid in submission.approvers if str(uid).isdigit()]
+            elif isinstance(submission.approvers, str):
+                # Handle string representation of list: convert from string to list
+                import json
+                try:
+                    approvers_list = json.loads(submission.approvers.replace("'", '"'))
+                    user_ids = [int(uid) for uid in approvers_list if str(uid).isdigit()]
+                except json.JSONDecodeError:
+                    # If not valid JSON, try splitting string
+                    approvers_list = submission.approvers.strip('[]').split(',')
+                    user_ids = [int(uid.strip()) for uid in approvers_list if uid.strip().isdigit()]
+            else:
+                # Fallback
+                user_ids = []
+                
+            if user_ids:
+                users = User.query.filter(User.id.in_(user_ids)).all()
+                user_map = {str(user.id): user for user in users}
+        except Exception as e:
+            current_app.logger.error(f"Error processing approvers: {e}")
+    
+    # Generate a CSRF token for the form
+    from flask_wtf.csrf import generate_csrf
+    csrf_token = generate_csrf()
+    csrf_token_field = Markup(f'<input type="hidden" name="csrf_token" value="{csrf_token}">')
     
     return render_template(
         'bonus/view_submission.html',
@@ -702,7 +866,8 @@ def view_submission(submission_id):
         audit_logs=audit_logs,
         is_hr=is_hr,
         User=User,
-        user_map=user_map
+        user_map=user_map,
+        csrf_token_field=csrf_token_field
     )
 
 
@@ -883,23 +1048,31 @@ def hr_review_submission(submission_id):
 @role_required('hr')
 def hr_edit_evaluation(evaluation_id):
     """HR edit an individual evaluation"""
+    current_app.logger.debug(f"Processing edit request for evaluation ID: {evaluation_id}")
     evaluation = BonusEvaluation.query.get_or_404(evaluation_id)
     
-    # Check if submission is approved (HR can only edit approved evaluations)
-    if evaluation.submission.status != 'approved':
-        return jsonify({'status': 'error', 'message': 'Can only edit approved evaluations'}), 400
+    # Check if submission is in an editable state (HR can edit during review and after approval)
+    valid_statuses = ['submitted', 'in_review', 'approved']
+    if evaluation.submission.status not in valid_statuses:
+        current_app.logger.error(f"Invalid submission status: {evaluation.submission.status}")
+        return jsonify({'status': 'error', 'message': 'Can only edit evaluations in review or approved status'}), 400
     
     # Get data
     data = request.json
-    new_value = data.get('value')
-    notes = data.get('notes', '')
+    current_app.logger.debug(f"Received data: {data}")
     
-    if new_value is None:
-        return jsonify({'status': 'error', 'message': 'Value is required'}), 400
+    try:
+        new_value = float(data.get('value'))
+    except (TypeError, ValueError):
+        current_app.logger.error(f"Invalid value received: {data.get('value')}")
+        return jsonify({'status': 'error', 'message': 'Value must be a number'}), 400
+        
+    notes = data.get('notes', '')
     
     # Validate value
     question = BonusQuestion.query.get(evaluation.question_id)
     if question and (new_value < question.min_value or new_value > question.max_value):
+        current_app.logger.error(f"Value out of range: {new_value}, allowed range is {question.min_value}-{question.max_value}")
         return jsonify({
             'status': 'error', 
             'message': f'Value must be between {question.min_value} and {question.max_value}'
@@ -922,17 +1095,32 @@ def hr_edit_evaluation(evaluation_id):
         user_id=current_user.id
     )
     
-    db.session.add(log)
-    db.session.commit()
-    
-    # Calculate new total points
-    employee_points = evaluation.submission.calculate_total_points(evaluation.employee_id)
-    
-    return jsonify({
-        'status': 'success',
-        'message': 'Evaluation updated successfully',
-        'total_points': employee_points.get(evaluation.employee_id, 0)
-    })
+    try:
+        db.session.add(log)
+        db.session.commit()
+        current_app.logger.debug(f"Successfully updated evaluation {evaluation_id} from {old_value} to {new_value}")
+        
+        # Calculate new total points
+        current_app.logger.debug(f"Calculating new total points for employee {evaluation.employee_id}")
+        employee_points = evaluation.submission.calculate_total_points(evaluation.employee_id)
+        
+        employee_id = evaluation.employee_id
+        total_points = employee_points.get(employee_id, 0)
+        
+        current_app.logger.debug(f"Employee ID: {employee_id}, points dictionary: {employee_points}")
+        current_app.logger.debug(f"New total points for employee {employee_id}: {total_points}")
+        
+        # Return response with employee ID for debugging
+        return jsonify({
+            'status': 'success',
+            'message': 'Evaluation updated successfully',
+            'total_points': total_points,
+            'employee_id': employee_id
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error saving evaluation: {str(e)}")
+        return jsonify({'status': 'error', 'message': f'Error saving: {str(e)}'}), 500
 
 
 @bp.route('/hr/export/<int:submission_id>')

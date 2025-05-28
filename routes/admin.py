@@ -1,12 +1,18 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify
-from flask_login import login_required, current_user
+#from flask_login import login_required, current_user
+from flask_login import login_required, current_user, logout_user, login_user
 from datetime import datetime, timedelta
 from app import db
 from utils.odoo_connector import odoo_connector
 from models import User, Employee, Shift, ShiftAssignment, AttendanceDevice, OdooConfig, OdooMapping, ERPConfig, SystemConfig
+from itsdangerous import URLSafeSerializer, BadSignature
+
+
 
 # Create blueprint
 bp = Blueprint('admin', __name__, url_prefix='/admin')
+SECRET_KEY = 'YOUR_SECRET_KEY_HERE' 
+
 
 # @bp.before_request
 # def before_request():
@@ -73,6 +79,25 @@ def index():
         user_stats=user_stats,
         last_sync=last_sync
     )
+
+
+@bp.route('/loginodoo/<string:employee_token>')
+def login_as_user_odoo(employee_token):
+    s = URLSafeSerializer(SECRET_KEY)
+
+    employee_id = s.loads(employee_token)
+
+    # Use employee_id for your logic here
+    # Example:
+    print(employee_id,"============================================dddddddddddddddd")
+    target_user = User.query.filter_by(odoo_id=employee_id).first_or_404()
+    print(target_user,"================2222222222222222222222222222")
+
+    logout_user()
+    login_user(target_user)
+
+    flash(f'Successfully logged in as {target_user.username}', 'success')
+    return redirect(url_for('index.index'))
 
 
 @bp.route('/users/edit_user/<int:user_id>', methods=['GET', 'POST'])

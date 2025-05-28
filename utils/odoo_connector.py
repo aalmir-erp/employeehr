@@ -145,6 +145,7 @@ class OdooConnector:
                 FROM hr_employee e
                 LEFT JOIN hr_department p ON e.department_id = p.id
                 LEFT JOIN hr_job j ON e.job_id = j.id
+                WHERE e.active = true;
             """
         
         # Build dynamic select statement
@@ -172,6 +173,7 @@ class OdooConnector:
             FROM hr_employee e
             LEFT JOIN hr_department p ON e.department_id = p.id
             LEFT JOIN hr_job j ON e.job_id = j.id
+            WHERE e.active = true
         """
         
         return query

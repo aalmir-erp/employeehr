@@ -47,6 +47,13 @@ class User(UserMixin, db.Model):
     # Possible values: 'admin', 'hr', 'supervisor', 'employee'
     role = db.Column(db.String(20), default='employee')
     department = db.Column(db.String(64), nullable=True)
+  # 🔹 New fields you asked for:
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=True)
+    phone_number = db.Column(db.Text, nullable=True)
+
+    # Fix AmbiguousForeignKeysError
+    employee = db.relationship('Employee', backref='users', foreign_keys=[employee_id])
+
     
     @property
     def is_active(self):

@@ -35,7 +35,7 @@ logger.info("Using SQLite database for this session")
 app.config['WTF_CSRF_ENABLED'] = False
 
 
-app.config["SQLALCHEMY_DATABASE_URI"] = 'postgresql://employee:employee@localhost/employee'
+app.config["SQLALCHEMY_DATABASE_URI"] = 'postgresql://attendance_app:attendance_app@localhost/ams_mir_12'
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
@@ -45,9 +45,9 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # Configure Odoo connection settings
 app.config["ODOO_HOST"] = os.environ.get("PGHOST", "localhost")
 app.config["ODOO_PORT"] = os.environ.get("PGPORT", "5432")
-app.config["ODOO_USER"] = os.environ.get("PGUSER", "odoo")
-app.config["ODOO_PASSWORD"] = os.environ.get("PGPASSWORD", "odoo")
-app.config["ODOO_DATABASE"] = os.environ.get("PGDATABASE", "odoo9")
+app.config["ODOO_USER"] = os.environ.get("PGUSER", "odoo9")
+app.config["ODOO_PASSWORD"] = os.environ.get("PGPASSWORD", "odoo9")
+app.config["ODOO_DATABASE"] = os.environ.get("PGDATABASE", "aalmir__2025_05_06")
 
 # Initialize extensions with app
 db.init_app(app)
@@ -85,6 +85,8 @@ from routes.overtime import bp as overtime_bp
 from routes.admin_debug import bp as admin_debug_bp
 from routes.bonus import bp as bonus_bp
 from routes.supervisor_management import bp as supervisor_bp
+from routes.employees import bp as employees_bp  # Import the Blueprint
+
 
 app.register_blueprint(index_bp)
 app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -97,6 +99,7 @@ app.register_blueprint(overtime_bp, url_prefix='/overtime')
 app.register_blueprint(admin_debug_bp, url_prefix='/admin/debug')
 app.register_blueprint(bonus_bp, url_prefix='/bonus')
 app.register_blueprint(supervisor_bp, url_prefix='/supervisor')
+app.register_blueprint(employees_bp, url_prefix='/employees')
 
 # Add template context processors
 from datetime import datetime

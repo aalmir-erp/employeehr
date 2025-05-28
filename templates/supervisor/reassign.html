@@ -84,34 +84,50 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    console.log("SUPERVISOR MANAGEMENT DEBUG: Script starting...");
+    
     // Filter employees based on selected department
     const departmentSelect = document.getElementById('departmentSelect');
     const employeeSelect = document.getElementById('employeeSelect');
     
-    departmentSelect.addEventListener('change', function() {
-        const selectedDept = departmentSelect.value;
-        
-        // Reset employee select
-        employeeSelect.value = '';
-        
-        // Show all options initially
-        Array.from(employeeSelect.options).forEach(option => {
-            option.style.display = 'block';
-        });
-        
-        // Hide options that don't match the selected department
-        if (selectedDept) {
-            Array.from(employeeSelect.options).forEach(option => {
-                // Skip the placeholder option
-                if (option.value === '') return;
-                
-                const optionDept = option.getAttribute('data-dept');
-                if (optionDept !== selectedDept) {
-                    option.style.display = 'none';
-                }
-            });
-        }
+    console.log("SUPERVISOR MANAGEMENT DEBUG: Elements found:", {
+        departmentSelect: !!departmentSelect,
+        employeeSelect: !!employeeSelect
     });
+    
+    if (departmentSelect && employeeSelect) {
+        departmentSelect.addEventListener('change', function() {
+            const selectedDept = departmentSelect.value;
+            console.log("SUPERVISOR MANAGEMENT DEBUG: Department selected:", selectedDept);
+            
+            // Reset employee select
+            employeeSelect.value = '';
+            
+            // Show all options initially
+            Array.from(employeeSelect.options).forEach(option => {
+                option.style.display = 'block';
+            });
+            
+            // Hide options that don't match the selected department
+            if (selectedDept) {
+                console.log("SUPERVISOR MANAGEMENT DEBUG: Filtering employees for department:", selectedDept);
+                let visibleCount = 0;
+                Array.from(employeeSelect.options).forEach(option => {
+                    // Skip the placeholder option
+                    if (option.value === '') return;
+                    
+                    const optionDept = option.getAttribute('data-dept');
+                    console.log("SUPERVISOR MANAGEMENT DEBUG: Employee option:", option.text, "Department:", optionDept);
+                    if (optionDept !== selectedDept) {
+                        option.style.display = 'none';
+                    } else {
+                        visibleCount++;
+                    }
+                });
+                console.log("SUPERVISOR MANAGEMENT DEBUG: Visible employees after filter:", visibleCount);
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

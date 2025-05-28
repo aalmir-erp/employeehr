@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}{{ department_name }} Department{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+
+                    <li class="breadcrumb-item"><a href="{{ url_for('employees.index') }}">Employee Management</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ department_name }} Department</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">{{ department_name }} Department</h1>
+                <a href="{{ url_for('employees.index') }}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to All Employees
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Department Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Total Employees</h6>
+                    <h3>{{ employees|length }}</h3>
+                    <p class="mb-0">In this department</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Linked Users</h6>
+                    <h3>{{ employees|selectattr('user_id')|list|length }}</h3>
+                    <p class="mb-0">Users with accounts</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h6 class="card-title">Unlinked</h6>
+                    <h3>{{ employees|rejectattr('user_id')|list|length }}</h3>
+                    <p class="mb-0">Without user accounts</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Supervisors</h6>
+                    <h3>{{ supervisors|length }}</h3>
+                    <p class="mb-0">Department supervisors</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Department Supervisors -->
+    {% if supervisors %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Department Supervisors</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for supervisor in supervisors %}
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100 border-success">
+                        <div class="card-body">
+                            <h6 class="card-title text-success">
+                                <i class="bi bi-person-badge"></i> {{ supervisor.username }}
+                            </h6>
+                            <p class="card-text">
+                                {% if supervisor.employee %}
+                                    Employee: {{ supervisor.employee.name }}<br>
+                                    Code: {{ supervisor.employee.employee_code }}
+                                {% else %}
+                                    <em>No employee record linked</em>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Department Employees -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">{{ department_name }} Employees ({{ employees|length }} total)</h5>
+        </div>
+        <div class="card-body">
+            {% if employees %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Employee Code</th>
+                            <th>Name</th>
+                            <th>Position</th>
+                            <th>Linked User</th>
+                            <th>User Role</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for employee in employees %}
+                        <tr>
+                            <td>{{ employee.employee_code }}</td>
+                            <td>{{ employee.name }}</td>
+                            <td>{{ employee.position or '-' }}</td>
+                            <td>
+                                {% if employee.user %}
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-person-check"></i> {{ employee.user.username }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">
+                                        <i class="bi bi-person-x"></i> Not Linked
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if employee.user %}
+                                    <span class="badge bg-info">{{ employee.user.role|title }}</span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if employee.user %}
+                                    <form method="post" action="{{ url_for('employees.unlink_user_from_employee') }}" style="display: inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                        <input type="hidden" name="employee_id" value="{{ employee.id }}"/>
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                                onclick="return confirm('Unlink {{ employee.user.username }} from {{ employee.name }}?')">
+                                            <i class="bi bi-unlink"></i> Unlink
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <button class="btn btn-sm btn-outline-primary" 
+                                            onclick="window.location.href='{{ url_for('employees.index') }}'">
+                                        <i class="bi bi-link"></i> Link User
+                                    </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="bi bi-people" style="font-size: 3rem; color: var(--bs-secondary);"></i>
+                <h4 class="mt-3">No Employees Found</h4>
+                <p class="text-muted">No employees are currently assigned to the {{ department_name }} department.</p>
+                <a href="{{ url_for('employees.index') }}" class="btn btn-primary">
+                    <i class="bi bi-arrow-left"></i> Back to All Employees
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}

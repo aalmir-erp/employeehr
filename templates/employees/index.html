@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}Employee Management{% endblock %}
+
+{% block content %}
+<div class="col-12">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.index') }}">Admin Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Employee Management</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">Employee Management</h1>
+                <div class="btn-group">
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#linkUserModal">
+                        <i class="bi bi-link"></i> Link User to Employee
+                    </button>
+                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#assignSupervisorModal">
+                        <i class="bi bi-person-badge"></i> Assign Supervisor
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Total Employees</h6>
+                    <h3>{{ employees|length }}</h3>
+                    <p class="mb-0">Active employees</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Departments</h6>
+                    <h3>{{ departments|length }}</h3>
+                    <p class="mb-0">Active departments</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Linked Users</h6>
+                    <h3>{{ employees|selectattr('user_id')|list|length }}</h3>
+                    <p class="mb-0">Users with employee links</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h6 class="card-title">Unlinked Users</h6>
+                    <h3>{{ unlinked_users|length }}</h3>
+                    <p class="mb-0">Users without employee links</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Departments Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Departments Overview</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for dept in departments %}
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h6 class="card-title">{{ dept }}</h6>
+                            <p class="card-text">{{ dept_counts.get(dept, 0) }} employees</p>
+                            <a href="{{ url_for('employees.department_view', dept_name=dept) }}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye"></i> View Department
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% if dept_counts.get('Unassigned', 0) > 0 %}
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 border-warning">
+                        <div class="card-body">
+                            <h6 class="card-title text-warning">Unassigned</h6>
+                            <p class="card-text">{{ dept_counts.get('Unassigned', 0) }} employees</p>
+                            <a href="{{ url_for('employees.department_view', dept_name='unassigned') }}" class="btn btn-outline-warning btn-sm">
+                                <i class="bi bi-eye"></i> View Unassigned
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- All Employees Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">All Employees ({{ employees|length }} total)</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Employee Code</th>
+                            <th>Name</th>
+                            <th>Department</th>
+                            <th>Position</th>
+                            <th>Linked User</th>
+                            <th>User Role</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for employee in employees %}
+                        <tr>
+                            <td>{{ employee.employee_code }}</td>
+                            <td>{{ employee.name }}</td>
+                            <td>
+                                {% if employee.department %}
+                                    <span class="badge bg-primary">{{ employee.department }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Unassigned</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ employee.position or '-' }}</td>
+                            <td>
+                                {% if employee.user %}
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-person-check"></i> {{ employee.user.username }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">
+                                        <i class="bi bi-person-x"></i> Not Linked
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if employee.user %}
+                                    <span class="badge bg-info">{{ employee.user.role|title }}</span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if employee.user %}
+                                    <form method="post" action="{{ url_for('employees.unlink_user_from_employee') }}" style="display: inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                        <input type="hidden" name="employee_id" value="{{ employee.id }}"/>
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                                onclick="return confirm('Unlink {{ employee.user.username }} from {{ employee.name }}?')">
+                                            <i class="bi bi-unlink"></i> Unlink
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <button class="btn btn-sm btn-outline-primary" 
+                                            onclick="openLinkModal({{ employee.id }}, '{{ employee.name }}')">
+                                        <i class="bi bi-link"></i> Link User
+                                    </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Link User to Employee Modal -->
+<div class="modal fade" id="linkUserModal" tabindex="-1" aria-labelledby="linkUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="linkUserModalLabel">Link User to Employee</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{{ url_for('employees.link_user_to_employee') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="user_id" class="form-label">Select User</label>
+                        <select class="form-select" id="user_id" name="user_id" required>
+                            <option value="">-- Select User --</option>
+                            {% for user in unlinked_users %}
+                            <option value="{{ user.id }}">{{ user.username }} ({{ user.role|title }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="employee_id" class="form-label">Select Employee</label>
+                        <select class="form-select" id="employee_id" name="employee_id" required>
+                            <option value="">-- Select Employee --</option>
+                            {% for employee in employees %}
+                                {% if not employee.user_id %}
+                                <option value="{{ employee.id }}">{{ employee.name }} ({{ employee.employee_code }}) - {{ employee.department or 'Unassigned' }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Link User to Employee</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Supervisor Modal -->
+<div class="modal fade" id="assignSupervisorModal" tabindex="-1" aria-labelledby="assignSupervisorModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="assignSupervisorModalLabel">Assign Department Supervisor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{{ url_for('employees.assign_department_supervisor') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="supervisor_user_id" class="form-label">Select User</label>
+                        <select class="form-select" id="supervisor_user_id" name="user_id" required>
+                            <option value="">-- Select User --</option>
+                            {% for employee in employees %}
+                                {% if employee.user %}
+                                <option value="{{ employee.user.id }}">{{ employee.user.username }} - {{ employee.name }} ({{ employee.department or 'Unassigned' }})</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="supervisor_department" class="form-label">Select Department</label>
+                        <select class="form-select" id="supervisor_department" name="department" required>
+                            <option value="">-- Select Department --</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept }}">{{ dept }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Assign as Supervisor</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openLinkModal(employeeId, employeeName) {
+    const modal = new bootstrap.Modal(document.getElementById('linkUserModal'));
+    document.getElementById('employee_id').value = employeeId;
+    modal.show();
+}
+</script>
+
+{% endblock %}

@@ -34,6 +34,7 @@ def role_required(role):
                 elif current_user.role == 'supervisor':
                     return redirect(url_for('bonus.supervisor_dashboard'))
                 else:
+                    print (" getttingherer  ---------------------------")
                     return redirect(url_for('main.index'))
                     
             # User has correct role

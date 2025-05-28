@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block title %}Bonus Evaluation - {{ submission.department }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('bonus.index') }}">Bonus Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Evaluation Form</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="mb-2">Bonus Evaluation</h1>
+                    <div class="row">
+                        <div class="col-auto">
+                            <span class="badge bg-primary fs-6">Department: {{ submission.department }}</span>
+                        </div>
+                        <div class="col-auto">
+                            <span class="badge bg-info fs-6">Period: {{ submission.period.name }}</span>
+                        </div>
+                        <div class="col-auto">
+                            <span class="badge {% if submission.status == 'draft' %}bg-warning{% else %}bg-success{% endif %} fs-6">
+                                Status: {{ submission.status|title }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Evaluation Instructions -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="bi bi-info-circle"></i> Instructions</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Rating Scale:</h6>
+                    <ul class="list-unstyled">
+                        {% for question in questions %}
+                            <li>{{ question.question_text }}: {{ question.min_value }} to {{ question.max_value }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>Important Notes:</h6>
+                    <ul>
+                        <li>Enter scores within the specified range for each criterion</li>
+                        <li>Scores save automatically when entered</li>
+                        <li>All evaluations must be completed before submission</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Evaluation Form -->
+    <div id="evaluationForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Employee Evaluations</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered mb-0" id="evaluationTable">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Employee</th>
+                                {% for question in questions %}
+                                <th class="text-center">
+                                    {{ question.question_text }}<br>
+                                    <small class="text-muted">({{ question.min_value }}-{{ question.max_value }})</small>
+                                </th>
+                                {% endfor %}
+                                <th class="text-center bg-primary text-white">Total Score</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for employee in employees %}
+                            <tr data-employee-id="{{ employee.id }}">
+                                <td class="fw-bold">{{ employee.name }}</td>
+                                {% for question in questions %}
+                                <td class="text-center">
+                                    {% set existing_evaluation = evaluation_matrix.get(employee.id, {}).get(question.id) %}
+                                    <input type="number" 
+                                           class="form-control score-input text-center" 
+                                           data-employee-id="{{ employee.id }}"
+                                           data-question-id="{{ question.id }}"
+                                           min="{{ question.min_value }}" 
+                                           max="{{ question.max_value }}" 
+                                           step="1"
+                                           value="{{ existing_evaluation.value if existing_evaluation else '' }}"
+                                           required
+                                           {% if submission.status != 'draft' %}disabled{% endif %}>
+                                    <div class="save-status mt-1">
+                                        <span class="saving text-warning d-none">
+                                            <i class="bi bi-clock"></i> Saving...
+                                        </span>
+                                        <span class="saved text-success d-none">
+                                            <i class="bi bi-check"></i> Saved
+                                        </span>
+                                        <span class="error text-danger d-none">
+                                            <i class="bi bi-x"></i> Error
+                                        </span>
+                                    </div>
+                                </td>
+                                {% endfor %}
+                                <td class="text-center align-middle">
+                                    <span class="total-score fw-bold fs-5" id="total-{{ employee.id }}">0</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if submission.status == 'draft' %}
+    <div class="card mt-4">
+        <div class="card-body text-center">
+            <form method="post" action="{{ url_for('bonus.submit_evaluation', submission_id=submission.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button type="submit" class="btn btn-success btn-lg" id="submitBtn">
+                    <i class="bi bi-send"></i> Submit for Review
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let saveTimeout;
+
+    function calculateTotal(employeeId) {
+        let total = 0;
+        const inputs = document.querySelectorAll(`input[data-employee-id="${employeeId}"]`);
+        inputs.forEach(input => {
+            const value = parseInt(input.value) || 0;
+            total += value;
+        });
+
+        const totalElement = document.getElementById(`total-${employeeId}`);
+        if (totalElement) {
+            totalElement.textContent = total.toString();
+        }
+        return total;
+    }
+
+    function saveScore(input) {
+        const saveStatus = input.parentElement.querySelector('.save-status');
+        const saving = saveStatus.querySelector('.saving');
+        const saved = saveStatus.querySelector('.saved');
+        const error = saveStatus.querySelector('.error');
+
+        saving.classList.remove('d-none');
+        saved.classList.add('d-none');
+        error.classList.add('d-none');
+
+        fetch('{{ url_for("bonus.save_single_score", submission_id=submission.id) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                'csrf_token': document.querySelector('input[name="csrf_token"]').value,
+                'employee_id': input.dataset.employeeId,
+                'question_id': input.dataset.questionId,
+                'value': input.value
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            saving.classList.add('d-none');
+            if (data.success) {
+                saved.classList.remove('d-none');
+                setTimeout(() => saved.classList.add('d-none'), 2000);
+                calculateTotal(input.dataset.employeeId);
+            } else {
+                error.classList.remove('d-none');
+                error.title = data.error;
+            }
+        })
+        .catch(() => {
+            saving.classList.add('d-none');
+            error.classList.remove('d-none');
+        });
+    }
+
+    document.querySelectorAll('.score-input').forEach(input => {
+        // Validate input on change
+        input.addEventListener('input', function() {
+            const min = parseInt(this.getAttribute('min'));
+            const max = parseInt(this.getAttribute('max'));
+            let value = parseInt(this.value);
+
+            if (value < min) this.value = min;
+            if (value > max) this.value = max;
+            if (isNaN(value)) this.value = '';
+
+            calculateTotal(this.dataset.employeeId);
+
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                if (this.value !== '') {
+                    saveScore(this);
+                }
+            }, 500);
+        });
+
+        // Calculate initial totals
+        if (input.value) {
+            calculateTotal(input.dataset.employeeId);
+        }
+    });
+
+    // Submit button validation
+    document.getElementById('submitBtn')?.addEventListener('click', function(e) {
+        const emptyInputs = document.querySelectorAll('.score-input:not([value])');
+        if (emptyInputs.length > 0) {
+            e.preventDefault();
+            alert('Please complete all evaluations before submitting.');
+        }
+    });
+});
+</script>
+{% endblock %}

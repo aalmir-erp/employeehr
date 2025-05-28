@@ -14,7 +14,7 @@ bp = Blueprint('supervisor', __name__)
 
 @bp.route('/reassign', methods=['GET', 'POST'])
 @login_required
-@role_required('hr')
+# @role_required('hr')
 def reassign_supervisor():
     """Reassign a department supervisor"""
     form = SupervisorAssignmentForm()
@@ -62,8 +62,8 @@ def reassign_supervisor():
             flash('Selected employee not found.', 'danger')
             return redirect(url_for('supervisor.reassign_supervisor'))
         
-        # Check if employee already has a user account
-        existing_user = User.query.filter_by(email=new_supervisor.email).first()
+        # Check if employee already has a user account (using employee_id as reference)
+        existing_user = User.query.filter_by(username=f"emp_{new_supervisor.employee_id}").first()
         
         if existing_user:
             # Update existing user to supervisor role

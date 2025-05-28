@@ -112,7 +112,7 @@
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
                     <h4 class="mb-0">Employee Evaluations</h4>
                     <div>
-                        {% if is_hr and submission.status == 'submitted' %}
+                        {% if is_hr and (submission.status == 'submitted' or submission.status == 'in_review') %}
                         <button type="button" id="reject-button" class="btn btn-danger me-2">
                             Reject
                         </button>
@@ -128,15 +128,67 @@
                 </div>
                 <div class="card-body">
                     {% if employees and questions %}
+                    
+                    <!-- Bulk Update Controls -->
+                    {% if is_hr and (submission.status == 'approved' or submission.status == 'submitted' or submission.status == 'in_review') %}
+                    <div class="card mb-4 border">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">Bulk Update Controls</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="bulk-update-form" method="post">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Select Question:</label>
+                                        <select id="bulk-question-select" name="bulk-question-id" class="form-select mb-2" required>
+                                            <option value="">-- Select question --</option>
+                                            {% for question in questions %}
+                                            <option value="{{ question.id }}" 
+                                                    data-min="{{ question.min_value }}" 
+                                                    data-max="{{ question.max_value }}">
+                                                {{ question.question_text }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Set Score Value:</label>
+                                        <input type="number" id="bulk-score-value" name="bulk-score-value" class="form-control mb-2" min="0" max="10" step="0.5" required>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label">Select Employees:</label>
+                                        <div class="d-flex">
+                                            <button type="button" id="select-all-employees" class="btn btn-secondary btn-sm flex-grow-1 me-2">Select All</button>
+                                            <button type="button" id="deselect-all-employees" class="btn btn-outline-secondary btn-sm flex-grow-1">Deselect All</button>
+                                        </div>
+                                        <div id="employee-checkboxes-container" class="d-none">
+                                            <!-- Checkboxes will be cloned here via JavaScript -->
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <button type="button" id="bulk-update-btn" class="btn btn-primary">Apply Updates</button>
+                                    <span id="bulk-update-status" class="ms-3" style="display: none;"></span>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
                     <div class="table-responsive">
                         <table class="table table-bordered evaluation-table">
                             <thead>
                                 <tr>
+                                    {% if is_hr and (submission.status == 'approved' or submission.status == 'submitted' or submission.status == 'in_review') %}
+                                    <th style="width: 35px;">
+                                        <input type="checkbox" class="form-check-input" id="header-select-all">
+                                    </th>
+                                    {% endif %}
                                     <th class="employee-name">Employee</th>
                                     {% for question in questions %}
                                     <th class="score-cell" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ question.question_text }}">
-                                        Q{{ loop.index }}
-                                        <span class="d-block small text-muted">({{ question.min_value }}-{{ question.max_value }})</span>
+                                        <span class="d-block text-truncate" style="max-width: 150px;">{{ question.question_text }}</span>
+                                        <small class="d-block text-muted">({{ question.min_value }}-{{ question.max_value }})</small>
                                     </th>
                                     {% endfor %}
                                     <th class="score-cell">Total</th>
@@ -144,31 +196,37 @@
                             </thead>
                             <tbody>
                                 {% for employee in employees %}
-                                <tr>
+                                <tr data-employee-id="{{ employee.id }}">
+                                    {% if is_hr and (submission.status == 'approved' or submission.status == 'submitted' or submission.status == 'in_review') %}
+                                    <td>
+                                        <input type="checkbox" class="form-check-input employee-checkbox" data-employee-id="{{ employee.id }}">
+                                    </td>
+                                    {% endif %}
                                     <td class="employee-name">{{ employee.name }}</td>
                                     {% for question in questions %}
                                     <td class="score-cell">
                                         {% if employee.id in evaluation_matrix and question.id in evaluation_matrix[employee.id] %}
                                             {% set evaluation = evaluation_matrix[employee.id][question.id] %}
                                             
-                                            {% if is_hr and submission.status == 'approved' %}
-                                                <!-- HR can edit approved evaluations -->
+                                            {% if is_hr and (submission.status == 'approved' or submission.status == 'submitted' or submission.status == 'in_review') %}
+                                                <!-- HR can edit evaluations during review and after approval -->
                                                 <div class="score-value {% if evaluation.original_value is not none and evaluation.original_value != evaluation.value %}score-value-changed{% endif %}">
                                                     <input type="number" 
                                                         class="form-control edit-score-input"
                                                         data-evaluation-id="{{ evaluation.id }}"
+                                                        data-question-id="{{ question.id }}"
                                                         min="{{ question.min_value }}"
                                                         max="{{ question.max_value }}"
                                                         value="{{ evaluation.value }}"
                                                     >
                                                     <div class="mt-1">
-                                                        <small class="saving-indicator">
+                                                        <small class="saving-indicator" style="display: none;">
                                                             <i class="bi bi-arrow-repeat"></i> Saving...
                                                         </small>
-                                                        <small class="save-success">
+                                                        <small class="save-success" style="display: none;">
                                                             <i class="bi bi-check-circle"></i> Saved
                                                         </small>
-                                                        <small class="save-error">
+                                                        <small class="save-error" style="display: none;">
                                                             <i class="bi bi-exclamation-circle"></i> Error
                                                         </small>
                                                     </div>
@@ -382,7 +440,7 @@
 </div>
 
 <!-- HR Review Modals -->
-{% if is_hr and submission.status == 'submitted' %}
+{% if is_hr and (submission.status == 'submitted' or submission.status == 'in_review') %}
 <!-- Approve Modal -->
 <div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -451,124 +509,186 @@
 {% block scripts %}
 {{ super() }}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Enable tooltips
-        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl);
-        });
-        
-        {% if is_hr and submission.status == 'submitted' %}
-        // Handle HR approve/reject buttons
-        const approveButton = document.getElementById('approve-button');
-        const rejectButton = document.getElementById('reject-button');
-        
-        approveButton.addEventListener('click', function() {
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Bonus submission page loaded');
+    
+    // Simple working button handlers
+    const approveButton = document.getElementById('approve-button');
+    const rejectButton = document.getElementById('reject-button');
+    const selectAllBtn = document.getElementById('select-all-employees');
+    const deselectAllBtn = document.getElementById('deselect-all-employees');
+    const headerCheckbox = document.getElementById('header-select-all');
+    const employeeCheckboxes = document.querySelectorAll('.employee-checkbox');
+    const bulkUpdateBtn = document.getElementById('bulk-update-btn');
+    
+    console.log('Elements found:', {
+        approveButton: !!approveButton,
+        rejectButton: !!rejectButton,
+        selectAllBtn: !!selectAllBtn,
+        deselectAllBtn: !!deselectAllBtn,
+        bulkUpdateBtn: !!bulkUpdateBtn
+    });
+    
+    // Approve button
+    if (approveButton) {
+        console.log('Adding approve button listener');
+        approveButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Approve button clicked');
             const approveModal = new bootstrap.Modal(document.getElementById('approveModal'));
             approveModal.show();
         });
-        
-        rejectButton.addEventListener('click', function() {
+    }
+    
+    // Reject button  
+    if (rejectButton) {
+        console.log('Adding reject button listener');
+        rejectButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Reject button clicked');
             const rejectModal = new bootstrap.Modal(document.getElementById('rejectModal'));
             rejectModal.show();
         });
-        {% endif %}
-        
-        {% if is_hr and submission.status == 'approved' %}
-        // Handle HR editing of approved evaluations
-        const editInputs = document.querySelectorAll('.edit-score-input');
-        let saveTimeout;
-        
-        function saveScore(input) {
-            // Clear any pending save
-            clearTimeout(saveTimeout);
+    }
+    
+    // Select all button
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', function() {
+            employeeCheckboxes.forEach(checkbox => {
+                checkbox.checked = true;
+            });
+            if (headerCheckbox) headerCheckbox.checked = true;
+        });
+    }
+    
+    // Deselect all button
+    if (deselectAllBtn) {
+        deselectAllBtn.addEventListener('click', function() {
+            employeeCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            if (headerCheckbox) headerCheckbox.checked = false;
+        });
+    }
+    
+    // Header checkbox
+    if (headerCheckbox) {
+        headerCheckbox.addEventListener('change', function() {
+            employeeCheckboxes.forEach(checkbox => {
+                checkbox.checked = headerCheckbox.checked;
+            });
+        });
+    }
+    
+    // Bulk update button
+    if (bulkUpdateBtn) {
+        bulkUpdateBtn.addEventListener('click', function() {
+            const questionSelect = document.getElementById('bulk-question-select');
+            const scoreValue = document.getElementById('bulk-score-value');
             
-            const evaluationId = input.dataset.evaluationId;
-            const value = parseInt(input.value);
-            const min = parseInt(input.min);
-            const max = parseInt(input.max);
-            
-            // Validate input
-            if (isNaN(value) || value < min || value > max) {
-                // Show error
-                const errorIndicator = input.parentElement.querySelector('.save-error');
-                errorIndicator.style.display = 'block';
-                setTimeout(() => { errorIndicator.style.display = 'none'; }, 3000);
-                
-                // Reset to min or max if out of bounds
-                if (value < min) input.value = min;
-                if (value > max) input.value = max;
+            if (!questionSelect || !questionSelect.value) {
+                alert('Please select a question first');
                 return;
             }
             
-            // Show saving indicator
-            const savingIndicator = input.parentElement.querySelector('.saving-indicator');
-            const successIndicator = input.parentElement.querySelector('.save-success');
-            const errorIndicator = input.parentElement.querySelector('.save-error');
+            const questionId = questionSelect.value;
+            const newValue = parseFloat(scoreValue.value);
+            const selectedOption = questionSelect.options[questionSelect.selectedIndex];
+            const minValue = parseFloat(selectedOption.dataset.min);
+            const maxValue = parseFloat(selectedOption.dataset.max);
             
-            savingIndicator.style.display = 'block';
-            successIndicator.style.display = 'none';
-            errorIndicator.style.display = 'none';
+            if (isNaN(newValue) || newValue < minValue || newValue > maxValue) {
+                alert(`Please enter a valid score between ${minValue} and ${maxValue}`);
+                return;
+            }
             
-            // Save to server
-            fetch('/hr/edit/' + evaluationId, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    value: value,
-                    notes: 'HR adjustment'
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                savingIndicator.style.display = 'none';
-                
-                if (data.status === 'success') {
-                    successIndicator.style.display = 'block';
-                    setTimeout(() => { successIndicator.style.display = 'none'; }, 3000);
-                    
-                    // Update total points
-                    if (data.total_points) {
-                        const employeeId = input.closest('tr').querySelector('.total-points').id.split('-')[1];
-                        const totalElement = document.getElementById(`total-${employeeId}`);
-                        if (totalElement) {
-                            totalElement.textContent = data.total_points.toFixed(1);
-                        }
-                    }
-                    
-                    // Refresh page after a short delay to show updated values
-                    setTimeout(() => { location.reload(); }, 2000);
-                } else {
-                    errorIndicator.style.display = 'block';
-                    setTimeout(() => { errorIndicator.style.display = 'none'; }, 3000);
-                    console.error('Save error:', data.message);
+            const selectedEmployees = [];
+            employeeCheckboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    selectedEmployees.push(checkbox.dataset.employeeId);
                 }
-            })
-            .catch(error => {
-                savingIndicator.style.display = 'none';
-                errorIndicator.style.display = 'block';
-                setTimeout(() => { errorIndicator.style.display = 'none'; }, 3000);
-                console.error('Save error:', error);
-            });
-        }
-        
-        // Add event listeners for each input
-        editInputs.forEach(input => {
-            input.addEventListener('change', function() {
-                saveScore(this);
             });
             
-            input.addEventListener('input', function() {
-                // Debounce the save to avoid too many requests
-                clearTimeout(saveTimeout);
-                saveTimeout = setTimeout(() => {
-                    saveScore(this);
-                }, 800);
+            if (selectedEmployees.length === 0) {
+                alert('Please select at least one employee');
+                return;
+            }
+            
+            const bulkUpdateStatus = document.getElementById('bulk-update-status');
+            bulkUpdateStatus.textContent = "Updating scores...";
+            bulkUpdateStatus.className = "text-info";
+            bulkUpdateStatus.style.display = "block";
+            
+            selectedEmployees.forEach(employeeId => {
+                const row = document.querySelector(`tr[data-employee-id="${employeeId}"]`);
+                if (row) {
+                    const questionInput = row.querySelector(`input[data-question-id="${questionId}"]`);
+                    if (questionInput) {
+                        questionInput.value = newValue;
+                        questionInput.classList.add('score-value-changed');
+                    }
+                }
             });
+            
+            bulkUpdateStatus.textContent = `Updated ${selectedEmployees.length} scores successfully!`;
+            bulkUpdateStatus.className = "text-success";
+            
+            // Update totals after bulk update
+            updateEmployeeTotals();
         });
-        {% endif %}
+    }
+    
+    // Function to calculate and update employee totals
+    function updateEmployeeTotals() {
+        console.log('Updating employee totals...');
+        
+        // Get all employee rows
+        const employeeRows = document.querySelectorAll('tr[data-employee-id]');
+        
+        employeeRows.forEach(row => {
+            const employeeId = row.dataset.employeeId;
+            const scoreInputs = row.querySelectorAll('input[data-question-id]');
+            let total = 0;
+            
+            scoreInputs.forEach(input => {
+                const value = parseFloat(input.value) || 0;
+                const questionId = input.dataset.questionId;
+                
+                // Get question weight (you can store this in data attributes or calculate)
+                const weight = 1.0; // Default weight, you can make this dynamic
+                total += value * weight;
+            });
+            
+            // Update the total display
+            const totalElement = document.getElementById(`total-${employeeId}`);
+            if (totalElement) {
+                totalElement.textContent = total.toFixed(1);
+            }
+        });
+    }
+    
+    // Add event listeners to all score input fields
+    const scoreInputs = document.querySelectorAll('input[data-question-id]');
+    scoreInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            // Mark as changed
+            this.classList.add('score-value-changed');
+            
+            // Update totals immediately
+            updateEmployeeTotals();
+        });
+        
+        input.addEventListener('change', function() {
+            // Update totals when focus is lost
+            updateEmployeeTotals();
+        });
     });
+    
+    // Enable tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
 </script>
 {% endblock %}
