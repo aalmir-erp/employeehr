@@ -271,6 +271,7 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
     # Get all combinations for debugging
     all_combinations = list(unprocessed_combinations)
     print(f"DEBUG - Found {len(all_combinations)} unprocessed employee-date combinations")
+
     # for emp_id, log_date in all_combinations:
     #     print(f"DEBUG - Will process employee {emp_id} on date {log_date}")
     
@@ -278,7 +279,7 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
     for emp_id, log_date in all_combinations:
         employee_ids.append(emp_id)
         print(f"DEBUG - Processing employee {emp_id} on date {log_date}")
-        
+        continue    
         # First, check if this is the start of an overnight shift
         # This means we need to look for logs on the next day as well
         next_day = log_date + timedelta(days=1)
@@ -340,6 +341,7 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
                 # Save changes and recalculate overtime
                 db.session.commit()
                 try:
+                    pass
                     calculate_overtime(prev_day_record, recalculate=True)
                     db.session.commit()
                 except Exception as e:
@@ -464,6 +466,7 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
             logging.error(f"Database error while processing logs: {str(e)}")
 
     print("DEBUG - Checking for missing dates to mark as absent (ignoring holidays/weekends)...")
+    print(employee_ids, "employee_ids") 
 
     for emp in Employee.query.filter(Employee.id.in_(employee_ids)).all():
         print (emp.id)
@@ -482,13 +485,14 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
 
         print("start_date", start_date, "end date", end_date )
         while current_date <= end_date:
-                print( " under loop")
+                print( " under loop ===========================")
                 print(current_date)
+                print (emp.id)
                 attendance_exists = AttendanceRecord.query.filter_by(
                             employee_id = emp.id,
-                        date = current_date
-                                            ).first()
+                        date = current_date).first()
 
+                print(attendance_exists)
                 is_holiday, is_weekend = check_holiday_and_weekend(emp.id, current_date)
 
 

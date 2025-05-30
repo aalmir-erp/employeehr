@@ -145,7 +145,7 @@ class OdooConnector:
                 FROM hr_employee e
                 LEFT JOIN hr_department p ON e.department_id = p.id
                 LEFT JOIN hr_job j ON e.job_id = j.id
-                WHERE e.active = true;
+                WHERE e.remove_not_wanted_employees = false and e.id=786;
             """
         
         # Build dynamic select statement
@@ -190,12 +190,27 @@ class OdooConnector:
             self.cursor.execute(query)
             
             employees_data = self.cursor.fetchall()
+            print (employees_data)
+
+
+            # for row in employees_data:
+            #     emp_data = dict(zip(columns, row))
+            #     print(emp_data)  # now shows keys and values
+
             sync_count = 0
             
             # Get field mappings for applying to employee model
             mappings = {m.odoo_field: m.employee_field for m in OdooMapping.query.filter_by(is_active=True).all()}
             
             for emp_data in employees_data:
+                print(type(emp_data))
+                print(list(emp_data.keys()))
+                print("---------------233-----------------------------")
+                print(emp_data['odoo_id'])
+
+                for key, value in emp_data.items():
+                    print(f"{key}: {value}")
+
                 # Check if employee exists in our database
                 employee = Employee.query.filter_by(odoo_id=emp_data['odoo_id']).first()
                 

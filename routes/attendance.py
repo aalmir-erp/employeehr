@@ -1007,7 +1007,7 @@ def process_all_logs():
             
             # Process any overtime that might have been missed (records without overtime)
             from utils.overtime_engine import process_attendance_records
-            overtime_processed = process_attendance_records(recalculate=True)
+            overtime_processed = 0 #process_attendance_records(recalculate=True)
             
             # Build success message with date range info if provided
             message = f'Successfully processed {logs_processed} logs, created {records_created} new attendance records, and calculated overtime for {overtime_processed} records'
@@ -1055,48 +1055,64 @@ def missing_punches():
         record_id = request.form.get('record_id')
         punch_type = request.form.get('punch_type')  # 'check_in' or 'check_out'
         punch_time = request.form.get('punch_time')
+        punch_date = request.form.get('punch_date')
         
-        if not record_id or not punch_type or not punch_time:
+        if not record_id or not punch_type or not punch_time and punch_date:
             flash('Missing required information to fix the punch', 'danger')
             return redirect(url_for('attendance.missing_punches'))
+
+        timestamp = datetime.strptime(f"{punch_date} {punch_time}", "%Y-%m-%d %H:%M")
             
-        record = AttendanceRecord.query.get(record_id)
-        if not record:
-            flash('Record not found', 'danger')
-            return redirect(url_for('attendance.missing_punches'))
+        record = AttendanceLog.query.get(record_id)
+        # if not record:
+        #     flash('Record not found', 'danger')
+        #     return redirect(url_for('attendance.missing_punches'))
             
         try:
             # Parse the time and combine with the record date
-            punch_datetime = datetime.strptime(f"{record.date.isoformat()} {punch_time}", '%Y-%m-%d %H:%M')
+            # punch_datetime = datetime.strptime(f"{record.date.isoformat()} {punch_time}", '%Y-%m-%d %H:%M')
             
             # Apply overnight shift logic if needed
-            if punch_type == 'check_out' and record.check_in and punch_datetime < record.check_in:
-                punch_datetime += timedelta(days=1)
+            # if punch_type == 'check_out' and record.check_in and punch_datetime < record.check_in:
+            #     punch_datetime += timedelta(days=1)
                 
+            print(punch_type, "0jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj")
             # Update the record
-            setattr(record, punch_type, punch_datetime)
-            
-            # Update status and work hours
-            if punch_type == 'check_out' and record.check_in:
-                # Both check-in and check-out available, calculate hours
-                from utils.helpers import calculate_work_hours
-                record.work_hours = calculate_work_hours(
-                    record.check_in, 
-                    punch_datetime, 
-                    record.break_duration if record.break_duration else 0
-                )
-                record.status = 'present'
-            elif punch_type == 'check_in' and record.check_out:
-                # Both check-in and check-out available, calculate hours
-                from utils.helpers import calculate_work_hours
-                record.work_hours = calculate_work_hours(
-                    punch_datetime, 
-                    record.check_out, 
-                    record.break_duration if record.break_duration else 0
-                )
-                record.status = 'present'
-                
+            new_log = AttendanceLog(
+                employee_id=record.employee_id,             # must exist in `employee` table
+                device_id=record.device_id,               # must exist in `attendance_device` table
+                timestamp=timestamp,
+                log_type='OUT' if punch_type=='check_out' else 'IN',            # or 'OUT'
+                is_processed=False
+            )
+
+            # Add and commit to the database
+            db.session.add(new_log)
             db.session.commit()
+
+            # setattr(record, punch_type, punch_datetime)
+            
+            # # Update status and work hours
+            # if punch_type == 'check_out' and record.check_in:
+            #     # Both check-in and check-out available, calculate hours
+            #     from utils.helpers import calculate_work_hours
+            #     record.work_hours = calculate_work_hours(
+            #         record.check_in, 
+            #         punch_datetime, 
+            #         record.break_duration if record.break_duration else 0
+            #     )
+            #     record.status = 'present'
+            # elif punch_type == 'check_in' and record.check_out:
+            #     # Both check-in and check-out available, calculate hours
+            #     from utils.helpers import calculate_work_hours
+            #     record.work_hours = calculate_work_hours(
+            #         punch_datetime, 
+            #         record.check_out, 
+            #         record.break_duration if record.break_duration else 0
+            #     )
+            #     record.status = 'present'
+                
+            # db.session.commit()
             flash(f'Successfully fixed {punch_type.replace("_", " ")} time for {record.employee.name}', 'success')
             
         except ValueError as e:
@@ -1129,26 +1145,27 @@ def missing_punches():
         date_to = today
     
     # Build query for missing punches
-    query = db.session.query(AttendanceRecord)\
+    query = db.session.query(AttendanceLog)\
         .join(Employee)\
-        .filter(AttendanceRecord.date >= date_from)\
-        .filter(AttendanceRecord.date <= date_to)\
-        .filter(AttendanceRecord.status != 'absent')
+        .filter(AttendanceLog.timestamp >= date_from)\
+        .filter(AttendanceLog.timestamp <= date_to)\
+        .filter(AttendanceLog.is_processed == False)
         
     # Filter by punch type
-    if punch_type == 'check_in':
-        query = query.filter(AttendanceRecord.check_in.is_(None))
-    elif punch_type == 'check_out':
-        query = query.filter(AttendanceRecord.check_out.is_(None))
-    elif punch_type == 'both':
-        query = query.filter((AttendanceRecord.check_in.is_(None)) | (AttendanceRecord.check_out.is_(None)))
+    print(query)
+    # if punch_type == 'check_in':
+    #     query = query.filter(AttendanceLog.check_in.is_(None))
+    # elif punch_type == 'check_out':
+    #     query = query.filter(AttendanceLog.check_out.is_(None))
+    # elif punch_type == 'both':
+    #     query = query.filter((AttendanceLog.check_in.is_(None)) | (AttendanceLog.check_out.is_(None)))
     
     # Filter by department if provided
     if department:
         query = query.filter(Employee.department == department)
     
     # Get records
-    missing_punch_records = query.order_by(AttendanceRecord.date.desc(), Employee.name).all()
+    missing_punch_records = query.order_by(AttendanceLog.timestamp.desc(), Employee.name).all()
     
     # Get list of departments for filter dropdown
     departments = db.session.query(Employee.department).filter(Employee.department != None).distinct().all()

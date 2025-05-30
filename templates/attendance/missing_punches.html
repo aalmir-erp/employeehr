@@ -229,10 +229,11 @@
                             </div>
                         </td>
                         <td>{{ record.employee.department or 'N/A' }}</td>
-                        <td>{{ record.date.strftime('%a, %d %b %Y') }}</td>
+                        <td>{{ record.timestamp.strftime('%a, %d %b %Y') }}</td>
+                        <!-- -->
                         <td>
-                            {% if record.check_in %}
-                                <span class="text-success">{{ record.check_in.strftime('%H:%M') }}</span>
+                            {% if record.log_type =='IN' %}
+                                <span class="text-success">{{ record.timestamp.strftime('%H:%M') }}</span>
                             {% else %}
                                 <span class="text-danger o-tooltip">
                                     <i class="bi bi-exclamation-circle"></i> Missing
@@ -241,8 +242,8 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if record.check_out %}
-                                <span class="text-success">{{ record.check_out.strftime('%H:%M') }}</span>
+                            {% if record.log_type =='OUT' %}
+                                <span class="text-success">{{ record.timestamp.strftime('%H:%M') }}</span>
                             {% else %}
                                 <span class="text-danger o-tooltip">
                                     <i class="bi bi-exclamation-circle"></i> Missing
@@ -261,34 +262,34 @@
                             </span>
                         </td>
                         <td>
-                            {% if not record.check_in and not record.check_out %}
+                            {% if not record.log_type !='IN' and not record.log_type !='OUT' %}
                                 <span class="badge bg-danger o-badge">Both</span>
-                            {% elif not record.check_in %}
+                            {% elif not record.log_type =='IN' %}
                                 <span class="badge bg-warning o-badge">Check In</span>
-                            {% elif not record.check_out %}
+                            {% elif not record.log_type =='OUT' %}
                                 <span class="badge bg-warning o-badge">Check Out</span>
                             {% else %}
                                 <span class="badge bg-success o-badge">None</span>
                             {% endif %}
                         </td>
                         <td>
-                            {% if not record.check_in %}
+                            {% if not record.log_type =='IN' %}
                                 <button type="button" class="btn btn-sm btn-outline-primary fix-punch" 
                                         data-bs-toggle="modal" data-bs-target="#fixPunchModal"
                                         data-record-id="{{ record.id }}"
                                         data-employee-name="{{ record.employee.name }}"
-                                        data-record-date="{{ record.date.strftime('%Y-%m-%d') }}"
+                                        data-record-date="{{ record.timestamp.strftime('%Y-%m-%d') }}"
                                         data-punch-type="check_in">
                                     <i class="bi bi-arrow-down-circle"></i> Fix In
                                 </button>
                             {% endif %}
                             
-                            {% if not record.check_out %}
+                            {% if not record.log_type =='OUT' %}
                                 <button type="button" class="btn btn-sm btn-outline-primary fix-punch" 
                                         data-bs-toggle="modal" data-bs-target="#fixPunchModal"
                                         data-record-id="{{ record.id }}"
                                         data-employee-name="{{ record.employee.name }}"
-                                        data-record-date="{{ record.date.strftime('%Y-%m-%d') }}"
+                                        data-record-date="{{ record.timestamp.strftime('%Y-%m-%d') }}"
                                         data-punch-type="check_out">
                                     <i class="bi bi-arrow-up-circle"></i> Fix Out
                                 </button>
@@ -330,7 +331,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Date</label>
-                        <input type="text" class="form-control" id="recordDate" readonly>
+                        <input type="text" class="form-control" id="recordDate" name="punch_date" readonly>
                     </div>
                     <div class="mb-3">
                         <label for="punchTime" class="form-label" id="punchTimeLabel">Punch Time</label>

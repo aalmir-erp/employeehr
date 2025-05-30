@@ -264,12 +264,34 @@ def reset_user_password():
 
 
 
-@bp.route('/employees')
+@bp.route('/employees',methods=['GET', 'POST'])
 @login_required
 def employees():
     """Manage employees"""
     # Get employees
+    if request.method == 'POST':
+        # employee_id = request.args.get('employee_id')
+        # action_change = request.args.get('action_change')
+        employee_id = request.form.get('employee_id')
+        action_change = request.form.get('action_change')
+        print(employee_id, "employee_id")
+        print(action_change)
+        if action_change == '1' and employee_id:
+            print(employee_id, "employee_id")
+            employee = Employee.query.filter_by(id=employee_id).first()
+            if employee.is_active:
+                employee.is_active = False
+                
+                flash('Employee status updated successfully.', 'success')
+            elif employee.is_active==False:
+                employee.is_active = True
+                # db.session.commit()
+                flash('Employee status updated successfully.', 'success')
+            else:
+                flash('Employee not found or already inactive.', 'warning')
+            db.session.commit()
     employees = Employee.query.all()
+
     
     # Get additional data needed for the template
     total_count = len(employees)

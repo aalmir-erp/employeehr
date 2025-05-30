@@ -192,7 +192,8 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <form id="toggleStatusForm" method="post" action="#">
-                <input type="hidden" name="employee_id" id="statusEmployeeId">
+                <input type="hidden" name="action_change" value="1"/>
+                <input type="text" name="employee_id" id="statusEmployeeId">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title">Change Employee Status</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -256,6 +257,7 @@
         // Toggle status modal setup
         $('.toggle-status').on('click', function() {
             var employeeId = $(this).data('employee-id');
+            console.log(employeeId, "employeeId")
             var employeeName = $(this).data('employee-name');
             var currentStatus = $(this).data('current-status');
             var newStatus = currentStatus === 'active' ? 'inactive' : 'active';
