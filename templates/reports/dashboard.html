@@ -279,7 +279,7 @@
                             </td>
                             <td class="text-center">{{ emp_summary.total_hours|round(1) }}</td>
                             <td class="text-center">{{ emp_summary.expected_time|round(1) }}</td>
-                            <td class="text-center">{{ emp_summary.overtime_hours|round(1) }}</td>
+                            <td class="text-center">{{ emp_summary.overtime_hours|round(1) }} </td>
                             <td>
                                 <div class="btn-group btn-group-sm">
                                     <button type="button" class="btn btn-outline-primary" onclick="showEmployeeDetails({{ emp_summary.employee.id }})">
@@ -663,7 +663,7 @@
                     <div class="card bg-light h-100">
                         <div class="card-body text-center">
                             <h6 class="text-muted mb-2">Overtime</h6>
-                            <h3 class="mb-0 text-primary">${summary.overtime_hours.toFixed(1)}</h3>
+                            <h3 class="mb-0 text-primary">444 ${summary.overtime_hours.toFixed(1)}</h3>
                             <div class="small">${summary.overtime_percent}% of work time</div>
                         </div>
                     </div>
@@ -749,7 +749,8 @@
                                 <th>Check In</th>
                                 <th>Check Out</th>
                                 <th>Work Hours</th>
-                                <th>Overtime</th>
+                                <th>Overtime(HR)</th>
+                                <th>Overtime(Weight)</th>
                                 <th>Late (min)</th>
                                 <th>Note</th>
                             </tr>
@@ -786,7 +787,8 @@
                     <td>${record.check_in || '-'}</td>
                     <td>${record.check_out || '-'}</td>
                     <td>${record.work_hours ? record.work_hours.toFixed(1) : '-'}</td>
-                    <td>${record.overtime_hours ? record.overtime_hours.toFixed(1) : '-'}</td>
+                    <td>${record.overtime_hours.toFixed(1) }</td>
+                    <td>${record.overt_time_weighted.toFixed(1) } </td>
                     <td>${record.late_minutes || '-'}</td>
                     <td>${record.note || '-'}</td>
                 </tr>

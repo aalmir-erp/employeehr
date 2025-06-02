@@ -145,7 +145,8 @@ def dashboard():
         missing_count = sum(1 for r in emp_records if r.status not in ['present', 'absent', 'late', 'early_out', 'early-out'])
         
         total_hours = sum(r.work_hours for r in emp_records if r.work_hours is not None)
-        overtime_hours = sum(r.overtime_hours for r in emp_records if r.overtime_hours is not None)
+        # overtime_hours = sum(r.overtime_hours for r in emp_records if r.overt_time_weighted > 0 is not None)
+        overtime_hours = sum(   r.overt_time_weighted for r in emp_records if r.overt_time_weighted is not None and r.overt_time_weighted > 0 )
         
         employee_summary.append({
             'employee': employee,
@@ -1194,7 +1195,8 @@ def api_employee_attendance(employee_id):
             'check_in': record.check_in.strftime('%H:%M:%S') if record.check_in else None,
             'check_out': record.check_out.strftime('%H:%M:%S') if record.check_out else None,
             'work_hours': record.work_hours,
-            'overtime_hours': record.overtime_hours,
+            'overtime_hours': record.overtime_hours if record.overt_time_weighted > 0 else 0,
+            'overt_time_weighted': record.overt_time_weighted,
             'is_weekend':record.is_weekend,
             'is_holiday': record.is_holiday,
             # Calculate late minutes from check-in time if status is 'late'
