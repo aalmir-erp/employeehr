@@ -263,6 +263,7 @@ class AttendanceRecord(db.Model):
     attendance_logs = db.relationship('AttendanceLog', backref='attendance_record', lazy='dynamic')
     shift = db.relationship('Shift', backref='attendance_records', lazy=True)
     overt_time_weighted = db.Column(db.Float, default=0.0)
+    grace_period_minutes = db.Column(db.Integer, default=0) 
 
     
     def __repr__(self):
@@ -317,7 +318,7 @@ class AttendanceRecord(db.Model):
                 standard_hours = shift_hours if shift_hours is not None else 8.0
             else:
                 # Default to 8 hours if no shift assigned
-                standard_hours = 8.0
+                standard_hours = 12.0
                 
         # Update shift_type if we have a shift association but shift_type doesn't match
         if self.shift_id and self.shift:
@@ -345,7 +346,8 @@ class AttendanceRecord(db.Model):
                 return 0.0, 1.0
                 
             # Calculate overtime hours (work hours beyond standard hours)
-            overtime_hours = self.work_hours - standard_hours
+            print(self.grace_period_minutes,self.work_hours - standard_hours,self.work_hours - standard_hours + self.grace_period_minutes,"self.work_hours - standard_hours===================================================")
+            overtime_hours = self.work_hours - standard_hours 
         
         # Get appropriate overtime rule
         rule = None
@@ -437,7 +439,8 @@ class AttendanceRecord(db.Model):
                 self.regular_overtime_hours = capped_overtime
                 
             # Store total values - ensure it's the sum of all overtime categories
-            self.overtime_hours = self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours
+            print(self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours , self.grace_period_minutes,"2222222==================================================self.grace_period_minutes>>>>>>>>>")
+            self.overtime_hours = self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours + self.grace_period_minutes
             self.overtime_rate = rate
             self.overt_time_weighted =  self.overtime_hours *  self.overtime_rate
             
@@ -477,7 +480,8 @@ class AttendanceRecord(db.Model):
                 self.overtime_night_hours = overtime_eligible
                 
             # Ensure overtime_hours is the sum of all overtime categories
-            self.overtime_hours =  self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours
+            print(self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours , self.grace_period_minutes,"==================================================self.grace_period_minutes>>>>>>>>>")
+            self.overtime_hours =  self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours + self.grace_period_minutes
             self.overtime_rate = default_rate
             self.overt_time_weighted =  self.overtime_hours *  self.overtime_rate
             

@@ -343,7 +343,11 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
 
         employee = Employee.query.get(emp_id)
         if employee and employee.current_shift_id:
-            record.shift_id = employee.current_shift_id
+            shift = Shift.query.get(employee.current_shift_id)
+            record.shift_id = shift.id
+            record.grace_period_minutes = shift.grace_period_minutes or 0
+        else:
+            record.grace_period_minutes = 0
 
         work_hours = max(0, total_duration - break_duration)
         record.work_hours = work_hours
@@ -397,6 +401,7 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
     db.session.commit()
     print(f"DEBUG - Finished processing. Created {records_created} records, processed {logs_processed} logs")
     return records_created, logs_processed
+
 
 
 

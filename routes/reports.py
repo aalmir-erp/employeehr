@@ -1201,7 +1201,8 @@ def api_employee_attendance(employee_id):
             'is_holiday': record.is_holiday,
             # Calculate late minutes from check-in time if status is 'late'
             'late_minutes': 0 if not record.check_in or record.status != 'late' else 0,
-            'note': record.notes
+            'note': record.notes,
+            'grace_period_minutes': record.grace_period_minutes
         })
     
     # Calculate summary stats

@@ -590,6 +590,7 @@
             .then(response => response.json())
             .then(data => {
                 // Fill the modal content
+                console.log(data,"=================================data")
                 const contentDiv = document.getElementById('employeeDetailContent');
                 contentDiv.innerHTML = createEmployeeDetailContent(data);
                 
@@ -749,6 +750,7 @@
                                 <th>Check In</th>
                                 <th>Check Out</th>
                                 <th>Work Hours</th>
+                                <th>Grace Period Minutes</th>
                                 <th>Overtime(HR)</th>
                                 <th>Overtime(Weight)</th>
                                 <th>Late (min)</th>
@@ -787,6 +789,7 @@
                     <td>${record.check_in || '-'}</td>
                     <td>${record.check_out || '-'}</td>
                     <td>${record.work_hours ? record.work_hours.toFixed(1) : '-'}</td>
+                    <td>${record.grace_period_minutes}</td>
                     <td>${record.overtime_hours.toFixed(1) }</td>
                     <td>${record.overt_time_weighted.toFixed(1) } </td>
                     <td>${record.late_minutes || '-'}</td>

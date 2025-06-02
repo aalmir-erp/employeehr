@@ -14,7 +14,7 @@ It supports:
 from datetime import datetime, timedelta
 from sqlalchemy import and_, or_, func
 from flask import current_app
-from models import AttendanceRecord, db
+from models import AttendanceRecord, db,Employee,Shift
 
 def get_applicable_rule(employee, date):
     """
@@ -217,7 +217,7 @@ def apply_overtime_limits(employee_id, date, overtime_hours, rule=None):
     
     return allowed_hours
 
-def process_attendance_records(date_from, date_to, employee_id=None, recalculate=False):
+def process_attendance_records(date_from=None, date_to=None, employee_id=None, recalculate=False):
     """
     Process and calculate overtime for attendance records
     Can be run for a specific date, employee, or both
@@ -258,6 +258,13 @@ def process_attendance_records(date_from, date_to, employee_id=None, recalculate
     print(records,employee_id, "   records=============================================================================================  -----")
 
     for record in records:
+        employee = Employee.query.get(employee_id)
+        if employee and employee.current_shift_id:
+            shift = Shift.query.get(employee.current_shift_id)
+            record.shift_id = shift.id
+            record.grace_period_minutes = shift.grace_period_minutes or 0
+        else:
+            record.grace_period_minutes = 0
         try:
             calculate_overtime(record, recalculate, commit=False)
             processed_count += 1
