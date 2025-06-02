@@ -204,9 +204,17 @@
         
         <!-- Records Table -->
         <div class="table-responsive">
+            <form method="POST" action="{{ url_for('attendance.process_selected_logs') }}">
+                <div class="mb-3 d-flex justify-content-end">
+                    <button style="padding: 10px; margin: 10px;" type="submit" class="btn btn-primary">Process Log</button>
+                </div>
+                
             <table class="table o-table datatable">
                 <thead>
                     <tr>
+                        <th>
+                            <input type="checkbox" id="selectAllCheckbox">
+                        </th>
                         <th>Employee</th>
                         <th>Department</th>
                         <th>Date</th>
@@ -221,6 +229,9 @@
                     {% for record in records %}
                     <tr data-record-id="{{ record.id }}">
                         <td>
+                            <input type="checkbox" class="record-checkbox" name="selected_records" value="{{ record.id }}">
+                        </td>
+                        <td>
                             <div class="d-flex align-items-center">
                                 <div class="ms-2">
                                     <div>{{ record.employee.name }}</div>
@@ -230,7 +241,6 @@
                         </td>
                         <td>{{ record.employee.department or 'N/A' }}</td>
                         <td>{{ record.timestamp.strftime('%a, %d %b %Y') }}</td>
-                        <!-- -->
                         <td>
                             {% if record.log_type =='IN' %}
                                 <span class="text-success">{{ record.timestamp.strftime('%H:%M') }}</span>
@@ -298,7 +308,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="8" class="text-center py-4">
+                        <td colspan="9" class="text-center py-4">
                             <div class="d-flex flex-column align-items-center">
                                 <i class="bi bi-check-circle text-success" style="font-size: 2rem;"></i>
                                 <p class="mb-0 mt-2">No missing punches found for the selected filters</p>
@@ -308,6 +318,8 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </form>
+            
         </div>
     </div>
 </div>
@@ -358,6 +370,14 @@
 
 {% block extra_js %}
 <script>
+     document.addEventListener('DOMContentLoaded', function () {
+        const selectAll = document.getElementById('selectAllCheckbox');
+        const checkboxes = document.querySelectorAll('.record-checkbox');
+
+        selectAll.addEventListener('change', function () {
+            checkboxes.forEach(cb => cb.checked = selectAll.checked);
+        });
+    });
     $(document).ready(function() {
         // More defensive checks before initializing DataTable
         try {

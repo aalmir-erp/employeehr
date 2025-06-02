@@ -10,7 +10,7 @@ import re
 from werkzeug.utils import secure_filename
 from app import db
 from models import Employee, AttendanceRecord, AttendanceLog, AttendanceDevice, Holiday, SystemConfig, ShiftAssignment, Department, Shift
-from utils.attendance_processor import process_unprocessed_logs, get_processing_stats, check_holiday_and_weekend
+from utils.attendance_processor import process_unprocessed_logs, get_processing_stats, check_holiday_and_weekend,calculate_total_duration,estimate_break_duration,determine_shift_type
 
 # Create blueprint
 bp = Blueprint('attendance', __name__, url_prefix='/attendance')
@@ -982,6 +982,10 @@ def process_all_logs():
             # Get date range parameters if provided
             date_from_str = request.form.get('date_from')
             date_to_str = request.form.get('date_to')
+            employee_id = request.form.get('employee_id')
+            print(employee_id, "employee_id")
+
+           
             
             # Convert date strings to date objects if provided
             date_from = None
@@ -1007,7 +1011,12 @@ def process_all_logs():
             
             # Process any overtime that might have been missed (records without overtime)
             from utils.overtime_engine import process_attendance_records
-            overtime_processed = 0 #process_attendance_records(recalculate=True)
+            overtime_processed = process_attendance_records(
+                date_from=date_from, 
+                date_to=date_to, 
+                employee_id=employee_id,
+                recalculate=True
+            )
             
             # Build success message with date range info if provided
             message = f'Successfully processed {logs_processed} logs, created {records_created} new attendance records, and calculated overtime for {overtime_processed} records'
@@ -1041,6 +1050,148 @@ def process_all_logs():
             flash(f'Error processing logs: {str(e)}', 'danger')
     
     return render_template('attendance/process_logs.html', stats=stats, results=results)
+
+@bp.route('/process-logs', methods=['POST'])
+@login_required
+def process_selected_logs():
+    if not current_user.is_admin:
+        flash('Unauthorized access', 'danger')
+        return redirect(url_for('attendance.missing_punches'))
+
+    record_ids = request.form.getlist('selected_records')
+    record_ids = [int(rid) for rid in record_ids if rid.isdigit()]
+    
+    if not record_ids:
+        flash('No records selected for processing.', 'warning')
+        return redirect(url_for('attendance.missing_punches'))
+
+    selected_logs = AttendanceLog.query.filter(AttendanceLog.id.in_(record_ids)).all()
+    employee_date_pairs = set((log.employee_id, log.timestamp.date()) for log in selected_logs)
+
+    records_created = 0
+    logs_processed = 0
+
+    for emp_id, log_date in employee_date_pairs:
+        logs = AttendanceLog.query.filter(
+            AttendanceLog.employee_id == emp_id,
+            func.date(AttendanceLog.timestamp) == log_date
+        ).order_by(AttendanceLog.timestamp).all()
+
+        # Handle overnight shifts
+        is_overnight = False
+        if logs and logs[-1].log_type in ['IN', 'check_in']:
+            next_day_logs = AttendanceLog.query.filter(
+                AttendanceLog.employee_id == emp_id,
+                func.date(AttendanceLog.timestamp) == log_date + timedelta(days=1)
+            ).order_by(AttendanceLog.timestamp).all()
+
+            if next_day_logs and next_day_logs[0].log_type in ['OUT', 'check_out']:
+                is_overnight = True
+                logs += next_day_logs
+
+        # Overnight continuation from previous day
+        prev_day = log_date - timedelta(days=1)
+        prev_day_record = AttendanceRecord.query.filter_by(
+            employee_id=emp_id,
+            date=prev_day,
+            check_out=None
+        ).first()
+
+        if prev_day_record and logs and logs[0].log_type in ['OUT', 'check_out']:
+            prev_day_record.check_out = logs[0].timestamp
+            prev_day_record.total_duration = calculate_total_duration(prev_day_record.check_in, prev_day_record.check_out)
+            prev_day_record.work_hours = max(0, prev_day_record.total_duration - (prev_day_record.break_duration or 0))
+
+            for log in logs:
+                if not log.is_processed:
+                    log.is_processed = True
+                    log.attendance_record_id = prev_day_record.id
+                    logs_processed += 1
+
+            db.session.commit()
+            try:
+                from utils.overtime_engine import calculate_overtime
+                calculate_overtime(prev_day_record, recalculate=True)
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                print(f"Overtime calculation failed: {str(e)}")
+            continue
+
+        # Regular processing
+        check_in_logs = [log for log in logs if log.log_type in ['IN', 'check_in']]
+        check_out_logs = [log for log in logs if log.log_type in ['OUT', 'check_out']]
+
+        check_in = check_in_logs[0].timestamp if check_in_logs else None
+        check_out = check_out_logs[-1].timestamp if check_out_logs else None
+
+        if not check_in or not check_out or check_in == check_out:
+            continue
+
+        break_duration, break_start, break_end = estimate_break_duration(logs)
+        shift_type = determine_shift_type(check_in, emp_id)
+        total_duration = calculate_total_duration(check_in, check_out)
+
+        record = AttendanceRecord.query.filter_by(
+            employee_id=emp_id,
+            date=log_date
+        ).first()
+        print(record,"=========================================record====================================================================")
+        if not record:
+            record = AttendanceRecord(employee_id=emp_id, date=log_date)
+            db.session.add(record)
+            records_created += 1
+
+        is_holiday, is_weekend = check_holiday_and_weekend(emp_id, log_date)
+
+        record.check_in = check_in
+        record.check_out = check_out
+        record.status = 'present'
+        record.break_duration = break_duration
+        record.break_start = break_start
+        record.break_end = break_end
+        record.shift_type = shift_type
+        record.total_duration = total_duration
+        record.is_holiday = is_holiday
+        record.is_weekend = is_weekend
+        record.break_calculated = False
+
+        employee = Employee.query.get(emp_id)
+        if employee and employee.current_shift_id:
+            record.shift_id = employee.current_shift_id
+
+        record.work_hours = max(0, total_duration - break_duration)
+        db.session.add(record)
+        db.session.flush()
+
+        for log in logs:
+            if not log.is_processed:
+                log.is_processed = True
+                log.attendance_record_id = record.id
+                logs_processed += 1
+
+        try:
+            db.session.commit()
+            try:
+                from utils.overtime_engine import calculate_overtime
+                calculate_overtime(record, recalculate=True)
+                db.session.commit()
+            except Exception as e:
+                print(f"ERROR - Overtime calculation failed for record {record.id}: {str(e)}")
+        except Exception as e:
+            db.session.rollback()
+            print(f"ERROR - Failed to process logs for employee {emp_id} on {log_date}: {str(e)}")
+
+        try:
+            process_attendance_records(log_date, log_date, employee_id=emp_id, recalculate=True)
+        except Exception as e:
+            print(f"ERROR - Failed to recalculate overtime for employee {emp_id} on {log_date}: {str(e)}")    
+
+    flash(f'Processed {logs_processed} logs and created {records_created} records.', 'success')
+    return redirect(url_for('attendance.missing_punches'))
+
+
+
 
 @bp.route('/missing-punches', methods=['GET', 'POST'])
 @login_required

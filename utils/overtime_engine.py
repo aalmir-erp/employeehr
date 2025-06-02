@@ -14,6 +14,7 @@ It supports:
 from datetime import datetime, timedelta
 from sqlalchemy import and_, or_, func
 from flask import current_app
+from models import AttendanceRecord, db
 
 def get_applicable_rule(employee, date):
     """
@@ -216,56 +217,61 @@ def apply_overtime_limits(employee_id, date, overtime_hours, rule=None):
     
     return allowed_hours
 
-def process_attendance_records(date=None, employee_id=None, recalculate=False):
+def process_attendance_records(date_from, date_to, employee_id=None, recalculate=False):
     """
     Process and calculate overtime for attendance records
     Can be run for a specific date, employee, or both
-    
+
     Args:
-        date: Process records for this date only
-        employee_id: Process records for this employee only
+        date_from: Starting date for processing
+        date_to: Ending date for processing
+        employee_id: Process records for this employee only (optional)
         recalculate: Force recalculation even if already calculated
-        
+
     Returns:
         int: Number of records processed
     """
-    from models import AttendanceRecord, db
-    
     # Build query with filters
     query = AttendanceRecord.query
-    
-    if date:
-        query = query.filter(AttendanceRecord.date == date)
-    
+
+    # Filter by date range
+    if date_from and date_to:
+        print(f"DEBUG - Filtering logs from {date_from} to {date_to}")
+        query = query.filter(
+            func.date(AttendanceRecord.check_in) >= date_from,
+            func.date(AttendanceRecord.check_in) <= date_to
+        )
+
+    # Filter by employee ID if provided
     if employee_id:
+        print(f"DEBUG - Filtering logs for employee ID {employee_id}")
         query = query.filter(AttendanceRecord.employee_id == employee_id)
-    
+
     # Only process records with both check-in and check-out
     query = query.filter(
         AttendanceRecord.check_in.isnot(None),
         AttendanceRecord.check_out.isnot(None)
     )
-    
+
     records = query.all()
     processed_count = 0
-    print (records, "   records  -----")
-    
+    print(records,employee_id, "   records=============================================================================================  -----")
+
     for record in records:
         try:
-            # Calculate work hours and overtime
             calculate_overtime(record, recalculate, commit=False)
             processed_count += 1
         except Exception as e:
             current_app.logger.error(f"Error processing record ID {record.id}: {str(e)}")
-    
-    # Commit all changes at once
+
     try:
         db.session.commit()
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error committing overtime calculations: {str(e)}")
-    
+
     return processed_count
+
     
 def recalculate_holiday_overtime():
     """
