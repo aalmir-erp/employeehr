@@ -439,8 +439,8 @@ class AttendanceRecord(db.Model):
                 self.regular_overtime_hours = capped_overtime
                 
             # Store total values - ensure it's the sum of all overtime categories
-            print(self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours , self.grace_period_minutes,"2222222==================================================self.grace_period_minutes>>>>>>>>>")
-            self.overtime_hours = self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours + self.grace_period_minutes
+            print(self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours , (self.grace_period_minutes or 0) / 60.0,"2222222==================================================self.grace_period_minutes>>>>>>>>>")
+            self.overtime_hours = self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours + (self.grace_period_minutes or 0) / 60.0
             self.overtime_rate = rate
             self.overt_time_weighted =  self.overtime_hours *  self.overtime_rate
             
@@ -480,8 +480,8 @@ class AttendanceRecord(db.Model):
                 self.overtime_night_hours = overtime_eligible
                 
             # Ensure overtime_hours is the sum of all overtime categories
-            print(self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours , self.grace_period_minutes,"==================================================self.grace_period_minutes>>>>>>>>>")
-            self.overtime_hours =  self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours + self.grace_period_minutes
+            print(self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours , (self.grace_period_minutes or 0) / 60.0,"==================================================self.grace_period_minutes>>>>>>>>>")
+            self.overtime_hours =  self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours + (self.grace_period_minutes or 0) / 60.0
             self.overtime_rate = default_rate
             self.overt_time_weighted =  self.overtime_hours *  self.overtime_rate
             
