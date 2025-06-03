@@ -784,7 +784,7 @@
 
                     // Apply grace time
                     if (shortfall > graceHours) {
-                        graceOvertime = shortfall - graceHours;
+                        graceOvertime = -shortfall + graceHours;
                     } else {
                         graceOvertime = 0;
                     }
