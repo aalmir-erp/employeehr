@@ -1188,6 +1188,12 @@ def api_employee_attendance(employee_id):
     # Format records for JSON response
     formatted_records = []
     for record in records:
+        # Fill grace_period_minutes from shift if not already set
+        if not record.grace_period_minutes and employee.current_shift_id:
+            shift = Shift.query.get(employee.current_shift_id)
+            if shift:
+                record.grace_period_minutes = shift.grace_period_minutes or 0
+        
         formatted_records.append({
             'id': record.id,
             'date': record.date.isoformat(),
@@ -1197,9 +1203,8 @@ def api_employee_attendance(employee_id):
             'work_hours': record.work_hours,
             'overtime_hours': record.overtime_hours if record.overt_time_weighted > 0 else 0,
             'overt_time_weighted': record.overt_time_weighted,
-            'is_weekend':record.is_weekend,
+            'is_weekend': record.is_weekend,
             'is_holiday': record.is_holiday,
-            # Calculate late minutes from check-in time if status is 'late'
             'late_minutes': 0 if not record.check_in or record.status != 'late' else 0,
             'note': record.notes,
             'grace_period_minutes': record.grace_period_minutes,
@@ -1238,6 +1243,7 @@ def api_employee_attendance(employee_id):
             'end_date': end_date.isoformat()
         }
     })
+
 
 def time_diff_in_hours(start_time, end_time):
     if start_time and end_time:

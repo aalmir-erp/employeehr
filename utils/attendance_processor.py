@@ -328,6 +328,7 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
             records_created += 1
 
         is_holiday, is_weekend = check_holiday_and_weekend(emp_id, log_date)
+        
 
         record.check_in = check_in
         record.check_out = check_out
@@ -341,13 +342,7 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
         record.is_weekend = is_weekend
         record.break_calculated = False
 
-        employee = Employee.query.get(emp_id)
-        if employee and employee.current_shift_id:
-            shift = Shift.query.get(employee.current_shift_id)
-            record.shift_id = shift.id
-            record.grace_period_minutes = shift.grace_period_minutes or 0
-        else:
-            record.grace_period_minutes = 0
+        
 
         work_hours = max(0, total_duration - break_duration)
         record.work_hours = work_hours
