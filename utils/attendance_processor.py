@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import and_, func, or_
 
-from models import AttendanceLog, AttendanceRecord, Employee, db, Holiday
+from models import AttendanceLog, AttendanceRecord, Employee, db, Holiday,Shift
 
 
 
