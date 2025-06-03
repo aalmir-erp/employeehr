@@ -1239,6 +1239,16 @@ def api_employee_attendance(employee_id):
         }
     })
 
+def time_diff_in_hours(start_time, end_time):
+    if start_time and end_time:
+        # Assume both are datetime.time objects
+        dt_start = datetime.combine(datetime.today(), start_time)
+        dt_end = datetime.combine(datetime.today(), end_time)
+        if dt_end < dt_start:
+            dt_end += timedelta(days=1)  # Handle overnight shifts
+        return (dt_end - dt_start).seconds / 3600.0
+    return 8  # Default fallback
+
 @bp.route('/api/day_attendance/<int:employee_id>')
 @login_required
 def api_day_attendance(employee_id):
@@ -1326,7 +1336,9 @@ def api_day_attendance(employee_id):
             'start_time': shift.start_time.strftime('%H:%M:%S') if hasattr(shift, 'start_time') and shift.start_time else '09:00:00',
             'end_time': shift.end_time.strftime('%H:%M:%S') if hasattr(shift, 'end_time') and shift.end_time else '18:00:00',
             'break_duration': shift.break_duration if hasattr(shift, 'break_duration') else 1,
-            'expected_hours': shift.expected_hours if hasattr(shift, 'expected_hours') else 8
+            # 'expected_hours': shift.expected_hours if hasattr(shift, 'expected_hours') else 8
+            'expected_hours': time_diff_in_hours(shift.start_time, shift.end_time)
+
         }
     
     # Format employee for JSON response
