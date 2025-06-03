@@ -763,7 +763,7 @@
         
         // Sort records by date in descending order
         const sortedRecords = [...records].sort((a, b) => new Date(b.date) - new Date(a.date));
-        
+        let adjustedOvertime = 0
         sortedRecords.forEach(record => {
             let statusBadge = '';
             const checkIn = record.check_in ? new Date(`1970-01-01T${record.check_in}`) : null;
@@ -792,11 +792,9 @@
 
                 // Set to 2 decimal places
                 const graceOvertimeMinutes = Math.round(graceOvertime * 60);  // already in minutes
-                console.log(graceOvertimeMinutes,"111111111111111111111111111111111111111111111111111111111",requiredHours ,workedHours,requiredHours - workedHours)
                 
                 const hours = Math.floor(graceOvertimeMinutes / 60);
                 const minutes = graceOvertimeMinutes % 60;
-                console.log(hours,minutes,"pppppppppppppppppppppppppppppppppppssssssssssssssss")
 
                 let formattedGraceOvertime = '';
                 if (hours > 0) {
@@ -807,6 +805,9 @@
                 }
 
                 record.grace_overtime_hours = formattedGraceOvertime.trim() || '0.00 hr';
+
+                adjustedOvertime = record.overtime_hours - graceOvertimeMinutes / 60;
+                console.log(adjustedOvertime,record.overtime_hours - graceOvertimeMinutes / 60,"adjusttime=============================================================================")
             } else {
                 record.grace_overtime_hours = 0;
             }
@@ -837,7 +838,7 @@
                     <td>${record.work_hours ? record.work_hours.toFixed(1) : '-'}</td>
                     <td>${record.grace_period_minutes} Min</td>
                     <td>${record.is_weekend || record.is_holiday ? '0.00 hr' : record.grace_overtime_hours}</td>
-                    <td>${record.overtime_hours.toFixed(1) }</td>
+                    <td>${adjustedOvertime.toFixed(1) }</td>
                     <td>${record.overt_time_weighted.toFixed(1) } </td>
                     <td>${record.late_minutes || '-'}</td>
                     <td>${record.note || '-'}</td>

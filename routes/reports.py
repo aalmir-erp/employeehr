@@ -92,8 +92,11 @@ def dashboard():
     
     total_work_hours = sum(r.work_hours for r in records if r.work_hours is not None)
     total_overtime = sum(r.overtime_hours for r in records if r.overtime_hours is not None)
+    total_grace_overtime = sum(r.grace_overtime_hours for r in records if hasattr(r, 'grace_overtime_hours') and r.grace_overtime_hours is not None)
+    total_adjusted_overtime = total_overtime - total_grace_overtime
     avg_hours = total_work_hours / present_count if present_count else 0
-    avg_overtime = total_overtime / len(employees) if employees else 0
+    avg_overtime = total_adjusted_overtime / len(employees) if employees else 0
+    print(total_adjusted_overtime,"pppppppppppppppppppppppppppppppppppppppppppppp",total_grace_overtime,total_overtime)
     
     statistics = {
         'total_days': total_days,
@@ -104,7 +107,7 @@ def dashboard():
         'early_out': early_out_count,
         'missing': missing_count,
         'total_hours': total_work_hours,
-        'total_overtime': total_overtime,
+        'total_overtime': total_adjusted_overtime,
         'avg_hours': avg_hours,
         'avg_overtime': avg_overtime,
         'present_percent': round((present_count / (total_days * len(employees)) * 100), 1) if total_days and employees else 0,
