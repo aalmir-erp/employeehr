@@ -751,6 +751,7 @@
                                 <th>Check Out</th>
                                 <th>Work Hours</th>
                                 <th>Grace Period Minutes</th>
+                                <th>Grace OverTime</th>
                                 <th>Overtime(HR)</th>
                                 <th>Overtime(Weight)</th>
                                 <th>Late (min)</th>
@@ -765,7 +766,38 @@
         
         sortedRecords.forEach(record => {
             let statusBadge = '';
-            console.log(record.is_holiday,record.is_weekend,"=============================================",sortedRecords)
+            const checkIn = record.check_in ? new Date(`1970-01-01T${record.check_in}`) : null;
+            const checkOut = record.check_out ? new Date(`1970-01-01T${record.check_out}`) : null;
+
+            if (checkIn && checkOut) {
+                const diffMs = checkOut - checkIn;
+                const workedHours = diffMs / (1000 * 60 * 60); // Convert ms to hours
+
+                const requiredHours = 12;
+                const graceHours = (record.grace_period_minutes || 0) / 60;
+
+                let graceOvertime = 0;
+
+                // Calculate shortfall from required time after grace
+                if (workedHours < requiredHours) {
+                    const shortfall = requiredHours - (workedHours + record.break_duration);
+
+                    // Apply grace time
+                    if (shortfall > graceHours) {
+                        graceOvertime = shortfall - graceHours;
+                    } else {
+                        graceOvertime = 0;
+                    }
+                }
+
+                // Set to 2 decimal places
+                console.log(graceOvertime,"111111111111111111111111111111111111111111111111111111111",requiredHours ,workedHours,requiredHours - workedHours)
+                record.grace_overtime_hours = Math.round(graceOvertime * 60) ;
+            } else {
+                record.grace_overtime_hours = 0;
+            }
+
+
             if (record.is_holiday) {
                 statusBadge = '<span class="badge bg-info">Holiday</span>';
             } else if (record.is_weekend) {
@@ -789,7 +821,8 @@
                     <td>${record.check_in || '-'}</td>
                     <td>${record.check_out || '-'}</td>
                     <td>${record.work_hours ? record.work_hours.toFixed(1) : '-'}</td>
-                    <td>${record.grace_period_minutes}</td>
+                    <td>${record.grace_period_minutes} Min</td>
+                    <td>${record.grace_overtime_hours} Min</td>
                     <td>${record.overtime_hours.toFixed(1) }</td>
                     <td>${record.overt_time_weighted.toFixed(1) } </td>
                     <td>${record.late_minutes || '-'}</td>
