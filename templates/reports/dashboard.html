@@ -846,7 +846,7 @@
                     <td>${record.work_hours ? record.work_hours.toFixed(1) : '-'}</td>
                     <td>${record.grace_period_minutes} Min</td>
                     <td>${record.is_weekend || record.is_holiday ? '0.00 hr' : record.grace_overtime_hours}</td>
-                    <td>${adjustedOvertime.toFixed(1) }</td>
+                    <td>${adjustedOvertime.toFixed(2) }</td>
                     <td>${record.overt_time_weighted.toFixed(1) } </td>
                     <td>${record.late_minutes || '-'}</td>
                     <td>${record.note || '-'}</td>

@@ -406,12 +406,12 @@ class AttendanceRecord(db.Model):
         if rule:
             # Get base multiplier based on date and holiday status, passing employee for weekend detection
             rate = rule.get_overtime_multiplier(self.date, self.is_holiday if self.is_holiday is not None else False, self.employee)
-            print(rate , "rate  ==== ---- ")
+            print(rate , "rate  ==== ---- -------------------------------- ")
             # Apply night shift differential if applicable
             is_night_shift = self.shift_type == 'night'
             
-            if self.check_in and self.check_out:
-                rate = rule.apply_night_shift_differential(self.check_in, self.check_out, rate)
+            # if self.check_in and self.check_out:
+            #     rate = rule.apply_night_shift_differential(self.check_in, self.check_out, rate)
                 
             # Apply maximum limits (ensure max_daily_overtime is not None)
             max_daily = rule.max_daily_overtime if rule.max_daily_overtime is not None else 4.0

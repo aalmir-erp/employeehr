@@ -362,6 +362,8 @@ def recalculate():
         try:
             # Get form data
             recalc_type = request.form.get('recalculate_type')
+            from_date = request.form.get('from_date')
+            to_date = request.form.get('to_date')
             print (" get here recalculated -----------------------------------")
             print (recalc_type)
             
@@ -390,7 +392,7 @@ def recalculate():
                     return redirect(url_for('overtime.recalculate'))
                 
                 # Process records for this employee
-                count = process_attendance_records(employee_id=employee_id, recalculate=True)
+                count = process_attendance_records(date_from=from_date, date_to=to_date, employee_id=employee_id, recalculate=True)
                 
                 # Get employee details for notification
                 employee = Employee.query.get(employee_id)
