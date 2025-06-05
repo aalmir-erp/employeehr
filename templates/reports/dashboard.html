@@ -783,6 +783,8 @@
                     const shortfall = requiredHours -  (record.work_hours + record.break_duration);
 
                     // Apply grace time
+                    console.log(shortfall, "shortfall")
+                    console.log(graceHours)
                     if (shortfall > graceHours) {
                         graceOvertime = shortfall > graceHours ? shortfall : 0.00;
                     } else {
@@ -791,7 +793,7 @@
                 }
 
                 // Set to 2 decimal places
-                const graceOvertimeMinutes = Math.round(graceOvertime * 60);  // already in minutes
+                var graceOvertimeMinutes = Math.round(graceOvertime * 60);  // already in minutes
                 
                 const hours = Math.floor(graceOvertimeMinutes / 60);
                 const minutes = graceOvertimeMinutes % 60;
@@ -805,9 +807,15 @@
                 }
 
                 record.grace_overtime_hours = formattedGraceOvertime.trim() || '0.00 hr';
-
-                adjustedOvertime = record.overtime_hours - graceOvertimeMinutes / 60;
-                console.log(adjustedOvertime,record.overtime_hours - graceOvertimeMinutes / 60,"adjusttime=============================================================================")
+                        console.log(record.overtime_hours, "record.overtime_hours ---")
+                        console.log(graceOvertimeMinutes, "graceOvertimeMinutes")
+                        if(record.is_weekend)
+                        {
+                            graceOvertimeMinutes=0;
+                        }
+                        console.log(graceOvertimeMinutes, "graceOvertimeMinutes")
+                adjustedOvertime = record.overtime_hours - (graceOvertimeMinutes / 60);
+                console.log(adjustedOvertime,record.overtime_hours - (graceOvertimeMinutes / 60),"adjusttime=============================================================================")
             } else {
                 record.grace_overtime_hours = 0;
             }

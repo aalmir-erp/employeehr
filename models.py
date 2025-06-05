@@ -406,7 +406,7 @@ class AttendanceRecord(db.Model):
         if rule:
             # Get base multiplier based on date and holiday status, passing employee for weekend detection
             rate = rule.get_overtime_multiplier(self.date, self.is_holiday if self.is_holiday is not None else False, self.employee)
-            
+            print(rate , "rate  ==== ---- ")
             # Apply night shift differential if applicable
             is_night_shift = self.shift_type == 'night'
             
@@ -446,7 +446,7 @@ class AttendanceRecord(db.Model):
             return capped_overtime, rate
         else:
             # Default calculation
-            default_rate = 2.0 if self.is_weekend or self.is_holiday else 1.5
+            default_rate = 1.0 if self.is_weekend or self.is_holiday else 0
             
             # Categorize overtime based on day type with default rules
             self.regular_overtime_hours = 0.0
