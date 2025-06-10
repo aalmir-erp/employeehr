@@ -177,24 +177,24 @@ def send_absent_to_odoo():
                 AttendanceRecord.status == 'absent',
             ).order_by(AttendanceRecord.date).all()
 
-        print(f"📋 Total absent records found: {len(absent_records)}")
+            print(f"📋 Total absent records found: {len(absent_records)}")
 
-        for record in absent_records:
-            employee = Employee.query.filter_by(id=record.employee_id).first()
-            if not employee or not employee.odoo_id:
-                print(f"❌ Skipping: No Odoo ID for employee_id {record.employee_id}")
-                continue
+            for record in absent_records:
+                employee = Employee.query.filter_by(id=record.employee_id).first()
+                if not employee or not employee.odoo_id:
+                    print(f"❌ Skipping: No Odoo ID for employee_id {record.employee_id}")
+                    continue
 
-            odoo_employee_id = employee.odoo_id
-            leave_date_str = str(record.date)
+                odoo_employee_id = employee.odoo_id
+                leave_date_str = str(record.date)
 
-            result = models.execute_kw(
-                DB, uid, PASSWORD,
-                'hr.holidays', 'create_unpaid_leave_if_not_exists',
-                [odoo_employee_id, leave_date_str]
-            )
+                result = models.execute_kw(
+                    DB, uid, PASSWORD,
+                    'hr.holidays', 'create_unpaid_leave_if_not_exists',
+                    [odoo_employee_id, leave_date_str]
+                )
 
-            print(f"📅 {leave_date_str} → {result.get('status')}: {result.get('message', result.get('reason'))}")
+                print(f"📅 {leave_date_str} → {result.get('status')}: {result.get('message', result.get('reason'))}")
 
         return jsonify({'message': 'All absent records processed Successfully.'}), 200
 
