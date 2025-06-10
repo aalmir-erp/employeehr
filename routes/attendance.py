@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 from app import db
 from models import Employee, AttendanceRecord, AttendanceLog, AttendanceDevice, Holiday, SystemConfig, ShiftAssignment, Department, Shift
 from utils.attendance_processor import process_unprocessed_logs, get_processing_stats, check_holiday_and_weekend,calculate_total_duration,estimate_break_duration,determine_shift_type
-
+import xmlrpc.client
 # Create blueprint
 bp = Blueprint('attendance', __name__, url_prefix='/attendance')
 
@@ -156,6 +156,51 @@ def daily():
                           records=records,
                           departments=departments,
                           selected_department=department)
+
+@bp.route('/send_absent_to_odoo', methods=['POST'])
+def send_absent_to_odoo():
+        data = request.get_json()
+        employee_ids = data.get('employee_ids', [])
+
+        URL = 'http://sib.mir.ae:8050'
+        DB = 'aalmir__2025_05_06'
+        USER = 'admin'
+        PASSWORD = '123'
+
+        common = xmlrpc.client.ServerProxy(f'{URL}/xmlrpc/2/common')
+        uid = common.authenticate(DB, USER, PASSWORD, {})
+        models = xmlrpc.client.ServerProxy(f'{URL}/xmlrpc/2/object')
+        
+        for employee_id in employee_ids:
+            absent_records = AttendanceRecord.query.filter(
+                AttendanceRecord.employee_id == employee_id,
+                AttendanceRecord.status == 'absent',
+            ).order_by(AttendanceRecord.date).all()
+
+        print(f"📋 Total absent records found: {len(absent_records)}")
+
+        for record in absent_records:
+            employee = Employee.query.filter_by(id=record.employee_id).first()
+            if not employee or not employee.odoo_id:
+                print(f"❌ Skipping: No Odoo ID for employee_id {record.employee_id}")
+                continue
+
+            odoo_employee_id = employee.odoo_id
+            leave_date_str = str(record.date)
+
+            result = models.execute_kw(
+                DB, uid, PASSWORD,
+                'hr.holidays', 'create_unpaid_leave_if_not_exists',
+                [odoo_employee_id, leave_date_str]
+            )
+
+            print(f"📅 {leave_date_str} → {result.get('status')}: {result.get('message', result.get('reason'))}")
+
+        return jsonify({'message': 'All absent records processed Successfully.'}), 200
+
+
+
+
 
 @bp.route('/employee/<int:employee_id>')
 @login_required
