@@ -25,6 +25,7 @@ SECRET_KEY = 'YOUR_SECRET_KEY_HERE'
 @login_required
 def index():
     """Admin dashboard index"""
+    print(current_user.is_authenticated,current_user.is_admin,"=======================================================>>>>>>>>>>>>>")
     if not current_user.is_authenticated or not current_user.is_admin:
                 flash('You do not have permission to access the admin area', 'danger')
     # Get counts for dashboard
@@ -105,34 +106,38 @@ def login_as_user_odoo(employee_token):
 def edit_user(user_id):
     """Edit a user"""
     user = User.query.get_or_404(user_id)
-    
+
     if request.method == 'POST':
         username = request.form.get('username')
         email = request.form.get('email')
-        is_admin = request.form.get('is_admin') == '1'
+        role = request.form.get('is_admin')  # This now carries the role value
         is_active = 'is_active' in request.form
-        
+
         # Check if username or email already exists for another user
         existing_user = User.query.filter(
-            ((User.username == username) | (User.email == email)) & 
+            ((User.username == username) | (User.email == email)) &
             (User.id != user_id)
         ).first()
-        
+
         if existing_user:
             flash('Username or email already in use by another user', 'danger')
             return redirect(url_for('admin.edit_user', user_id=user_id))
-        
-        # Update user details
+
+        # Set values
         user.username = username
         user.email = email
-        user.is_admin = is_admin
-        user.is_active = is_active
-        
+        user.role = role
+        user.is_admin = True if role == 'admin' else False
+        # user.is_active = is_active
+
         db.session.commit()
         flash(f'User "{username}" updated successfully', 'success')
         return redirect(url_for('admin.users'))
-    
-    return render_template('admin/edit_user.html', user=user)
+
+    # For GET request: load employees
+    employees = Employee.query.filter_by(is_active=True).all()
+    return render_template('admin/edit_user.html', user=user, employees=employees)
+
 
 @bp.route('/users/delete', methods=['POST'])
 @login_required
@@ -141,7 +146,6 @@ def delete_user():
     user_id = request.form.get('user_id')
     user = User.query.get_or_404(user_id)
     
-    # Don't allow deleting yourself
     if user.id == current_user.id:
         flash('You cannot delete your own account', 'danger')
         return redirect(url_for('admin.users'))
@@ -163,32 +167,44 @@ def add_user():
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
-        is_admin = request.form.get('is_admin') == '1'
-        
+        confirm_password = request.form.get('confirm_password')
+        role = request.form.get('is_admin')  # Actually the role value
+        employee_id = request.form.get('employee_id') or None
+
+        # Check if passwords match
+        if password != confirm_password:
+            flash('Passwords do not match', 'danger')
+            return redirect(url_for('admin.add_user'))
+
         # Check if user exists
         existing_user = User.query.filter((User.username == username) | (User.email == email)).first()
         if existing_user:
             flash('Username or email already exists', 'danger')
             return redirect(url_for('admin.add_user'))
-        
+
+        # Set admin status based on role
+        is_admin = True if role == 'admin' else False
+
         # Create new user
         user = User(
             username=username,
             email=email,
             is_admin=is_admin,
-            role ='hr'
+            role=role,
+            employee_id=int(employee_id) if employee_id else None
         )
         user.set_password(password)
-        
+
         db.session.add(user)
         db.session.commit()
-        
+
         flash(f'User "{username}" added successfully', 'success')
         return redirect(url_for('admin.users'))
-    
-    # Get employees for user linking
+
+    # For GET request: load employee options
     employees = Employee.query.filter_by(is_active=True).all()
     return render_template('admin/add_user.html', employees=employees)
+
 
 
 @bp.route('/users')

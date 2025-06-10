@@ -35,7 +35,10 @@ def login():
             
             next_page = request.args.get('next')
             if not next_page or not next_page.startswith('/'):
-                next_page = url_for('attendance.index')
+                if current_user.role == 'employee' and not current_user.is_admin:
+                    next_page = url_for('reports.dashboard')
+                else:    
+                   next_page = url_for('attendance.index')
             
             flash(f'Welcome back, {user.username}!', 'success')
             return redirect(next_page)

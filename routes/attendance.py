@@ -198,10 +198,6 @@ def send_absent_to_odoo():
 
         return jsonify({'message': 'All absent records processed Successfully.'}), 200
 
-
-
-
-
 @bp.route('/employee/<int:employee_id>')
 @login_required
 def employee_attendance(employee_id):

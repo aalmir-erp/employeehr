@@ -189,6 +189,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
                     {% if current_user.is_authenticated %}
+                    {% if current_user.role != 'employee' %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle {% if request.path.startswith('/attendance') %}active{% endif %}" href="#" id="attendanceDropdown" role="button" data-bs-toggle="dropdown">
                             <i class="bi bi-calendar-check"></i> Attendance 
@@ -202,6 +203,7 @@
                                     <i class="bi bi-speedometer2"></i> Dashboard
                                 </a>
                             </li>
+                            
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('attendance.daily') }}">
                                     <i class="bi bi-calendar-day"></i> Daily View
@@ -242,9 +244,12 @@
                                     <i class="bi bi-cpu"></i> Process All Logs
                                 </a>
                             </li>
+                            
 
                         </ul>
                     </li>
+                    {% endif %}
+                    {% if current_user.role != 'employee' %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle {% if request.path.startswith('/shifts') %}active{% endif %}" href="#" id="shiftsDropdown" role="button" data-bs-toggle="dropdown">
                             <i class="bi bi-clock"></i> Shifts
@@ -267,6 +272,7 @@
                             </li>
                         </ul>
                     </li>
+                    {% endif %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle {% if request.path.startswith('/reports') %}active{% endif %}" href="#" id="reportsDropdown" role="button" data-bs-toggle="dropdown">
                             <i class="bi bi-file-earmark-bar-graph"></i> Reports
@@ -277,6 +283,7 @@
                                     <i class="bi bi-speedometer2"></i> Dashboard
                                 </a>
                             </li>
+                            {% if current_user.role != 'employee' %}
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('reports.daily') }}">
                                     <i class="bi bi-calendar-day"></i> Daily Report
@@ -298,6 +305,7 @@
                                     <i class="bi bi-person-x"></i> Absent Report
                                 </a>
                             </li>
+                            {% endif %}
                         </ul>
                     </li>
                     {% if current_user.has_role('supervisor') or current_user.has_role('hr') %}

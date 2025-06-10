@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify, send_file, current_app
-from flask_login import login_required
+from flask_login import login_required, current_user, logout_user, login_user
 from datetime import datetime, date, timedelta
 import calendar
 import csv
@@ -26,6 +26,7 @@ def index():
 def dashboard():
     """Comprehensive attendance dashboard with drill-down capabilities"""
     # Get date range from request
+    print(current_user.role,current_user.is_admin,"=======================================================>>>>>>>>>>>>>")
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     
@@ -53,16 +54,20 @@ def dashboard():
     # Apply filters for the report
     query = Employee.query.filter_by(is_active=True)
     
-    # Department filter
-    if department != 'all':
-        query = query.filter_by(department=department)
+   
     
-    # Employee filter
-    if employee_ids:
-        query = query.filter(Employee.id.in_([int(e_id) for e_id in employee_ids]))
+    if current_user.role == 'employee' and not current_user.is_admin:
+        employees = [current_user.employee] if current_user.employee and current_user.employee.is_active else []
+    else:
+        query = Employee.query.filter_by(is_active=True)
     
-    # Get filtered employees
-    employees = query.all()
+        if department != 'all':
+            query = query.filter_by(department=department)
+
+        if employee_ids:
+            query = query.filter(Employee.id.in_([int(e_id) for e_id in employee_ids]))
+        
+        employees = query.all()
     
     # Get all attendance records for this period based on the filters
     records_query = AttendanceRecord.query.filter(
@@ -179,6 +184,7 @@ def dashboard():
     return render_template('reports/dashboard.html',
                           start_date=start_date,
                           end_date=end_date,
+                          role = current_user.role,
                           departments=departments,
                           all_employees=all_employees,
                           selected_department=department,
