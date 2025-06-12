@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-exclamation-circle"></i> Missing Attendance Requests</h5>
+            <a href="#" class="btn btn-sm" style="background-color:#F26C4F; color:white;" data-bs-toggle="modal" data-bs-target="#missingAttendanceModal">
+                <i class="bi bi-plus-circle"></i> Add Missing Record
+            </a>
+        </div>
+
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end mb-4 p-3 rounded shadow-sm" style="background-color: #f9f9f9;">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Start Date</label>
+                    <input type="date" class="form-control" name="start_date" value="{{ request.args.get('start_date', '') }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">End Date</label>
+                    <input type="date" class="form-control" name="end_date" value="{{ request.args.get('end_date', '') }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Employee</label>
+                    <select class="form-select" name="employee_id">
+                        <option value="">All Employees</option>
+                        {% for emp in employees %}
+                        <option value="{{ emp.id }}" {% if request.args.get('employee_id') == emp.id|string %}selected{% endif %}>{{ emp.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 d-grid">
+                    <button type="submit" class="btn btn-primary" style="color:white;">
+                        <i class="bi bi-funnel"></i> Apply Filters
+                    </button>
+                </div>
+            </form>
+
+            <div class="table-responsive">
+                <table class="table table-hover table-striped datatable" id="missingAttendanceTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Employee</th>
+                            <th>Date</th>
+                            <th>Check In</th>
+                            <th>Check Out</th>
+                            <th>Status</th>
+                            <th>Remarks</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rec in records %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-initials bg-secondary text-white">
+                                        {{ rec.employee.name[:2].upper() }}
+                                    </div>
+                                    <div class="ms-2">
+                                        <div class="fw-bold">{{ rec.employee.name }}</div>
+                                        <div class="text-muted small">{{ rec.employee.employee_code or '' }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ rec.date }}</td>
+                            <td>{{ rec.check_in.strftime("%Y-%m-%d %H:%M") if rec.check_in else '-' }}</td>
+                            <td>{{ rec.check_out.strftime("%Y-%m-%d %H:%M") if rec.check_out else '-' }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if rec.status == 'fixed' else 'danger' }}">{{ rec.status|capitalize }}</span>
+                            </td>
+                            <td>{{ rec.remarks or '-' }}</td>
+                            
+                            <td>
+                                {% if current_user.role != 'employee' %}
+                                <div class="d-flex gap-2">
+                                    <button
+                                        class="btn btn-sm btn-primary edit-btn"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#editAttendanceModal"
+                                        data-id="{{ rec.id }}"
+                                        data-employee-id="{{ rec.employee.id }}"
+                                        data-employee-name="{{ rec.employee.name }}"
+                                        data-date="{{ rec.date }}"
+                                        data-check-in="{{ rec.check_in.strftime('%Y-%m-%dT%H:%M') if rec.check_in else '' }}"
+                                        data-check-out="{{ rec.check_out.strftime('%Y-%m-%dT%H:%M') if rec.check_out else '' }}"
+                                        data-status="{{ rec.status }}"
+                                        data-remarks="{{ rec.remarks }}"
+                                    >
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                  
+                                    <form method="POST" action="{{ url_for('attendance.delete_record', record_id=rec.id) }}" onsubmit="return confirm('Are you sure you want to delete this record?');">
+                                        <button type="submit" class="btn btn-sm btn-danger">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                    {% if rec.status != 'fixed' %}
+                                    <form method="POST" action="{{ url_for('attendance.approve_record', record_id=rec.id) }}">
+                                        <button type="submit" class="btn btn-sm btn-success">
+                                            <i class="bi bi-check-circle"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </td>
+                            
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="missingAttendanceModal" tabindex="-1" aria-labelledby="missingAttendanceModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form method="POST" class="needs-validation" novalidate>
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="missingAttendanceModalLabel">
+                            <i class="bi bi-pencil-square"></i> Add Missing Attendance
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Employee</label>
+                                <select class="form-select" name="employee_id" required>
+                                    <option value="">Select Employee</option>
+                                    {% for emp in employees %}
+                                        <option value="{{ emp.id }}">{{ emp.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Date</label>
+                                <input type="date" class="form-control" name="date" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Check In</label>
+                                <input type="time" class="form-control" name="check_in">
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Check Out</label>
+                                <input type="time" class="form-control" name="check_out">
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Status</label>
+                                <select class="form-select" name="status">
+                                    <option value="missing">Missing</option>
+                                    <option value="fixed">Fixed</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Remarks</label>
+                                <input type="text" class="form-control" name="remarks" placeholder="Optional notes...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn" style="background-color:#F26C4F; color:white;">
+                            <i class="bi bi-save"></i> Save Record
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+    </div>
+
+</div>
+
+<div class="modal fade" id="editAttendanceModal" tabindex="-1" aria-labelledby="editAttendanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <form method="POST" id="editAttendanceForm" class="needs-validation" novalidate>
+          <div class="modal-header">
+            <h5 class="modal-title" id="editAttendanceModalLabel">
+              <i class="bi bi-pencil"></i> Edit Attendance
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+  
+          <div class="modal-body">
+            <input type="hidden" name="record_id" id="editRecordId">
+            <input type="hidden" name="employee_id" id="editEmployeeIdHidden"> <!-- still needed for submission -->
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Employee</label>
+                <input type="text" class="form-control" id="editEmployeeName" readonly>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Date</label>
+                <input type="date" class="form-control" name="date" id="editDate" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Check In</label>
+                <input type="time" class="form-control" name="check_in" id="editCheckIn">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Check Out</label>
+                <input type="time" class="form-control" name="check_out" id="editCheckOut">
+              </div>
+              <div class="col-md-12">
+                <label class="form-label fw-bold">Remarks</label>
+                <input type="text" class="form-control" name="remarks" id="editRemarks">
+              </div>
+            </div>
+          </div>
+  
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-save"></i> Update Record
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+    function extractTime(datetimeStr) {
+      if (!datetimeStr) return "";
+      return datetimeStr.split("T")[1]?.slice(0, 5) || "";
+    }
+  
+    document.querySelectorAll('.edit-btn').forEach(button => {
+      button.addEventListener('click', function () {
+        const form = document.getElementById('editAttendanceForm');
+        form.action = `/attendance/edit_record/${this.dataset.id}`;
+  
+        document.getElementById('editRecordId').value = this.dataset.id;
+        document.getElementById('editEmployeeIdHidden').value = this.dataset.employeeId;
+        document.getElementById('editEmployeeName').value = this.dataset.employeeName;
+  
+        document.getElementById('editDate').value = this.dataset.date;
+        document.getElementById('editCheckIn').value = extractTime(this.dataset.checkIn);
+        document.getElementById('editCheckOut').value = extractTime(this.dataset.checkOut);
+        document.getElementById('editRemarks').value = this.dataset.remarks;
+      });
+    });
+  </script>
+
+<script>
+(() => {
+    'use strict'
+    const forms = document.querySelectorAll('.needs-validation')
+    Array.from(forms).forEach(form => {
+        form.addEventListener('submit', event => {
+            if (!form.checkValidity()) {
+                event.preventDefault()
+                event.stopPropagation()
+            }
+            form.classList.add('was-validated')
+        }, false)
+    })
+})()
+</script>
+{% endblock %}

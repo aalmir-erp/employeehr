@@ -9,7 +9,7 @@ from io import StringIO, BytesIO
 import re
 from werkzeug.utils import secure_filename
 from app import db
-from models import Employee, AttendanceRecord, AttendanceLog, AttendanceDevice, Holiday, SystemConfig, ShiftAssignment, Department, Shift
+from models import Employee, AttendanceRecord, AttendanceLog, AttendanceDevice, Holiday, SystemConfig, ShiftAssignment, Department, Shift,MissingAttendance
 from utils.attendance_processor import process_unprocessed_logs, get_processing_stats, check_holiday_and_weekend,calculate_total_duration,estimate_break_duration,determine_shift_type
 import xmlrpc.client
 # Create blueprint
@@ -1231,6 +1231,131 @@ def process_selected_logs():
     flash(f'Processed {logs_processed} logs and created {records_created} records.', 'success')
     return redirect(url_for('attendance.missing_punches'))
 
+@bp.route('/edit_record/<int:record_id>', methods=['GET', 'POST'])
+@login_required
+def edit_record(record_id):
+    record = MissingAttendance.query.get_or_404(record_id)
+    employees = Employee.query.all()
+    date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
+    check_in_time = None
+    if request.form['check_in']:
+        check_in_time = datetime.strptime(f"{date.isoformat()} {request.form['check_in']}", '%Y-%m-%d %H:%M')
+        
+    check_out_time = None
+    if request.form['check_out']:
+        check_out_time = datetime.strptime(f"{date.isoformat()} {request.form['check_out']}", '%Y-%m-%d %H:%M')
+
+    if request.method == 'POST':
+        record.date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
+        record.check_in = check_in_time
+        record.check_out = check_out_time
+        record.remarks = request.form['remarks']
+        db.session.commit()
+        flash('Record updated successfully!', 'success')
+        return redirect(url_for('attendance.missing_attendance'))
+
+    return redirect(url_for('attendance.missing_attendance'))
+
+@bp.route('/delete_record/<int:record_id>', methods=['POST'])
+@login_required
+def delete_record(record_id):
+    record = MissingAttendance.query.get_or_404(record_id)
+    db.session.delete(record)
+    db.session.commit()
+    flash('Record deleted successfully!', 'success')
+    return redirect(url_for('attendance.missing_attendance'))
+
+@bp.route('/approve_record/<int:record_id>', methods=['POST'])
+@login_required
+def approve_record(record_id):
+    record = MissingAttendance.query.get_or_404(record_id)
+    record.status = 'fixed'
+
+
+    # Check if attendance record already exists for that employee on that date
+    existing = AttendanceRecord.query.filter_by(
+        employee_id=record.employee_id,
+        date=record.date
+    ).first()
+
+    if not existing:
+        new_attendance = AttendanceRecord(
+            employee_id=record.employee_id,
+            date=record.date,
+            check_in=record.check_in,
+            check_out=record.check_out,
+            status='present',
+            total_duration=calculate_total_duration(record.check_in, record.check_out),
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+            notes="Auto-created from fixed missing attendance"
+        )
+        db.session.add(new_attendance)
+
+    db.session.commit()
+    flash('Record approved and attendance created successfully!', 'success')
+    return redirect(url_for('attendance.missing_attendance'))
+
+
+
+@bp.route('/missing_attendance', methods=['GET', 'POST'])
+@login_required
+def missing_attendance():
+    if request.method == 'POST':
+        employee_id = request.form.get('employee_id')
+        date = request.form.get('date')
+        check_in = request.form.get('check_in') or None
+        check_out = request.form.get('check_out') or None
+        status = request.form.get('status')
+        remarks = request.form.get('remarks')
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        check_in_time = None
+        if check_in:
+            check_in_time = datetime.strptime(f"{date.isoformat()} {check_in}", '%Y-%m-%d %H:%M')
+            
+        check_out_time = None
+        if check_out:
+            check_out_time = datetime.strptime(f"{date.isoformat()} {check_out}", '%Y-%m-%d %H:%M')
+
+        new_record = MissingAttendance(
+            employee_id=employee_id,
+            date=date,
+            check_in=check_in_time,
+            check_out=check_out_time,
+            status=status,
+            remarks=remarks
+        )
+        db.session.add(new_record)
+        db.session.commit()
+        flash("Missing attendance recorded successfully.", "success")
+        return redirect(url_for('attendance.missing_attendance'))
+
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    employee_id = request.args.get('employee_id')
+
+    records_query = MissingAttendance.query
+
+    if not current_user.is_admin:
+        records_query = records_query.filter(MissingAttendance.employee_id == current_user.employee_id)
+    else:
+        if employee_id:
+            records_query = records_query.filter(MissingAttendance.employee_id == employee_id)
+
+    if start_date:
+        records_query = records_query.filter(MissingAttendance.date >= start_date)
+    if end_date:
+        records_query = records_query.filter(MissingAttendance.date <= end_date)
+
+    records = records_query.order_by(MissingAttendance.date.desc()).all()
+
+    if current_user.is_admin:
+        employees = Employee.query.all()
+    else:
+        employee = Employee.query.get(current_user.employee_id)
+        employees = [employee] if employee else []
+
+    return render_template('attendance/missing_attendance.html', employees=employees, records=records, current_user=current_user)
 
 
 

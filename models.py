@@ -223,6 +223,19 @@ class AttendanceLog(db.Model):
     def __repr__(self):
         return f'<AttendanceLog {self.employee_id} {self.log_type} {self.timestamp}>'
 
+class MissingAttendance(db.Model):
+    __tablename__ = 'missing_attendance'
+
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    check_in = db.Column(db.DateTime, nullable=True)
+    check_out = db.Column(db.DateTime, nullable=True)
+    status = db.Column(db.String(20), default='missing')
+    remarks = db.Column(db.Text)
+
+    employee = db.relationship('Employee', backref='missing_attendances')
+
 class AttendanceRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)

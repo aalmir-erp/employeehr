@@ -214,8 +214,10 @@
                                     <i class="bi bi-list-columns"></i> Raw Logs {{current_user.roles}}
                                 </a>
                             </li>
+                            
 
                             <li><hr class="dropdown-divider"></li>
+                           
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('attendance.missing_punches') }}">
                                     <i class="bi bi-exclamation-triangle"></i> Missing Punches
@@ -281,6 +283,11 @@
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('reports.dashboard') }}">
                                     <i class="bi bi-speedometer2"></i> Dashboard
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('attendance.missing_attendance') }}">
+                                    <i class="bi bi-clock-history"></i> Missing Atendance Request
                                 </a>
                             </li>
                             {% if current_user.role != 'employee' %}
