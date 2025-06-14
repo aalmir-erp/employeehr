@@ -1268,15 +1268,35 @@ def delete_record(record_id):
 @bp.route('/approve_record/<int:record_id>', methods=['POST'])
 @login_required
 def approve_record(record_id):
+    from pytz import timezone
+    from utils.overtime_engine import process_attendance_records
     record = MissingAttendance.query.get_or_404(record_id)
     record.status = 'fixed'
 
-
-    # Check if attendance record already exists for that employee on that date
+    # Check if attendance already exists
     existing = AttendanceRecord.query.filter_by(
         employee_id=record.employee_id,
         date=record.date
     ).first()
+
+    is_holiday, is_weekend = check_holiday_and_weekend(record.employee_id, record.date)
+    employee = Employee.query.get(record.employee_id)
+    status = 'present'
+
+    if employee and employee.current_shift_id:
+        shift = Shift.query.get(employee.current_shift_id)
+        if shift and shift.start_time:
+            grace_minutes = shift.grace_period_minutes or 0
+            shift_start_naive = datetime.combine(record.date, shift.start_time) + timedelta(minutes=grace_minutes)
+
+            if record.check_in.tzinfo:
+                shift_start_datetime = shift_start_naive.replace(tzinfo=record.check_in.tzinfo)
+            else:
+                shift_start_datetime = timezone('Asia/Karachi').localize(shift_start_naive)
+
+            print(record.check_in, shift_start_datetime, "===============================qqqqqqqqqqqqqqqqqqqq")
+            if record.check_in > shift_start_datetime:
+                status = 'late'
 
     if not existing:
         new_attendance = AttendanceRecord(
@@ -1284,7 +1304,9 @@ def approve_record(record_id):
             date=record.date,
             check_in=record.check_in,
             check_out=record.check_out,
-            status='present',
+            status=status,
+            is_weekend=is_weekend,
+            is_holiday=is_holiday,
             total_duration=calculate_total_duration(record.check_in, record.check_out),
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
@@ -1293,6 +1315,15 @@ def approve_record(record_id):
         db.session.add(new_attendance)
 
     db.session.commit()
+
+    # Recalculate overtime
+    process_attendance_records(
+        date_from=record.date,
+        date_to=record.date,
+        employee_id=record.employee_id,
+        recalculate=True
+    )
+
     flash('Record approved and attendance created successfully!', 'success')
     return redirect(url_for('attendance.missing_attendance'))
 

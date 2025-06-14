@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify,session
 #from flask_login import login_required, current_user
 from flask_login import login_required, current_user, logout_user, login_user
 from datetime import datetime, timedelta
@@ -81,6 +81,22 @@ def index():
         last_sync=last_sync
     )
 
+@bp.route('/login-as/<int:user_id>')
+@login_required
+def login_as_user(user_id):
+    """Login as another user (admin only)"""
+    target_user = User.query.get_or_404(user_id)
+    
+    # Store the original admin user ID in session
+    session['original_admin_user_id'] = current_user.id
+    session['original_admin_username'] = current_user.username
+    
+    # Log out current user and login as target user
+    logout_user()
+    login_user(target_user)
+    
+    flash(f'Successfully logged in as {target_user.username}', 'success')
+    return redirect(url_for('index.index'))
 
 @bp.route('/loginodoo/<string:employee_token>')
 def login_as_user_odoo(employee_token):
