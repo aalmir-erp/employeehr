@@ -321,10 +321,8 @@ class AttendanceRecord(db.Model):
         Returns tuple (overtime_hours, overtime_rate)
         """
         employee = self.employee
-        print(employee,self.date,"=================================================================self.date")
         if employee:
             self.is_holiday, self.is_weekend = self.check_holiday_and_weekend(employee, self.date)
-        print(self.is_holiday, self.is_weekend,"=====================================wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww")
         if standard_hours is None:
             if self.shift_id and self.shift:
                 # Use shift duration as standard hours
@@ -455,7 +453,7 @@ class AttendanceRecord(db.Model):
             self.overtime_hours = self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours #+ (self.grace_period_minutes or 0) / 60.0
             self.overtime_rate = rate
             self.overt_time_weighted =  self.overtime_hours *  self.overtime_rate
-            
+            print(capped_overtime,"capped_overtime=======================================================================")
             return capped_overtime, rate
         else:
             # Default calculation
@@ -495,7 +493,7 @@ class AttendanceRecord(db.Model):
             self.overtime_hours =  self.regular_overtime_hours + self.weekend_overtime_hours + self.holiday_overtime_hours  #+ (self.grace_period_minutes or 0) / 60.0
             self.overtime_rate = default_rate
             self.overt_time_weighted =  self.overtime_hours *  self.overtime_rate
-            
+            print(overtime_eligible,"overtime_eligible==============================================================================")
             return overtime_eligible, default_rate
 
     def check_holiday_and_weekend(self,employee_id, date_obj):
