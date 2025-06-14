@@ -231,10 +231,8 @@ def process_attendance_records(date_from=None, date_to=None, employee_id=None, r
     Returns:
         int: Number of records processed
     """
-    # Build query with filters
     query = AttendanceRecord.query
 
-    # Filter by date range
     if date_from and date_to:
         print(f"DEBUG - Filtering logs from {date_from} to {date_to}")
         query = query.filter(
