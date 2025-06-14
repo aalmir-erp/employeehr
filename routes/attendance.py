@@ -1313,16 +1313,16 @@ def approve_record(record_id):
             notes="Auto-created from fixed missing attendance"
         )
         db.session.add(new_attendance)
-
+        process_attendance_records(
+            date_from=record.date,
+            date_to=record.date,
+            employee_id=record.employee_id,
+            recalculate=True
+        )
     db.session.commit()
 
     # Recalculate overtime
-    process_attendance_records(
-        date_from=record.date,
-        date_to=record.date,
-        employee_id=record.employee_id,
-        recalculate=True
-    )
+    
 
     flash('Record approved and attendance created successfully!', 'success')
     return redirect(url_for('attendance.missing_attendance'))
