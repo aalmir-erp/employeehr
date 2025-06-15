@@ -64,7 +64,7 @@ def reassign_supervisor():
                 role='supervisor',
                 department=department,
                 force_password_change=True,
-                is_active=True,
+                # is_active=True,
                 employee_id=new_supervisor.id
             )
             db.session.add(new_user)

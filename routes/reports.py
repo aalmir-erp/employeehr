@@ -58,15 +58,23 @@ def dashboard():
     
     if current_user.role == 'employee' and not current_user.is_admin:
         employees = [current_user.employee] if current_user.employee and current_user.employee.is_active else []
+
+    elif current_user.role == 'supervisor' and not current_user.is_admin:
+        query = Employee.query.filter_by(is_active=True, department=current_user.department)
+        
+        if employee_ids:
+            query = query.filter(Employee.id.in_([int(e_id) for e_id in employee_ids]))
+        
+        employees = query.all()
     else:
         query = Employee.query.filter_by(is_active=True)
-    
+        
         if department != 'all':
             query = query.filter_by(department=department)
 
         if employee_ids:
             query = query.filter(Employee.id.in_([int(e_id) for e_id in employee_ids]))
-        
+
         employees = query.all()
     
     # Get all attendance records for this period based on the filters

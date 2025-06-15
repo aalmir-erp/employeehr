@@ -33,6 +33,13 @@
                         <div class="form-text">Can view attendance records and reports</div>
                     </div>
                     <div class="form-check">
+                        <input class="form-check-input" type="radio" name="is_admin" id="role_supervisor" value="supervisor" checked>
+                        <label class="form-check-label" for="role_supervisor">
+                            Supervisor
+                        </label>
+                        <div class="form-text">Can view attendance records and reports</div>
+                    </div>
+                    <div class="form-check">
                         <input class="form-check-input" type="radio" name="is_admin" id="role_admin" value="admin" {% if user.is_admin %}checked{% endif %}>
                         <label class="form-check-label" for="role_admin">
                             Administrator
