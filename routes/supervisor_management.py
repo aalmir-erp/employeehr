@@ -1,6 +1,3 @@
-"""
-Routes for supervisor management functionality
-"""
 from flask import Blueprint, render_template, flash, redirect, url_for, request
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash
@@ -14,89 +11,76 @@ bp = Blueprint('supervisor', __name__)
 
 @bp.route('/reassign', methods=['GET', 'POST'])
 @login_required
-# @role_required('hr')
+@role_required('hr')
 def reassign_supervisor():
     """Reassign a department supervisor"""
     form = SupervisorAssignmentForm()
-    
-    # Populate department select field
+
+    # Departments
     all_departments = db.session.query(Employee.department).distinct().all()
     departments = [(d[0], d[0]) for d in all_departments if d[0]]
     form.department.choices = [('', '-- Select Department --')] + sorted(departments)
-    
-    # Get active employees for selection
-    active_employees = Employee.query.filter_by(
-        is_active=True
-    ).order_by(Employee.name).all()
-    
-    # Populate employee select field with string IDs for proper form validation
-    employee_choices = [(str(emp.id), emp.name) for emp in active_employees]
-    form.new_supervisor.choices = [('', '-- Select Employee --')] + employee_choices
-    
-    # For each department, find current supervisor
+
+    # Employees
+    active_employees = Employee.query.filter_by(is_active=True).order_by(Employee.name).all()
+    form.new_supervisor.choices = [('', '-- Select Employee --')] + [(str(emp.id), emp.name) for emp in active_employees]
+
+    # Current Supervisors
     department_supervisors = {}
     for dept in [d[0] for d in all_departments if d[0]]:
-        # Find supervisor users for this department
-        supervisors = User.query.filter_by(
-            department=dept, 
-            role='supervisor'
-        ).all()
-        
-        if supervisors:
-            # Get the employee records for these supervisors
-            supervisor_employees = []
-            for sup in supervisors:
-                employee = Employee.query.filter_by(email=sup.email).first()
-                if employee:
-                    supervisor_employees.append(employee)
-            
-            department_supervisors[dept] = supervisor_employees
-    
+        supervisors = User.query.filter_by(department=dept, role='supervisor').all()
+        supervisor_employees = []
+        for sup in supervisors:
+            employee = Employee.query.filter_by(id=sup.employee_id).first()
+            if employee:
+                supervisor_employees.append(employee)
+        department_supervisors[dept] = supervisor_employees
+
     if request.method == 'POST' and form.validate_on_submit():
         department = form.department.data
-        new_supervisor_id = form.new_supervisor.data
-        
-        # Find the new supervisor employee
+        new_supervisor_id = int(form.new_supervisor.data)
+
+        # Find the employee
         new_supervisor = Employee.query.get(new_supervisor_id)
         if not new_supervisor:
             flash('Selected employee not found.', 'danger')
             return redirect(url_for('supervisor.reassign_supervisor'))
-        
-        # Check if employee already has a user account (using employee_id as reference)
-        existing_user = User.query.filter_by(username=f"emp_{new_supervisor.employee_id}").first()
-        
+
+        # Try to find existing user via employee_id
+        existing_user = User.query.filter_by(employee_id=new_supervisor.id).first()
+
         if existing_user:
-            # Update existing user to supervisor role
             existing_user.role = 'supervisor'
             existing_user.department = department
-            
             db.session.add(existing_user)
-            flash(f'Existing user {existing_user.username} updated to supervisor role.', 'success')
+            flash(f'Updated user "{existing_user.username}" to supervisor.', 'success')
         else:
-            # Create new user account for supervisor
-            username = new_supervisor.email.split('@')[0]
-            new_user = User()
-            new_user.username = username
-            new_user.email = new_supervisor.email
-            new_user.password_hash = generate_password_hash('changeme')
-            new_user.role = 'supervisor'
-            new_user.department = department
-            new_user.force_password_change = True
-            
+            username = f"emp_{new_supervisor.id}"
+            email = f"{username}@company.com"  # You can customize this pattern
+            new_user = User(
+                username=username,
+                email=email,
+                password_hash=generate_password_hash('changeme'),
+                role='supervisor',
+                department=department,
+                force_password_change=True,
+                is_active=True,
+                employee_id=new_supervisor.id
+            )
             db.session.add(new_user)
-            flash(f'New supervisor account created for {new_supervisor.name}.', 'success')
-        
-        # Log the supervisor change
-        log = BonusAuditLog()
-        log.action = 'supervisor_reassigned'
-        log.user_id = current_user.id
-        log.notes = f'Department {department} supervisor reassigned to {new_supervisor.name}'
+            flash(f'Created supervisor account for "{new_supervisor.name}".', 'success')
+
+        # Log it
+        log = BonusAuditLog(
+            action='supervisor_reassigned',
+            user_id=current_user.id,
+            notes=f'{new_supervisor.name} assigned as supervisor of {department}'
+        )
         db.session.add(log)
-        
+
         db.session.commit()
-        flash(f'Department {department} supervisor reassigned successfully.', 'success')
         return redirect(url_for('supervisor.reassign_supervisor'))
-    
+
     return render_template(
         'supervisor/reassign.html',
         form=form,

@@ -1268,12 +1268,15 @@ def delete_record(record_id):
 @bp.route('/approve_record/<int:record_id>', methods=['POST'])
 @login_required
 def approve_record(record_id):
-    from pytz import timezone
+    import pytz
     from utils.overtime_engine import process_attendance_records
+
+    karachi = pytz.timezone('Asia/Karachi')  # correct timezone
+
     record = MissingAttendance.query.get_or_404(record_id)
     record.status = 'fixed'
 
-    # Check if attendance already exists
+    # Check if attendance record already exists for that employee on that date
     existing = AttendanceRecord.query.filter_by(
         employee_id=record.employee_id,
         date=record.date
@@ -1287,15 +1290,17 @@ def approve_record(record_id):
         shift = Shift.query.get(employee.current_shift_id)
         if shift and shift.start_time:
             grace_minutes = shift.grace_period_minutes or 0
+
+            # Create timezone-aware datetime for shift start
             shift_start_naive = datetime.combine(record.date, shift.start_time) + timedelta(minutes=grace_minutes)
+            shift_start_datetime = karachi.localize(shift_start_naive)
 
-            if record.check_in.tzinfo:
-                shift_start_datetime = shift_start_naive.replace(tzinfo=record.check_in.tzinfo)
-            else:
-                shift_start_datetime = timezone('Asia/Karachi').localize(shift_start_naive)
+            # Convert check-in to the same timezone for comparison
+            check_in_karachi = record.check_in.astimezone(karachi)
 
-            print(record.check_in, shift_start_datetime, "===============================qqqqqqqqqqqqqqqqqqqq")
-            if record.check_in > shift_start_datetime:
+            print(check_in_karachi, shift_start_datetime, "===============================qqqqqqqqqqqqqqqqqqqq",check_in_karachi > shift_start_datetime)
+
+            if check_in_karachi > shift_start_datetime:
                 status = 'late'
 
     if not existing:
@@ -1329,6 +1334,7 @@ def approve_record(record_id):
 
 
 
+
 @bp.route('/missing_attendance', methods=['GET', 'POST'])
 @login_required
 def missing_attendance():
@@ -1358,12 +1364,12 @@ def missing_attendance():
         )
         db.session.add(new_record)
         db.session.commit()
-        flash("Missing attendance recorded successfully.", "success")
+        flash("Missing attendance recorded successfully.", "success")           
         return redirect(url_for('attendance.missing_attendance'))
 
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
-    employee_id = request.args.get('employee_id')
+    employee_id = request.args.get('employee_id')        
 
     records_query = MissingAttendance.query
 
