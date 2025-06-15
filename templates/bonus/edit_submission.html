@@ -117,17 +117,7 @@
                                                 data-auto-save="true"
                                             >
                                         </form>
-                                        <div class="mt-1">
-                                            <small class="saving-indicator">
-                                                <i class="bi bi-arrow-repeat"></i> Saving...
-                                            </small>
-                                            <small class="save-success">
-                                                <i class="bi bi-check-circle"></i> Saved
-                                            </small>
-                                            <small class="save-error">
-                                                <i class="bi bi-exclamation-circle"></i> Error
-                                            </small>
-                                        </div>
+                                      
                                     </td>
                                     {% endfor %}
                                     <td class="score-cell">
@@ -282,7 +272,7 @@
         }
         
         // Add event listeners to all score inputs  
-        const scoreInputs = document.querySelectorAll('.score-input');
+        var scoreInputs = document.querySelectorAll('.score-input');
         scoreInputs.forEach(input => {
             // Add input validation
             input.addEventListener('input', function() {
