@@ -755,9 +755,9 @@ def submit_evaluation(submission_id):
     
     expected_count = len(employees) * len(questions)
     
-    if evaluation_count < expected_count:
-        flash('Please complete all evaluations before submitting.', 'warning')
-        return redirect(url_for('bonus.edit_submission', submission_id=submission_id))
+    # if evaluation_count < expected_count:
+    #     flash('Please complete all evaluations before submitting.', 'warning')
+    #     return redirect(url_for('bonus.edit_submission', submission_id=submission_id))
     
     # Update submission status
     submission.status = 'submitted'
