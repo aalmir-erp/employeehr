@@ -66,9 +66,23 @@
                             <td>{{ user.username }}</td>
                             <td>{{ user.email }}</td>
                             <td>
-                                <span class="badge {% if user.is_admin %}bg-danger{% else %}bg-info{% endif %}">
-                                    {{ 'Administrator' if user.is_admin else 'User' }}
-                                </span>
+                                <span class="badge 
+                                    {% if user.role == 'supervisor' %}
+                                        bg-warning text-dark
+                                    {% elif user.is_admin %}
+                                        bg-danger
+                                    {% else %}
+                                        bg-info
+                                    {% endif %}">
+                                    {% if user.role == 'supervisor' %}
+                                        Supervisor
+                                    {% elif user.is_admin %}
+                                        Administrator
+                                    {% else %}
+                                        User
+                                    {% endif %}
+                            </span>
+                            
                             </td>
                             <td>
                                 <span class="badge {% if user.is_active %}bg-success{% else %}bg-secondary{% endif %}">

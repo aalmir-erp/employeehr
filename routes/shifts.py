@@ -285,227 +285,152 @@ def assign_shift():
 @login_required
 def scheduler():
     """Interactive shift scheduler with multiple view options (weekly/monthly/employee/shift)"""
-    if not current_user.is_admin and  not current_user.has_role('hr'):
+
+    if not current_user.is_admin and not current_user.has_role('hr') and not current_user.has_role('supervisor'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('shifts.index'))
-    
-    # Get view type (default, by_employee, by_shift)
+
     view_type = request.args.get('view_type', 'default')
-    
-    # Get all employees and shifts
+    today = date.today()
+
+    # All employees & shifts
     all_employees = Employee.query.filter_by(is_active=True).order_by(Employee.name).all()
     all_shifts = Shift.query.filter_by(is_active=True).order_by(Shift.name).all()
-    
-    # Get departments for filter
-    departments = []
-    for employee in all_employees:
-        if employee.department and employee.department not in departments:
-            departments.append(employee.department)
-    departments.sort()
-    
-    # Get filter parameters
-    selected_department = request.args.get('department', '')
+
+    # Supervisor: restrict employees & departments
+    if current_user.has_role('supervisor') and not current_user.is_admin and not current_user.has_role('hr'):
+        user_department = current_user.department
+        all_employees = [e for e in all_employees if e.department == user_department]
+        departments = [user_department]
+        selected_department = user_department
+    else:
+        departments = sorted(list({e.department for e in all_employees if e.department}))
+        selected_department = request.args.get('department', '')
+
     selected_employee_id = request.args.get('employee_id')
     selected_shift_id = request.args.get('shift_id')
-    
-    # Convert IDs to integers if they exist
-    if selected_employee_id:
-        try:
-            selected_employee_id = int(selected_employee_id)
-        except ValueError:
-            selected_employee_id = None
-    
-    if selected_shift_id:
-        try:
-            selected_shift_id = int(selected_shift_id)
-        except ValueError:
-            selected_shift_id = None
-    
-    # Get date range for scheduler
-    today = date.today()
-    
-    # Get week start date (defaults to current week start - Monday)
+
+    # Safely cast to int
+    try:
+        selected_employee_id = int(selected_employee_id) if selected_employee_id else None
+    except ValueError:
+        selected_employee_id = None
+    try:
+        selected_shift_id = int(selected_shift_id) if selected_shift_id else None
+    except ValueError:
+        selected_shift_id = None
+
+    # Week start
     week_start_str = request.args.get('week_start')
-    if week_start_str:
-        try:
-            week_start = datetime.strptime(week_start_str, '%Y-%m-%d').date()
-        except ValueError:
-            # If invalid date, default to current week start
-            week_start = today - timedelta(days=today.weekday())
-    else:
-        # Default to current week start (Monday)
+    try:
+        week_start = datetime.strptime(week_start_str, '%Y-%m-%d').date() if week_start_str else today - timedelta(days=today.weekday())
+    except ValueError:
         week_start = today - timedelta(days=today.weekday())
-    
-    # Week end is 6 days after week start (Sunday)
     week_end = week_start + timedelta(days=6)
-    
-    # Get month view parameters
+
+    # Month start
     month_select_str = request.args.get('month_select')
-    if month_select_str:
-        try:
-            month_start = datetime.strptime(f"{month_select_str}-01", '%Y-%m-%d').date()
-        except ValueError:
-            month_start = today.replace(day=1)
-    else:
-        # Default to first day of current month
+    try:
+        month_start = datetime.strptime(f"{month_select_str}-01", '%Y-%m-%d').date() if month_select_str else today.replace(day=1)
+    except ValueError:
         month_start = today.replace(day=1)
-    
-    # Calculate month grid dates (including days from prev/next months to fill grid)
-    month_days = []
-    
-    # First, determine the first date to show (previous month's days needed for the grid)
+
+    # Month grid calculation
     first_day_of_grid = month_start - timedelta(days=month_start.weekday())
-    
-    # Determine the last date to show (next month's days needed for the grid)
-    # Get the first day of next month
-    if month_start.month == 12:
-        next_month = date(month_start.year + 1, 1, 1)
-    else:
-        next_month = date(month_start.year, month_start.month + 1, 1)
-    
-    # Last day of current month
+    next_month = date(month_start.year + 1, 1, 1) if month_start.month == 12 else date(month_start.year, month_start.month + 1, 1)
     last_day_of_month = next_month - timedelta(days=1)
-    
-    # Ensure we have complete weeks (go to the Sunday after the last day)
-    days_to_add = 6 - last_day_of_month.weekday()
-    last_day_of_grid = last_day_of_month + timedelta(days=days_to_add)
-    
-    # Generate all days for the grid
-    current_day = first_day_of_grid
-    while current_day <= last_day_of_grid:
-        month_days.append(current_day)
-        current_day += timedelta(days=1)
-    
-    # For backwards compatibility with existing code
+    last_day_of_grid = last_day_of_month + timedelta(days=(6 - last_day_of_month.weekday()))
+    month_days = [first_day_of_grid + timedelta(days=i) for i in range((last_day_of_grid - first_day_of_grid).days + 1)]
+
+    # Weekly view days
+    days = [week_start + timedelta(days=i) for i in range(7)]
+
+    # Query range
+    query_start_date = first_day_of_grid
+    query_end_date = last_day_of_grid
     start_date = week_start
     end_date = week_end
-    
-    # Determine the date range to query based on view
-    # Always use the full month range for querying to ensure consistent results
-    # This solves the issue with shifts not appearing in different views
-    query_start_date = first_day_of_grid  # Use month grid start date 
-    query_end_date = last_day_of_grid     # Use month grid end date
-    
-    # Log the query range for debugging purposes
-    app.logger.debug(f"Querying assignments from {query_start_date} to {query_end_date}")
-    app.logger.debug(f"Month start: {month_start}, Month view active: {bool(month_select_str)}")
-    
-    # Generate list of days for the week
-    days = []
-    current_date = week_start
-    while current_date <= week_end:
-        days.append(current_date)
-        current_date += timedelta(days=1)
-    
-    # Apply filters for employees
+
+    # Filters
     if selected_employee_id:
-        # Filter by specific employee
         filtered_employees = [e for e in all_employees if e.id == selected_employee_id]
     elif selected_department:
-        # Filter by department
         filtered_employees = [e for e in all_employees if e.department == selected_department]
     else:
-        # No filter
         filtered_employees = all_employees
-    
-    # Apply filters for shifts
-    if selected_shift_id:
-        # Filter by specific shift
-        filtered_shifts = [s for s in all_shifts if s.id == selected_shift_id]
-    else:
-        # No filter
-        filtered_shifts = all_shifts
-    
-    # Get current shift assignments
-    # Log exact SQL query for debugging purposes
-    app.logger.debug(f"Query start date: {query_start_date}, Query end date: {query_end_date}")
-    
+
+    filtered_shifts = [s for s in all_shifts if s.id == selected_shift_id] if selected_shift_id else all_shifts
+
+    # Assignments query
     assignments_query = ShiftAssignment.query.filter(
         ShiftAssignment.start_date <= query_end_date,
         (ShiftAssignment.end_date >= query_start_date) | (ShiftAssignment.end_date.is_(None)),
         ShiftAssignment.is_active == True
     )
-    
-    # Apply employee filter if needed
+
     if selected_employee_id:
         assignments_query = assignments_query.filter_by(employee_id=selected_employee_id)
-    
-    # Apply shift filter if needed
     if selected_shift_id:
         assignments_query = assignments_query.filter_by(shift_id=selected_shift_id)
-    
+
     assignments = assignments_query.all()
-    
-    # Log the number of assignments found for debugging
-    app.logger.debug(f"Found {len(assignments)} assignments between {query_start_date} and {query_end_date}")
-    
-    # Organize assignments by employee and date for easy access in template
+
+    # Organize assignments
     employee_assignments = {}
     for assignment in assignments:
-        # Log assignment details for debugging
         employee = next((e for e in all_employees if e.id == assignment.employee_id), None)
-        if employee:
-            app.logger.debug(f"Processing assignment: Employee ID {assignment.employee_id} ({employee.name}) - {assignment.start_date} to {assignment.end_date or 'ongoing'}")
-        
-        # Skip assignments for employees not in the filtered set
-        if selected_department and any(e.id == assignment.employee_id and e.department != selected_department for e in all_employees):
-            app.logger.debug(f"Skipping assignment for employee ID {assignment.employee_id} due to department filter: {selected_department}")
+        if not employee:
             continue
-            
-        # Add shift data to the assignment
+        if selected_department and employee.department != selected_department:
+            continue
+
         assignment.shift = next((s for s in all_shifts if s.id == assignment.shift_id), None)
-        
         if assignment.employee_id not in employee_assignments:
             employee_assignments[assignment.employee_id] = {}
-        
-        # Determine which days this assignment applies to
+
         assignment_start = max(assignment.start_date, query_start_date)
         assignment_end = min(assignment.end_date or query_end_date, query_end_date)
-        
+
         current = assignment_start
         while current <= assignment_end:
             date_key = current.strftime('%Y-%m-%d')
             employee_assignments[assignment.employee_id][date_key] = assignment
             current += timedelta(days=1)
-    
-    # Get holidays in the date range
+
+    # Holidays
     holiday_records = Holiday.query.filter(
         Holiday.date >= query_start_date,
         Holiday.date <= query_end_date
     ).all()
-    
-    # Organize holidays by date
-    holidays = {}
-    for holiday in holiday_records:
-        date_key = holiday.date.strftime('%Y-%m-%d')
-        holidays[date_key] = holiday.name
-    
-    # Helper function to format date objects for the template
+    holidays = {h.date.strftime('%Y-%m-%d'): h.name for h in holiday_records}
+
+    # Format helper
     def format_date(d):
         return d.strftime('%d/%m/%Y')
-    
+
     return render_template('shifts/scheduler.html',
-                          employees=filtered_employees,
-                          all_employees=all_employees,
-                          shifts=filtered_shifts,
-                          all_shifts=all_shifts,
-                          start_date=start_date,
-                          end_date=end_date,
-                          week_start=week_start,
-                          week_end=week_end,
-                          month_start=month_start,
-                          month_days=month_days,
-                          days=days,
-                          format_date=format_date,
-                          assignments=assignments,
-                          employee_assignments=employee_assignments,
-                          holidays=holidays,
-                          departments=departments,
-                          selected_department=selected_department,
-                          selected_employee_id=selected_employee_id,
-                          selected_shift_id=selected_shift_id,
-                          view_type=view_type,
-                          timedelta=timedelta)
+        employees=filtered_employees,
+        all_employees=all_employees,
+        shifts=filtered_shifts,
+        all_shifts=all_shifts,
+        start_date=start_date,
+        end_date=end_date,
+        week_start=week_start,
+        week_end=week_end,
+        month_start=month_start,
+        month_days=month_days,
+        days=days,
+        format_date=format_date,
+        assignments=assignments,
+        employee_assignments=employee_assignments,
+        holidays=holidays,
+        departments=departments,
+        selected_department=selected_department,
+        selected_employee_id=selected_employee_id,
+        selected_shift_id=selected_shift_id,
+        view_type=view_type,
+        timedelta=timedelta
+    )
 
 @bp.route('/assignment/add', methods=['POST'])
 @login_required
