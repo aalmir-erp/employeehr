@@ -255,39 +255,48 @@
             }
         };
     
-        document.querySelectorAll('.score-input').forEach(input => {
-            input.addEventListener('change', function () {
-                console.log("Score input changed");  // Debug log
-                const value = parseFloat(this.value);
-                const min = parseFloat(this.min);
-                const max = parseFloat(this.max);
-                console.log(value,min,max,"================================")
-                if (value < min || value > max) {
-                    alert(`Value must be between ${min} and ${max}`);
-                    return;
+        const inputs = document.querySelectorAll('.score-input');
+
+        const saveInput = (input) => {
+            const value = parseFloat(input.value);
+            const min = parseFloat(input.min);
+            const max = parseFloat(input.max);
+
+            if (value < min || value > max) {
+                alert(`Value must be between ${min} and ${max}`);
+                return;
+            }
+
+            const form = input.closest('form');
+            const formData = new FormData(form);
+            const url = form.getAttribute('action');
+
+            fetch(url, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
+            }).then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    alert(data.message || 'Error saving score.');
+                }
+            }).catch((err) => {
+                console.error('Fetch error:', err);
+                alert('Network error.');
+            });
+        };
 
-                const form = this.closest('form');
-                const formData = new FormData(form);
-                const url = form.getAttribute('action');
-                console.log("Submitting to:", url);  // Debug log
+        // 🔁 Save all default values on page load
+        inputs.forEach(input => {
+            saveInput(input);  // send each one to DB regardless of change
+        });
 
-                fetch(url, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                }).then(response => response.json())
-                .then(data => {
-                    console.log("Server response:", data);
-                    if (!data.success) {
-                        alert(data.message || 'Error saving score.');
-                    }
-                }).catch((err) => {
-                    console.error('Fetch error:', err);
-                    alert('Network error.');
-                });
+        // 🔁 Save again on user input (in case they modify it)
+        inputs.forEach(input => {
+            input.addEventListener('change', function () {
+                saveInput(this);
             });
         });
 
