@@ -503,192 +503,189 @@
     </div>
 </div>
 {% endif %}
-
-{% endblock %}
-
-{% block scripts %}
-{{ super() }}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Bonus submission page loaded');
-    
-    // Simple working button handlers
-    const approveButton = document.getElementById('approve-button');
-    const rejectButton = document.getElementById('reject-button');
-    const selectAllBtn = document.getElementById('select-all-employees');
-    const deselectAllBtn = document.getElementById('deselect-all-employees');
-    const headerCheckbox = document.getElementById('header-select-all');
-    const employeeCheckboxes = document.querySelectorAll('.employee-checkbox');
-    const bulkUpdateBtn = document.getElementById('bulk-update-btn');
-    
-    console.log('Elements found:', {
-        approveButton: !!approveButton,
-        rejectButton: !!rejectButton,
-        selectAllBtn: !!selectAllBtn,
-        deselectAllBtn: !!deselectAllBtn,
-        bulkUpdateBtn: !!bulkUpdateBtn
-    });
-    
-    // Approve button
-    if (approveButton) {
-        console.log('Adding approve button listener');
-        approveButton.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('Approve button clicked');
-            const approveModal = new bootstrap.Modal(document.getElementById('approveModal'));
-            approveModal.show();
-        });
-    }
-    
-    // Reject button  
-    if (rejectButton) {
-        console.log('Adding reject button listener');
-        rejectButton.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('Reject button clicked');
-            const rejectModal = new bootstrap.Modal(document.getElementById('rejectModal'));
-            rejectModal.show();
-        });
-    }
-    
-    // Select all button
-    if (selectAllBtn) {
-        selectAllBtn.addEventListener('click', function() {
-            employeeCheckboxes.forEach(checkbox => {
-                checkbox.checked = true;
-            });
-            if (headerCheckbox) headerCheckbox.checked = true;
-        });
-    }
-    
-    // Deselect all button
-    if (deselectAllBtn) {
-        deselectAllBtn.addEventListener('click', function() {
-            employeeCheckboxes.forEach(checkbox => {
-                checkbox.checked = false;
-            });
-            if (headerCheckbox) headerCheckbox.checked = false;
-        });
-    }
-    
-    // Header checkbox
-    if (headerCheckbox) {
-        headerCheckbox.addEventListener('change', function() {
-            employeeCheckboxes.forEach(checkbox => {
-                checkbox.checked = headerCheckbox.checked;
-            });
-        });
-    }
-    
-    // Bulk update button
-    if (bulkUpdateBtn) {
-        bulkUpdateBtn.addEventListener('click', function() {
-            const questionSelect = document.getElementById('bulk-question-select');
-            const scoreValue = document.getElementById('bulk-score-value');
-            
-            if (!questionSelect || !questionSelect.value) {
-                alert('Please select a question first');
-                return;
-            }
-            
-            const questionId = questionSelect.value;
-            const newValue = parseFloat(scoreValue.value);
-            const selectedOption = questionSelect.options[questionSelect.selectedIndex];
-            const minValue = parseFloat(selectedOption.dataset.min);
-            const maxValue = parseFloat(selectedOption.dataset.max);
-            
-            if (isNaN(newValue) || newValue < minValue || newValue > maxValue) {
-                alert(`Please enter a valid score between ${minValue} and ${maxValue}`);
-                return;
-            }
-            
-            const selectedEmployees = [];
-            employeeCheckboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    selectedEmployees.push(checkbox.dataset.employeeId);
-                }
-            });
-            
-            if (selectedEmployees.length === 0) {
-                alert('Please select at least one employee');
-                return;
-            }
-            
-            const bulkUpdateStatus = document.getElementById('bulk-update-status');
-            bulkUpdateStatus.textContent = "Updating scores...";
-            bulkUpdateStatus.className = "text-info";
-            bulkUpdateStatus.style.display = "block";
-            
-            selectedEmployees.forEach(employeeId => {
-                const row = document.querySelector(`tr[data-employee-id="${employeeId}"]`);
-                if (row) {
-                    const questionInput = row.querySelector(`input[data-question-id="${questionId}"]`);
-                    if (questionInput) {
-                        questionInput.value = newValue;
-                        questionInput.classList.add('score-value-changed');
-                    }
-                }
-            });
-            
-            bulkUpdateStatus.textContent = `Updated ${selectedEmployees.length} scores successfully!`;
-            bulkUpdateStatus.className = "text-success";
-            
-            // Update totals after bulk update
-            updateEmployeeTotals();
-        });
-    }
-    
-    // Function to calculate and update employee totals
-    function updateEmployeeTotals() {
-        console.log('Updating employee totals...');
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Bonus submission page loaded');
         
-        // Get all employee rows
-        const employeeRows = document.querySelectorAll('tr[data-employee-id]');
+        // Simple working button handlers
+        const approveButton = document.getElementById('approve-button');
+        const rejectButton = document.getElementById('reject-button');
+        const selectAllBtn = document.getElementById('select-all-employees');
+        const deselectAllBtn = document.getElementById('deselect-all-employees');
+        const headerCheckbox = document.getElementById('header-select-all');
+        const employeeCheckboxes = document.querySelectorAll('.employee-checkbox');
+        const bulkUpdateBtn = document.getElementById('bulk-update-btn');
         
-        employeeRows.forEach(row => {
-            const employeeId = row.dataset.employeeId;
-            const scoreInputs = row.querySelectorAll('input[data-question-id]');
-            let total = 0;
-            
-            scoreInputs.forEach(input => {
-                const value = parseFloat(input.value) || 0;
-                const questionId = input.dataset.questionId;
+        console.log('Elements found:', {
+            approveButton: !!approveButton,
+            rejectButton: !!rejectButton,
+            selectAllBtn: !!selectAllBtn,
+            deselectAllBtn: !!deselectAllBtn,
+            bulkUpdateBtn: !!bulkUpdateBtn
+        });
+        
+        // Approve button
+        if (approveButton) {
+            console.log('Adding approve button listener');
+            approveButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('Approve button clicked');
+                const approveModal = new bootstrap.Modal(document.getElementById('approveModal'));
+                approveModal.show();
+            });
+        }
+        
+        // Reject button  
+        if (rejectButton) {
+            console.log('Adding reject button listener');
+            rejectButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('Reject button clicked');
+                const rejectModal = new bootstrap.Modal(document.getElementById('rejectModal'));
+                rejectModal.show();
+            });
+        }
+        
+        // Select all button
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', function() {
+                employeeCheckboxes.forEach(checkbox => {
+                    checkbox.checked = true;
+                });
+                if (headerCheckbox) headerCheckbox.checked = true;
+            });
+        }
+        
+        // Deselect all button
+        if (deselectAllBtn) {
+            deselectAllBtn.addEventListener('click', function() {
+                employeeCheckboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                if (headerCheckbox) headerCheckbox.checked = false;
+            });
+        }
+        
+        // Header checkbox
+        if (headerCheckbox) {
+            headerCheckbox.addEventListener('change', function() {
+                employeeCheckboxes.forEach(checkbox => {
+                    checkbox.checked = headerCheckbox.checked;
+                });
+            });
+        }
+        
+        // Bulk update button
+        if (bulkUpdateBtn) {
+            bulkUpdateBtn.addEventListener('click', function() {
+                const questionSelect = document.getElementById('bulk-question-select');
+                const scoreValue = document.getElementById('bulk-score-value');
                 
-                // Get question weight (you can store this in data attributes or calculate)
-                const weight = 1.0; // Default weight, you can make this dynamic
-                total += value * weight;
+                if (!questionSelect || !questionSelect.value) {
+                    alert('Please select a question first');
+                    return;
+                }
+                
+                const questionId = questionSelect.value;
+                const newValue = parseFloat(scoreValue.value);
+                const selectedOption = questionSelect.options[questionSelect.selectedIndex];
+                const minValue = parseFloat(selectedOption.dataset.min);
+                const maxValue = parseFloat(selectedOption.dataset.max);
+                
+                if (isNaN(newValue) || newValue < minValue || newValue > maxValue) {
+                    alert(`Please enter a valid score between ${minValue} and ${maxValue}`);
+                    return;
+                }
+                
+                const selectedEmployees = [];
+                employeeCheckboxes.forEach(checkbox => {
+                    if (checkbox.checked) {
+                        selectedEmployees.push(checkbox.dataset.employeeId);
+                    }
+                });
+                
+                if (selectedEmployees.length === 0) {
+                    alert('Please select at least one employee');
+                    return;
+                }
+                
+                const bulkUpdateStatus = document.getElementById('bulk-update-status');
+                bulkUpdateStatus.textContent = "Updating scores...";
+                bulkUpdateStatus.className = "text-info";
+                bulkUpdateStatus.style.display = "block";
+                
+                selectedEmployees.forEach(employeeId => {
+                    const row = document.querySelector(`tr[data-employee-id="${employeeId}"]`);
+                    if (row) {
+                        const questionInput = row.querySelector(`input[data-question-id="${questionId}"]`);
+                        if (questionInput) {
+                            questionInput.value = newValue;
+                            questionInput.classList.add('score-value-changed');
+                        }
+                    }
+                });
+                
+                bulkUpdateStatus.textContent = `Updated ${selectedEmployees.length} scores successfully!`;
+                bulkUpdateStatus.className = "text-success";
+                
+                // Update totals after bulk update
+                updateEmployeeTotals();
+            });
+        }
+        
+        // Function to calculate and update employee totals
+        function updateEmployeeTotals() {
+            console.log('Updating employee totals...');
+            
+            // Get all employee rows
+            const employeeRows = document.querySelectorAll('tr[data-employee-id]');
+            
+            employeeRows.forEach(row => {
+                const employeeId = row.dataset.employeeId;
+                const scoreInputs = row.querySelectorAll('input[data-question-id]');
+                let total = 0;
+                
+                scoreInputs.forEach(input => {
+                    const value = parseFloat(input.value) || 0;
+                    const questionId = input.dataset.questionId;
+                    
+                    // Get question weight (you can store this in data attributes or calculate)
+                    const weight = 1.0; // Default weight, you can make this dynamic
+                    total += value * weight;
+                });
+                
+                // Update the total display
+                const totalElement = document.getElementById(`total-${employeeId}`);
+                if (totalElement) {
+                    totalElement.textContent = total.toFixed(1);
+                }
+            });
+        }
+        
+        // Add event listeners to all score input fields
+        const scoreInputs = document.querySelectorAll('input[data-question-id]');
+        scoreInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                // Mark as changed
+                this.classList.add('score-value-changed');
+                
+                // Update totals immediately
+                updateEmployeeTotals();
             });
             
-            // Update the total display
-            const totalElement = document.getElementById(`total-${employeeId}`);
-            if (totalElement) {
-                totalElement.textContent = total.toFixed(1);
-            }
-        });
-    }
-    
-    // Add event listeners to all score input fields
-    const scoreInputs = document.querySelectorAll('input[data-question-id]');
-    scoreInputs.forEach(input => {
-        input.addEventListener('input', function() {
-            // Mark as changed
-            this.classList.add('score-value-changed');
-            
-            // Update totals immediately
-            updateEmployeeTotals();
+            input.addEventListener('change', function() {
+                // Update totals when focus is lost
+                updateEmployeeTotals();
+            });
         });
         
-        input.addEventListener('change', function() {
-            // Update totals when focus is lost
-            updateEmployeeTotals();
+        // Enable tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
         });
     });
-    
-    // Enable tooltips
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-});
-</script>
+    </script>
 {% endblock %}
+
+

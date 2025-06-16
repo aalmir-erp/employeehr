@@ -104,8 +104,7 @@
                                     <td class="employee-name">{{ employee.name }}</td>
                                     {% for question in questions %}
                                     <td class="score-cell">
-                                        <form method="post" action="{{ url_for('bonus.save_single_evaluation') }}" style="display:inline;">
-                <!-- CSRF token temporarily removed -->
+                                        <form method="post" action="{{ url_for('bonus.save_single_evaluation') }}" class="single-evaluation-form">
                                             <input type="hidden" name="submission_id" value="{{ submission.id }}"/>
                                             <input type="hidden" name="employee_id" value="{{ employee.id }}"/>
                                             <input type="hidden" name="question_id" value="{{ question.id }}"/>
@@ -116,10 +115,9 @@
                                                 data-question-id="{{ question.id }}"
                                                 min="{{ question.min_value }}"
                                                 max="{{ question.max_value }}"
-                                                value="{% if employee.id in evaluation_matrix and question.id in evaluation_matrix[employee.id] %}{{ evaluation_matrix[employee.id][question.id].value }}{% else %}{{ question.default_value }}{% endif %}"
-                                                data-auto-save="true"
-                                            >
-                                        </form>
+                                                value="{% if employee.id in evaluation_matrix and question.id in evaluation_matrix[employee.id] %}{{ evaluation_matrix[employee.id][question.id].value }}{% else %}{{ question.default_value }}{% endif %}">
+                                               
+                                            </form>
                                       
                                     </td>
                                     {% endfor %}
@@ -140,7 +138,7 @@
                     
                     {% if employees and questions and submission.status in ['draft', 'rejected'] %}
                     <div class="mt-4 text-center">
-                        <form method="post" action="{{ url_for('bonus.submit_evaluation', submission_id=submission.id) }}" style="display: inline;">
+                        <form method="post" action="{{ url_for('bonus.submit_evaluation', submission_id=submission.id) }}" style="display: inline;" id="final-submit-form">
                             {{ form.hidden_tag() if form else '' }}
                             <button type="submit" class="btn btn-success btn-lg" onclick="return confirm('Are you sure you want to submit this evaluation for HR review?')">
                                 <i class="bi bi-check-circle me-2"></i>Submit for Review
@@ -233,85 +231,84 @@
         </div>
     </div>
 </div>
-
-{% endblock %}
-
-{% block scripts %}
-{{ super() }}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Bonus submission page starting...');
+    document.addEventListener('DOMContentLoaded', function () {
+        let pendingRequests = 0;
+        let isSubmitting = false;
     
-    // Question weights for total calculation
-    const questionWeights = {
-        {% for question in questions %}
-        {{ question.id }}: {{ question.weight }},
-        {% endfor %}
-    };
-    console.log('Question weights:', questionWeights);
+        const showLoader = (input) => {
+            let cell = input.closest('td');
+            if (!cell.querySelector('.saving-indicator')) {
+                let span = document.createElement('span');
+                span.classList.add('saving-indicator');
+                span.innerHTML = 'Saving...';
+                cell.appendChild(span);
+            }
+            cell.querySelector('.saving-indicator').style.display = 'inline';
+        };
     
-    // Function to calculate weighted total for an employee
-    function updateEmployeeTotal(employeeId) {
-        let total = 0;
-        const inputs = document.querySelectorAll(`input[data-employee-id="${employeeId}"]`);
-        console.log(`Calculating total for employee ${employeeId}, found ${inputs.length} inputs`);
-        
-        inputs.forEach(input => {
-            const value = parseFloat(input.value) || 0;
-            const questionId = parseInt(input.getAttribute('data-question-id'));
-            const weight = questionWeights[questionId] || 1.0;
-            const weightedValue = value * weight;
-            total += weightedValue;
-            console.log(`  Input Q${questionId}: ${value} × ${weight} = ${weightedValue}`);
+        const hideLoader = (input) => {
+            let cell = input.closest('td');
+            let span = cell.querySelector('.saving-indicator');
+            if (span) {
+                span.style.display = 'none';
+            }
+        };
+    
+        document.querySelectorAll('.score-input').forEach(input => {
+            input.addEventListener('change', function () {
+                console.log("Score input changed");  // Debug log
+                const value = parseFloat(this.value);
+                const min = parseFloat(this.min);
+                const max = parseFloat(this.max);
+                console.log(value,min,max,"================================")
+                if (value < min || value > max) {
+                    alert(`Value must be between ${min} and ${max}`);
+                    return;
+                }
+
+                const form = this.closest('form');
+                const formData = new FormData(form);
+                const url = form.getAttribute('action');
+                console.log("Submitting to:", url);  // Debug log
+
+                fetch(url, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                }).then(response => response.json())
+                .then(data => {
+                    console.log("Server response:", data);
+                    if (!data.success) {
+                        alert(data.message || 'Error saving score.');
+                    }
+                }).catch((err) => {
+                    console.error('Fetch error:', err);
+                    alert('Network error.');
+                });
+            });
         });
-        
-        const totalElement = document.getElementById(`total-${employeeId}`);
-        if (totalElement) {
-            totalElement.textContent = total.toFixed(1);
-            console.log(`Set total for employee ${employeeId}: ${total.toFixed(1)}`);
-        } else {
-            console.error(`Total element not found: total-${employeeId}`);
+
+    
+        // Intercept the submit form
+        const submitBtn = document.querySelector('#final-submit-form button[type="submit"]');
+        const form = document.getElementById('final-submit-form');
+    
+        if (form) {
+            form.addEventListener('submit', function (e) {
+                if (pendingRequests > 0) {
+                    e.preventDefault();
+                    isSubmitting = true;
+                    submitBtn.disabled = true;
+                    submitBtn.innerText = "Saving scores...";
+                }
+            });
         }
-    }
-    
-    // Set up event listeners for all score inputs
-    const scoreInputs = document.querySelectorAll('.score-input');
-    console.log(`Found ${scoreInputs.length} score inputs`);
-    
-    scoreInputs.forEach((input, index) => {
-        const employeeId = input.getAttribute('data-employee-id');
-        const questionId = input.getAttribute('data-question-id');
-        console.log(`Input ${index}: employee=${employeeId}, question=${questionId}, value=${input.value}`);
-        
-        // Update total on input change
-        input.addEventListener('input', function() {
-            console.log(`Input changed: employee=${employeeId}, value=${this.value}`);
-            updateEmployeeTotal(employeeId);
-        });
-        
-        // Validate range and update total on change
-        input.addEventListener('change', function() {
-            let value = parseInt(this.value);
-            if (value > 5) this.value = 5;
-            if (value < 1 && this.value !== '') this.value = 1;
-            console.log(`Input validated: employee=${employeeId}, final value=${this.value}`);
-            updateEmployeeTotal(employeeId);
-        });
     });
-    
-    // Calculate initial totals for all employees
-    const uniqueEmployees = [...new Set(Array.from(scoreInputs).map(input => input.getAttribute('data-employee-id')))];
-    console.log('Unique employees:', uniqueEmployees);
-    
-    uniqueEmployees.forEach(employeeId => {
-        if (employeeId) {
-            updateEmployeeTotal(employeeId);
-        }
-    });
-    
-    // Submit buttons now use direct HTML forms - no JavaScript needed
-    
-    console.log('Bonus submission page initialization complete');
-});
-</script>
+    </script>
+
 {% endblock %}
+
+

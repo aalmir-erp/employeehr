@@ -658,67 +658,58 @@ def save_evaluation():
 @bp.route('/save_single_evaluation', methods=['POST'])
 @login_required
 def save_single_evaluation():
-    """Save a single evaluation score via form submission"""
+    submission_id = request.form.get('submission_id')
+    employee_id = request.form.get('employee_id')
+    question_id = request.form.get('question_id')
+    value = request.form.get('value')
+    print(submission_id,employee_id,question_id,value,"==============================>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<=======")
+
+    if not all([submission_id, employee_id, question_id, value]):
+        message = "Missing evaluation data."
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify(success=False, message=message), 400
+        flash(message, "danger")
+        return redirect(request.referrer or url_for('bonus.supervisor_dashboard'))
+
     try:
-        submission_id = request.form.get('submission_id')
-        employee_id = request.form.get('employee_id')
-        question_id = request.form.get('question_id')
-        value = request.form.get('value')
-        
-        current_app.logger.debug(f"Form submission - submission_id={submission_id}, employee_id={employee_id}, question_id={question_id}, value={value}")
-        
-        if not all([submission_id, employee_id, question_id, value]):
-            flash('Missing required data', 'error')
-            return redirect(request.referrer)
-        
         value = float(value)
-        submission = BonusSubmission.query.get_or_404(submission_id)
-        
-        # Check permissions
-        if not current_user.has_role('hr') and (submission.submitted_by != current_user.id):
-            flash('Permission denied', 'error')
-            return redirect(request.referrer)
-        
-        # Check if submission is editable
-        if submission.status not in ['draft', 'rejected']:
-            flash('Submission is not editable', 'error')
-            return redirect(request.referrer)
-        
-        # Validate value
-        question = BonusQuestion.query.get_or_404(question_id)
-        if value < question.min_value or value > question.max_value:
-            flash(f'Value must be between {question.min_value} and {question.max_value}', 'error')
-            return redirect(request.referrer)
-        
-        # Find or create evaluation
-        evaluation = BonusEvaluation.query.filter_by(
+    except ValueError:
+        message = "Invalid score value."
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify(success=False, message=message), 400
+        flash(message, "danger")
+        return redirect(request.referrer or url_for('bonus.supervisor_dashboard'))
+
+    evaluation = BonusEvaluation.query.filter_by(
+        submission_id=submission_id,
+        employee_id=employee_id,
+        question_id=question_id
+    ).first()
+
+    if evaluation:
+        evaluation.value = value
+    else:
+        evaluation = BonusEvaluation(
             submission_id=submission_id,
             employee_id=employee_id,
-            question_id=question_id
-        ).first()
-        
-        if evaluation:
-            evaluation.value = value
-            evaluation.updated_at = datetime.now()
-        else:
-            evaluation = BonusEvaluation(
-                submission_id=submission_id,
-                employee_id=employee_id,
-                question_id=question_id,
-                value=value
-            )
-            db.session.add(evaluation)
-        
+            question_id=question_id,
+            value=value
+        )
+        db.session.add(evaluation)
+
+    try:
         db.session.commit()
-        current_app.logger.debug(f"Successfully saved evaluation: employee_id={employee_id}, question_id={question_id}, value={value}")
-        
-        return redirect(request.referrer)
-        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify(success=True)
+        flash("Evaluation saved.", "success")
     except Exception as e:
-        current_app.logger.error(f"Error saving single evaluation: {str(e)}")
         db.session.rollback()
-        flash('Failed to save evaluation', 'error')
-        return redirect(request.referrer)
+        message = f"Error saving evaluation: {str(e)}"
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify(success=False, message=message), 500
+        flash(message, "danger")
+
+    return redirect(request.referrer or url_for('bonus.edit_submission', submission_id=submission_id))
 
 
 @bp.route('/submission/<int:submission_id>/submit', methods=['POST'])
@@ -726,6 +717,7 @@ def save_single_evaluation():
 def submit_evaluation(submission_id):
     """Submit a bonus evaluation for review"""
     submission = BonusSubmission.query.get_or_404(submission_id)
+    print(submission,"ppppppppppppppppppppppppppppppppp")
     
     # Check permissions
     if submission.submitted_by != current_user.id:
