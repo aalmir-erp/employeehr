@@ -116,6 +116,33 @@ def login_as_user_odoo(employee_token):
     flash(f'Successfully logged in as {target_user.username}', 'success')
     return redirect(url_for('index.index'))
 
+@bp.route('/switch-back-to-admin')
+@login_required
+def switch_back_to_admin():
+    """Switch back to the original admin user"""
+    original_admin_user_id = session.get('original_admin_user_id')
+    
+    if not original_admin_user_id:
+        flash('No admin session found to switch back to.', 'warning')
+        return redirect(url_for('index.index'))
+    
+    # Get the original admin user
+    admin_user = User.query.get(original_admin_user_id)
+    if not admin_user:
+        flash('Original admin user not found.', 'error')
+        return redirect(url_for('index.index'))
+    
+    # Clear the session data
+    session.pop('original_admin_user_id', None)
+    session.pop('original_admin_username', None)
+    
+    # Log out current user and login as original admin
+    logout_user()
+    login_user(admin_user)
+    
+    flash(f'Switched back to admin account: {admin_user.username}', 'success')
+    return redirect(url_for('index.index'))
+    
 
 @bp.route('/users/edit_user/<int:user_id>', methods=['GET', 'POST'])
 @login_required

@@ -975,16 +975,23 @@ class BonusSubmission(db.Model):
     
     def calculate_total_points(self, employee_id=None):
         """Calculate total bonus points for all employees or a specific employee"""
+        print ( "in method ")
         if employee_id:
+            print ( "in employee_id ")
             evaluations = [e for e in self.evaluations if e.employee_id == employee_id]
         else:
+            print ( "else employee_id ")
             evaluations = self.evaluations
             
         # Group by employee
         employee_points = {}
         for eval in evaluations:
+            print ( "loop evaluations ")
             if eval.employee_id not in employee_points:
                 employee_points[eval.employee_id] = 0
+            print ( eval.value,"eval.value" )
+            print(eval.question.weight, "eval.question.weight")
+            print(eval.submission_id)
             employee_points[eval.employee_id] += eval.value * eval.question.weight
             
         return employee_points

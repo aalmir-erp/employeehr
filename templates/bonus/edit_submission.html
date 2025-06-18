@@ -100,7 +100,7 @@
                             </thead>
                             <tbody>
                                 {% for employee in employees %}
-                                <tr>
+                                <tr data-employee-id="{{ employee.id }}">
                                     <td class="employee-name">{{ employee.name }}</td>
                                     {% for question in questions %}
                                     <td class="score-cell">
@@ -258,7 +258,33 @@
         const inputs = document.querySelectorAll('.score-input');
 
         const saveInput = (input) => {
+            console.log(input)
+            const employeeRows = document.querySelectorAll('tr[data-employee-id]');
+            
+            employeeRows.forEach(row => {
+                const employeeId = row.dataset.employeeId;
+                const scoreInputs = row.querySelectorAll('input[data-question-id]');
+                let total = 0;
+                
+                scoreInputs.forEach(input => {
+                    const value = parseFloat(input.value) || 0;
+                    const questionId = input.dataset.questionId;
+                    
+                    // Get question weight (you can store this in data attributes or calculate)
+                    const weight = 1.0; // Default weight, you can make this dynamic
+                    total += value * weight;
+                });
+                
+                // Update the total display
+                const totalElement = document.getElementById(`total-${employeeId}`);
+                if (totalElement) {
+                    totalElement.textContent = total.toFixed(1);
+                }
+            });
+            
+            console.log(" iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii")
             const value = parseFloat(input.value);
+            console.log(value)
             const min = parseFloat(input.min);
             const max = parseFloat(input.max);
 
@@ -296,6 +322,7 @@
         // 🔁 Save again on user input (in case they modify it)
         inputs.forEach(input => {
             input.addEventListener('change', function () {
+                console.log(" heerererrer ")
                 saveInput(this);
             });
         });

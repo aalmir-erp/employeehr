@@ -469,6 +469,22 @@
         </div>
     </nav>
     
+
+
+
+    <!-- Admin Impersonation Banner -->
+    {% if current_user.is_authenticated and session.get('original_admin_user_id') %}
+    <div class="alert alert-warning m-0 border-0 rounded-0 text-center">
+        <div class="container">
+            <i class="bi bi-person-fill-gear"></i>
+            <strong>Admin Mode:</strong> You are viewing as <strong>{{ current_user.username }}</strong>
+            <a href="{{ url_for('admin.switch_back_to_admin') }}" class="btn btn-sm btn-outline-dark ms-3">
+                <i class="bi bi-arrow-left-circle"></i> Back to Admin
+            </a>
+        </div>
+    </div>
+    {% endif %}
+    
     <!-- Flash Messages -->
     <div class="container mt-3">
         {% with messages = get_flashed_messages(with_categories=true) %}
