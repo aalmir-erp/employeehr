@@ -775,8 +775,9 @@ def api_employee_assignments(employee_id):
 @login_required
 def advanced_batch_delete():
     """Delete multiple shift assignments by criteria (department, employee, date range)"""
-    if not current_user.is_admin or not current_user.has_role('hr'):
+    if not (current_user.is_admin or current_user.role in ['hr', 'supervisor']):
         return jsonify({'success': False, 'message': 'Permission denied'}), 403
+
     
     try:
         data = request.get_json()
