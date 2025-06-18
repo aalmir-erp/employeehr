@@ -72,134 +72,63 @@ def calculate_total_duration(check_in, check_out):
 
 def estimate_break_duration(logs):
     """
-    Estimate break duration from a series of punch logs and detect actual break start/end times
-    
-    Algorithm:
-    1. Sort logs by timestamp
-    2. Identify in/out pairs by looking at log_type
-    3. Any time an employee goes out and then comes back in during shift hours is counted as a break
-    4. ALL break time durations are added up to calculate total break duration
-    5. For the main break record (break_start/break_end), prioritize breaks that occur during lunch hours
-    6. If no lunch break found, use the largest break
-    
-    Returns:
-        tuple: (total_break_duration, primary_break_start, primary_break_end)
+    Estimate total break duration and primary break from OUT→IN sequences
+    within the 12-hour shift window (from first IN).
     """
-    # Debug info
-    print(f"DEBUG - estimate_break_duration called with {len(logs) if logs else 0} logs")
-    
-    if not logs or len(logs) < 3:  # Need at least check-in, break, check-out
-        print(f"DEBUG - Not enough logs to detect break: {len(logs) if logs else 0} logs")
+    if not logs or len(logs) < 3:
         return 1, None, None
-        
-    # Sort logs by timestamp
+
     sorted_logs = sorted(logs, key=lambda x: x.timestamp)
-    
-    # Debug - Print all logs for this employee on this day
-    for i, log in enumerate(sorted_logs):
-        print(f"DEBUG - Log {i+1}: {log.timestamp} - {log.log_type}")
-    
+
+    check_in_logs = [log for log in sorted_logs if log.log_type.lower() in ['in', 'check_in']]
+    check_out_logs = [log for log in sorted_logs if log.log_type.lower() in ['out', 'check_out']]
+
+    if not check_in_logs or not check_out_logs:
+        return 1, None, None
+
+    check_in = check_in_logs[0].timestamp
+    shift_end = check_in + timedelta(hours=12)
+
+    check_out_candidates = [log.timestamp for log in check_out_logs if log.timestamp <= shift_end]
+    if not check_out_candidates:
+        return 1, None, None
+    check_out = max(check_out_candidates)
+
     total_break_time = 0
-    previous_time = None
-    previous_log = None
-    
-    # Track breaks
     detected_breaks = []
-    
-    # Look for out->in sequences
+
     for i in range(1, len(sorted_logs)):
-        current_log = sorted_logs[i]
-        previous_log = sorted_logs[i-1]
-        
-        # If we have an out->in sequence, that's a break
-        if (previous_log.log_type.lower() in ['out', 'check_out'] and 
-            current_log.log_type.lower() in ['in', 'check_in']):
-            
-            # Calculate duration of the break in hours
-            diff = (current_log.timestamp - previous_log.timestamp).total_seconds() / 3600
-            
-            # Debug 
-            print(f"DEBUG - Break sequence found between {previous_log.timestamp} ({previous_log.log_type}) and {current_log.timestamp} ({current_log.log_type}): {diff:.2f} hours")
-            
-            # Only count breaks > 5 minutes to avoid erroneous quick check-in/check-outs 
-            # And breaks < 5 hours to avoid missing punch situations
+        prev_log = sorted_logs[i - 1]
+        curr_log = sorted_logs[i]
+
+        if (prev_log.log_type.lower() in ['out', 'check_out'] and
+            curr_log.log_type.lower() in ['in', 'check_in'] and
+            check_in <= prev_log.timestamp <= shift_end and
+            check_in <= curr_log.timestamp <= shift_end):
+
+            diff = (curr_log.timestamp - prev_log.timestamp).total_seconds() / 3600
             if 0.08 < diff < 5:
-                # Add to total break time - this is the critical part for multiple breaks
-                # ALL breaks are counted here, not just the primary lunch break
                 total_break_time += diff
-                print(f"DEBUG - Break added: {diff:.2f} hours, running total={total_break_time:.2f}")
-                
-                # Calculate lunch hour score for this break
-                is_lunch_time = (11 <= previous_log.timestamp.hour <= 14) or (11 <= current_log.timestamp.hour <= 14)
-                is_fully_lunch = (11 <= previous_log.timestamp.hour <= 14) and (11 <= current_log.timestamp.hour <= 14)
-                lunch_score = 3 if is_fully_lunch else 1 if is_lunch_time else 0
-                
-                # Add duration score - prioritize breaks close to 1 hour for lunch
-                duration_score = 0
+
+                is_lunch_time = (11 <= prev_log.timestamp.hour <= 14) or (11 <= curr_log.timestamp.hour <= 14)
+                is_fully_lunch = (11 <= prev_log.timestamp.hour <= 14) and (11 <= curr_log.timestamp.hour <= 14)
+
                 duration_diff = abs(diff - 1.0)
-                if duration_diff < 0.1:  # Within 6 minutes of 1 hour
-                    duration_score = 3
-                elif duration_diff < 0.25:  # Within 15 minutes of 1 hour
-                    duration_score = 2
-                elif duration_diff < 0.5:  # Within 30 minutes of 1 hour
-                    duration_score = 1
-                
-                # Record this break with its scores
+                duration_score = 3 if duration_diff < 0.1 else 2 if duration_diff < 0.25 else 1 if duration_diff < 0.5 else 0
+                lunch_score = 3 if is_fully_lunch else 1 if is_lunch_time else 0
+
                 detected_breaks.append({
-                    'start': previous_log.timestamp,  
-                    'end': current_log.timestamp,
+                    'start': prev_log.timestamp,
+                    'end': curr_log.timestamp,
                     'duration': diff,
-                    'is_lunch_time': is_lunch_time,
-                    'is_fully_lunch': is_fully_lunch,
-                    'lunch_score': lunch_score,
-                    'duration_score': duration_score,
-                    'total_score': lunch_score + duration_score
+                    'total_score': duration_score + lunch_score
                 })
-    
-    # If total breaks < 0.1 hours, we have minimal breaks
-    # Default to returning None for break_start/break_end in this case
-    if total_break_time < 0.1:
-        print(f"DEBUG - Total break time too small: {total_break_time:.2f} hours")
-        if total_break_time < 1:
-            total_break_time = 1
-        return total_break_time, None, None
-    
-    # Find the most appropriate break using our sophisticated algorithm
-    # First check if we have any breaks detected
-    if not detected_breaks:
-        print(f"DEBUG - No out-in sequences detected for breaks")
-        if total_break_time < 1:
-            total_break_time = 1
-        return total_break_time, None, None
-    
-    # Sort breaks by total score (lunch + duration score)
-    sorted_breaks = sorted(detected_breaks, key=lambda x: (x['total_score'], x['duration']), reverse=True)
-    
-    # Select the primary break (the one to be stored in break_start/break_end fields)
-    # This is the highest scoring break, but we're still counting ALL breaks in the total duration
-    selected_break = sorted_breaks[0]
-    break_start = selected_break['start']
-    break_end = selected_break['end']
-    
-    # Debug info about the primary break
-    if selected_break['is_fully_lunch']:
-        print(f"DEBUG - Selected primary break (fully lunch): {selected_break['duration']:.2f} hours from {break_start} to {break_end}")
-    elif selected_break['is_lunch_time']:
-        print(f"DEBUG - Selected primary break (partial lunch): {selected_break['duration']:.2f} hours from {break_start} to {break_end}")
-    else:
-        print(f"DEBUG - Selected primary break (non-lunch): {selected_break['duration']:.2f} hours from {break_start} to {break_end}")
-    
-    # Important: Print summary of all breaks
-    for i, brk in enumerate(detected_breaks):
-        is_primary = (brk['start'] == break_start and brk['end'] == break_end)
-        print(f"DEBUG - Break {i+1}: {brk['duration']:.2f} hours from {brk['start']} to {brk['end']} - score: {brk['total_score']} {'(PRIMARY)' if is_primary else ''}")
-    
-    print(f"DEBUG - Final break result: {round(total_break_time, 2):.2f} hours total, primary break: start={break_start}, end={break_end}")
-    print (" --------------------------------------- ")
-    # total_break_time = 4
-    if  total_break_time <1:
-        total_break_time = 1
-    return round(total_break_time, 2), break_start, break_end
+
+    if total_break_time < 0.1 or not detected_breaks:
+        return round(total_break_time, 2), None, None
+
+    best_break = sorted(detected_breaks, key=lambda x: (x['total_score'], x['duration']), reverse=True)[0]
+    return round(total_break_time, 2), best_break['start'], best_break['end']
 
 
 def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
@@ -309,6 +238,7 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
 
         check_in = check_in_logs[0].timestamp if check_in_logs else None
         check_out = check_out_logs[-1].timestamp if check_out_logs else None
+        
 
         if not check_in or not check_out or check_in == check_out:
             print(f"DEBUG - Invalid or missing check-in/check-out for employee {emp_id}")
@@ -331,7 +261,7 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
 
         employee = Employee.query.get(emp_id)
         status = 'present' 
-
+        print(break_start,break_end,"========================================break_end,break_start======================")
         if employee and employee.current_shift_id:
             shift = Shift.query.get(employee.current_shift_id)
             if shift and shift.start_time:
@@ -355,7 +285,7 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
 
         work_hours = max(0, total_duration - break_duration)
         record.work_hours = work_hours
-
+        print(break_duration,"========================================break_duration======================")
         db.session.add(record)
         db.session.flush()
 
