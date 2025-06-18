@@ -315,7 +315,7 @@
                             {% endif %}
                         </ul>
                     </li>
-                    {% if current_user.has_role('supervisor') or current_user.has_role('hr') %}
+                    {% if current_user.has_role('hr') %}
                     <li class="nav-item">
                         <a class="nav-link {% if request.path.startswith('/overtime') %}active{% endif %}" href="{{ url_for('overtime.index') }}">
                             <i class="bi bi-clock-history"></i> Overtime

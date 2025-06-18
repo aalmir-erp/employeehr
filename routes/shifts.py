@@ -853,9 +853,10 @@ def advanced_batch_delete():
 @login_required
 def batch_assign():
     """Assign shifts to multiple employees/dates at once"""
-    if not current_user.is_admin or not current_user.has_role('hr'):
+    print("=============================================================================")
+    if not (current_user.is_admin or current_user.role in ['hr', 'supervisor']):
         return jsonify({'success': False, 'message': 'Permission denied'}), 403
-    
+
     try:
         data = request.get_json()
         if not data:
