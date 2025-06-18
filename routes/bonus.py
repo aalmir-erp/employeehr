@@ -806,9 +806,12 @@ def view_submission(submission_id):
     for eval in evaluations:
         if eval.employee_id not in evaluation_matrix:
             evaluation_matrix[eval.employee_id] = {}
+        # print(eval, "eval")
+        # print(eval.value)
         evaluation_matrix[eval.employee_id][eval.question_id] = eval
     
     # Calculate total points for each employee
+    print(' calculate_total_points')
     employee_points = submission.calculate_total_points()
     
     # Get audit logs

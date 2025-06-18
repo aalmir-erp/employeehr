@@ -237,9 +237,9 @@
                                             {% else %}
                                                 <!-- Read-only view -->
                                                 <div class="score-value {% if evaluation.original_value is not none and evaluation.original_value != evaluation.value %}score-value-changed{% endif %}">
-                                                    {{ evaluation.value }}
+                                                    {{ evaluation.value }} 
                                                     {% if evaluation.original_value is not none and evaluation.original_value != evaluation.value %}
-                                                    <span class="hr-edit-indicator">Original: {{ evaluation.original_value }}</span>
+                                                    <span class="hr-edit-indicator">Original: {{ evaluation.original_value }} </span>
                                                     {% endif %}
                                                 </div>
                                             {% endif %}
@@ -251,7 +251,7 @@
                                     <td class="score-cell">
                                         <span class="total-points" id="total-{{ employee.id }}">
                                             {% if employee.id in employee_points %}
-                                                {{ "%.1f"|format(employee_points[employee.id]) }}
+                                                {{ "%.1f"|format(employee_points[employee.id]) }} 
                                             {% else %}
                                                 0.0
                                             {% endif %}
