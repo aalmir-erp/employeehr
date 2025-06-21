@@ -90,8 +90,15 @@ def dashboard():
     records = records_query.all()
     
     # Get departments for filter
-    departments = db.session.query(Employee.department).distinct().all()
-    departments = [d[0] for d in departments if d[0]]
+        # Supervisor: restrict employees & departments
+    if current_user.has_role('supervisor') and not current_user.is_admin and not current_user.has_role('hr'):
+        user_department = current_user.department
+        all_employees = [e for e in all_employees if e.department == user_department]
+        departments = [user_department]
+        selected_department = user_department
+    else:
+        departments = db.session.query(Employee.department).distinct().all()
+        departments = [d[0] for d in departments if d[0]]
     
     # Calculate overall statistics
     total_days = (end_date - start_date).days + 1

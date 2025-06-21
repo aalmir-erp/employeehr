@@ -71,6 +71,7 @@
                             <th>Name</th>
                             <th>Department</th>
                             <th>Position</th>
+                        
                             <th>Join Date</th>
                             <th>Current Shift</th>
                             <th>Status</th>
@@ -84,6 +85,7 @@
                             <td>{{ employee.name }}</td>
                             <td>{{ employee.department or 'N/A' }}</td>
                             <td>{{ employee.position or 'N/A' }}</td>
+                            
                             <td>{{ employee.join_date.strftime('%Y-%m-%d') if employee.join_date else 'N/A' }}</td>
                             <td>
                                 {% if employee.current_shift %}
@@ -106,6 +108,9 @@
                                     <a href="{{ url_for('shifts.assign_shift') }}?employee_id={{ employee.id }}" class="btn btn-sm btn-outline-success" title="Assign Shift">
                                         <i class="bi bi-clock"></i>
                                     </a>
+                                    <a href="{{ url_for('admin.create_user') }}?employee_id={{ employee.id }}" class="btn btn-sm btn-outline-success" title="Assign Shift">
+                                        <i class="bi bi-create"></i>
+                                    </a>
                                     <button type="button" class="btn btn-sm btn-outline-secondary toggle-status"
                                            data-bs-toggle="modal" data-bs-target="#toggleStatusModal"
                                            data-employee-id="{{ employee.id }}"
@@ -114,6 +119,7 @@
                                            title="Toggle Status">
                                         <i class="bi bi-toggle-on"></i>
                                     </button>
+
                                 </div>
                             </td>
                         </tr>

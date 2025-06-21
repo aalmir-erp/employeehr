@@ -54,6 +54,7 @@
                             <th>Username</th>
                             <th>Email</th>
                             <th>Role</th>
+                            <th>Employee</th>
                             <th>Status</th>
                             <th>Last Login</th>
                             <th>Created</th>
@@ -84,6 +85,7 @@
                             </span>
                             
                             </td>
+                            <td>{{ user.employee.name}}</td>
                             <td>
                                 <span class="badge {% if user.is_active %}bg-success{% else %}bg-secondary{% endif %}">
                                     {{ 'Active' if user.is_active else 'Inactive' }}

@@ -216,6 +216,8 @@ class AttendanceLog(db.Model):
     is_processed = db.Column(db.Boolean, default=False)
     attendance_record_id = db.Column(db.Integer, db.ForeignKey('attendance_record.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    location = db.Column(db.String(255), nullable=True)  # Add this line
+
     
     # Add relationship to Employee
     employee = db.relationship('Employee', backref=db.backref('attendance_logs', lazy='dynamic'))

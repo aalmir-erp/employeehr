@@ -34,11 +34,11 @@ class OdooConnector:
                 user = config.user
                 password = config.password
                 database = config.database
-                host = 'sib.mir.ae'
+                host = 'erp.mir.ae'
                 port = '5432'
-                user = 'odoo9'
-                password = 'odoo9'
-                database = 'aalmir__2025_05_06'
+                user = 'mir-plastic-erp'
+                password = 'aalmir123'
+                database = 'mir_plastic'
                 
 
                 # Log connection parameters (mask password)

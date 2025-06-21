@@ -98,17 +98,35 @@ def login_as_user(user_id):
     flash(f'Successfully logged in as {target_user.username}', 'success')
     return redirect(url_for('index.index'))
 
+# @bp.route('/loginodoo/<string:employee_token>')
+# def login_as_user_odoo(employee_token):
+#     s = URLSafeSerializer(SECRET_KEY)
+
+#     employee_id = s.loads(employee_token)
+#     print(employee_id)
+
+#     # Use employee_id for your logic here
+#     # Example:
+#     print(employee_id,"============================================dddddddddddddddd")
+#     target_user = User.query.filter_by(odoo_id=employee_id).first_or_404()
+#     print(target_user,"================2222222222222222222222222222")
+
+#     logout_user()
+#     login_user(target_user)
+
+#     flash(f'Successfully logged in as {target_user.username}', 'success')
+#     return redirect(url_for('index.index'))
+
 @bp.route('/loginodoo/<string:employee_token>')
 def login_as_user_odoo(employee_token):
     s = URLSafeSerializer(SECRET_KEY)
+    odoo_employee_id = s.loads(employee_token)
 
-    employee_id = s.loads(employee_token)
+    # Step 1: Get employee record where odoo_id matches
+    employee = Employee.query.filter_by(odoo_id=odoo_employee_id).first_or_404()
 
-    # Use employee_id for your logic here
-    # Example:
-    print(employee_id,"============================================dddddddddddddddd")
-    target_user = User.query.filter_by(odoo_id=employee_id).first_or_404()
-    print(target_user,"================2222222222222222222222222222")
+    # Step 2: Now get user using the employee.id
+    target_user = User.query.filter_by(employee_id=employee.id).first_or_404()
 
     logout_user()
     login_user(target_user)
@@ -142,7 +160,7 @@ def switch_back_to_admin():
     
     flash(f'Switched back to admin account: {admin_user.username}', 'success')
     return redirect(url_for('index.index'))
-    
+
 
 @bp.route('/users/edit_user/<int:user_id>', methods=['GET', 'POST'])
 @login_required
@@ -198,6 +216,53 @@ def delete_user():
     db.session.commit()
     
     flash(f'User "{username}" deleted successfully', 'success')
+    return redirect(url_for('admin.users'))
+
+@bp.route('/users/create')
+@login_required
+def create_user():
+    """Delete a user"""
+    employee_id = request.form.get('employee_id')
+    employee = Employee.query.get_or_404(employee_id)
+    if employee:
+    
+        username = employee.code
+        email = employee.code+'@gmail.com'
+        password = employee.code+'123'
+        confirm_password =  employee.code+'123'
+        role = False  # Actually the role value
+        employee_id = request.form.get('employee_id') or None
+
+        # Check if passwords match
+        # if password != confirm_password:
+        #     flash('Passwords do not match', 'danger')
+        #     return redirect(url_for('admin.add_user'))
+
+        # Check if user exists
+        existing_user = User.query.filter((User.username == username) | (User.email == email)).first()
+        if existing_user:
+            flash('Username or email already exists', 'danger')
+            return redirect(url_for('admin.add_user'))
+
+        # Set admin status based on role
+        is_admin =  False
+
+        # Create new user
+        user = User(
+            username=username,
+            email=email,
+            is_admin=is_admin,
+            role=role,
+            employee_id=int(employee_id) if employee_id else None
+        )
+        user.set_password(password)
+
+        db.session.add(user)
+        db.session.commit()
+        print (username)
+
+    
+    flash(f'User "{username}" Create successfully', 'success')
     return redirect(url_for('admin.users'))
 
 
