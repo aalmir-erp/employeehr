@@ -109,6 +109,8 @@ class Employee(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     name = db.Column(db.String(128), nullable=False)
     employee_code = db.Column(db.String(64), unique=True)
+    email = db.Column(db.String(120), unique=True, nullable=True)  # 👈 New field added here
+
     department = db.Column(db.String(128), nullable=True)  # Store department as string
     # Note: department_id is commented out since it does not exist in the database yet
     # department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=True)

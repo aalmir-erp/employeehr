@@ -145,7 +145,7 @@ class OdooConnector:
                 FROM hr_employee e
                 LEFT JOIN hr_department p ON e.department_id = p.id
                 LEFT JOIN hr_job j ON e.job_id = j.id
-                WHERE e.remove_not_wanted_employees = false and e.id=786;
+                WHERE e.remove_not_wanted_employees = false;
             """
         
         # Build dynamic select statement
@@ -215,6 +215,7 @@ class OdooConnector:
                 employee = Employee.query.filter_by(odoo_id=emp_data['odoo_id']).first()
                 
                 if employee:
+                    print(" in if ")
                     # Update existing employee with standard fields
                     if 'name' in emp_data:
                         employee.name = emp_data['name']
@@ -228,6 +229,8 @@ class OdooConnector:
                         employee.phone = emp_data['mobile_phone']
                     elif 'work_phone' in emp_data:
                         employee.phone = emp_data['work_phone']
+                    if 'work_email' in emp_data and emp_data['work_email']:
+                        employee.email = emp_data['work_email']
                         
                     if 'active' in emp_data:
                         employee.is_active = emp_data['active']
@@ -239,6 +242,7 @@ class OdooConnector:
                     
                     employee.last_sync = datetime.utcnow()
                 else:
+                    print(" in elase ")
                     # Create new employee with default required fields
                     employee_data = {
                         'odoo_id': emp_data['odoo_id'],
@@ -251,9 +255,12 @@ class OdooConnector:
                     
                     # Set phone for WhatsApp OTP (prefer mobile over work phone)
                     if 'mobile_phone' in emp_data and emp_data['mobile_phone']:
-                        employee_data['phone'] = emp_data['mobile_phone']
+                        employee_data['phone'] =  emp_data['mobile_phone']
+
                     elif 'work_phone' in emp_data:
-                        employee_data['phone'] = emp_data['work_phone']
+                        employee_data['phone'] =  emp_data['work_phone']
+                    if 'work_email' in emp_data and emp_data['work_email']:
+                        employee.email = emp_data['work_email']
                         
                     if 'join_date' in emp_data:
                         employee_data['join_date'] = emp_data['join_date']

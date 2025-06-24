@@ -218,9 +218,50 @@ def delete_user():
     flash(f'User "{username}" deleted successfully', 'success')
     return redirect(url_for('admin.users'))
 
+
+
+
+@bp.route('/create_user', methods=['POST'])
+def create_user():
+    employee_id = request.form.get('employee_id')
+    email = request.form.get('email')
+    username = request.form.get('username')
+    phone = request.form.get('phone')
+    role = request.form.get('role')
+
+    # Validate required fields
+    if not all([employee_id, email, username, role]):
+        flash("Missing required fields", "danger")
+        return redirect(url_for('admin.employees'))
+
+    # Check if email or username already exists
+    if User.query.filter((User.email == email) | (User.username == username)).first():
+        flash("Username or Email already exists", "danger")
+        return redirect(url_for('admin.employees'))
+
+    # Optionally get employee info
+    employee = Employee.query.get(employee_id)
+
+    new_user = User(
+        email=email,
+        username=username,
+        phone_number=phone,
+        role=role,
+        employee_id=employee_id,
+        department=employee.department if employee else None,
+        # password_hash=generate_password_hash("Default123", method='pbkdf2:sha256')  # Change default password policy
+    )
+    new_user.set_password('Default123')
+    db.session.add(new_user)
+    db.session.commit()
+
+    flash(f"User account created for {employee.name}", "success")
+    return redirect(url_for('admin.employees'))
+
+
 @bp.route('/users/create')
 @login_required
-def create_user():
+def create_user_old():
     """Delete a user"""
     employee_id = request.form.get('employee_id')
     employee = Employee.query.get_or_404(employee_id)
