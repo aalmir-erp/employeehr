@@ -2,7 +2,7 @@
 Utility functions for processing attendance logs and records
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,time
 
 from sqlalchemy import and_, func, or_
 
@@ -130,9 +130,10 @@ def estimate_break_duration(logs):
     best_break = sorted(detected_breaks, key=lambda x: (x['total_score'], x['duration']), reverse=True)[0]
     return round(total_break_time, 2), best_break['start'], best_break['end']
 
-
 def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
     from utils.overtime_engine import calculate_overtime
+    from datetime import datetime, timedelta, time
+
     employee_ids = []
 
     print(f"DEBUG - Starting process_unprocessed_logs with limit={limit}, date_from={date_from}, date_to={date_to}")
@@ -165,65 +166,80 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
         employee_ids.append(emp_id)
         print(f"DEBUG - Processing employee {emp_id} on date {log_date}")
 
-        next_day = log_date + timedelta(days=1)
+        # Set shift time window
+        shift_start = datetime.combine(log_date, time(0, 0))
+        shift_end = shift_start + timedelta(days=1)
 
-        current_logs = AttendanceLog.query.filter(
+        employee = Employee.query.get(emp_id)
+        if employee and employee.current_shift_id:
+            shift = Shift.query.get(employee.current_shift_id)
+            if shift:
+                shift_start_time = datetime.combine(log_date, shift.start_time)
+                shift_end_time = datetime.combine(log_date, shift.end_time)
+                if shift_end_time <= shift_start_time:
+                    shift_end_time += timedelta(days=1)
+                shift_start = shift_start_time - timedelta(hours=2)
+                shift_end = shift_end_time + timedelta(hours=4)
+
+        # Fetch & sort logs
+        logs = AttendanceLog.query.filter(
             AttendanceLog.employee_id == emp_id,
-            func.date(AttendanceLog.timestamp).in_([log_date, next_day])
+            AttendanceLog.timestamp >= shift_start,
+            AttendanceLog.timestamp <= shift_end,
+            AttendanceLog.is_processed == False
         ).order_by(AttendanceLog.timestamp).all()
 
-        logs = [log for log in current_logs if not log.is_processed]
         if not logs:
             print(f"DEBUG - No unprocessed logs for employee {emp_id} on {log_date}, skipping")
             continue
 
-        # Pair up IN/OUT logs
+        # Smart session pairing (regardless of order)
+        in_stack = []
         sessions = []
-        i = 0
-        while i < len(logs) - 1:
-            in_log = logs[i]
-            out_log = logs[i + 1]
-            if in_log.log_type in ['IN', 'check_in'] and out_log.log_type in ['OUT', 'check_out']:
-                sessions.append((in_log, out_log))
-                i += 2
-            else:
-                i += 1
+
+        for log in logs:
+            if log.log_type in ['IN', 'check_in']:
+                in_stack.append(log)
+            elif log.log_type in ['OUT', 'check_out'] and in_stack:
+                in_log = in_stack.pop(0)
+                out_log = log
+                if out_log.timestamp > in_log.timestamp:
+                    sessions.append((in_log, out_log))
 
         if not sessions:
-            print(f"DEBUG - No valid IN/OUT session found for employee {emp_id} on {log_date}")
+            print(f"DEBUG - No valid sessions found for employee {emp_id} on {log_date}")
             continue
 
-        # Use first IN and last OUT for main check-in/check-out
+        # Accurate check-in and check-out
         check_in = sessions[0][0].timestamp
         check_out = sessions[-1][1].timestamp
 
-        # Compute total work hours
+        # Total work hours
         total_duration = sum([
             (out_log.timestamp - in_log.timestamp).total_seconds() / 3600.0
             for in_log, out_log in sessions
         ])
 
-        # Compute break (if multiple sessions)
+        # Breaks between sessions
         break_duration = 0.0
-        break_start = None
-        break_end = None
-        if len(sessions) > 1:
-            break_start = sessions[0][1].timestamp
-            break_end = sessions[1][0].timestamp
-            break_duration = (break_end - break_start).total_seconds() / 3600.0
+        breaks = []
+        for j in range(len(sessions) - 1):
+            prev_out = sessions[j][1]
+            next_in = sessions[j + 1][0]
+            if next_in.timestamp > prev_out.timestamp:
+                this_break = (next_in.timestamp - prev_out.timestamp).total_seconds() / 3600.0
+                break_duration += this_break
+                breaks.append((prev_out.timestamp, next_in.timestamp))
 
-        work_hours = max(0.0, total_duration - break_duration)
+        break_start = breaks[0][0] if breaks else None
+        break_end = breaks[-1][1] if breaks else None
 
-        # Use check_in.date() to correctly anchor the attendance to start day
+        work_hours = max(0.0, total_duration)
+
         record_date = check_in.date()
-
-        # Check holiday/weekend
         is_holiday, is_weekend = check_holiday_and_weekend(emp_id, record_date)
-
-        # Determine shift type
         shift_type = determine_shift_type(check_in, emp_id)
 
-        # Fetch/create attendance record
         record = AttendanceRecord.query.filter_by(
             employee_id=emp_id,
             date=record_date
@@ -233,20 +249,17 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
             record = AttendanceRecord(employee_id=emp_id, date=record_date)
             records_created += 1
 
-        # Default status
+        # Late Status
         status = 'present'
-
-        # Check late arrival
-        employee = Employee.query.get(emp_id)
         if employee and employee.current_shift_id:
             shift = Shift.query.get(employee.current_shift_id)
             if shift and shift.start_time:
-                grace_minutes = shift.grace_period_minutes or 0
-                shift_start = datetime.combine(record_date, shift.start_time) + timedelta(minutes=grace_minutes)
-                if check_in > shift_start:
+                grace = shift.grace_period_minutes or 0
+                expected_start = datetime.combine(record_date, shift.start_time) + timedelta(minutes=grace)
+                if check_in > expected_start:
                     status = 'late'
 
-        # Update record fields
+        # Set record fields
         record.check_in = check_in
         record.check_out = check_out
         record.total_duration = total_duration
@@ -257,7 +270,7 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
         record.status = status
         record.is_holiday = is_holiday
         record.is_weekend = is_weekend
-        record.break_calculated = False
+        record.break_calculated = True
         record.shift_type = shift_type
 
         db.session.add(record)
@@ -275,12 +288,12 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
             try:
                 calculate_overtime(record, recalculate=True)
             except Exception as e:
-                print(f"ERROR - Overtime calculation failed for record {record.id}: {str(e)}")
+                print(f"ERROR - Overtime calculation failed: {str(e)}")
         except Exception as e:
             db.session.rollback()
-            print(f"ERROR - DB commit failed for employee {emp_id} on {record_date}: {str(e)}")
+            print(f"ERROR - DB commit failed: {str(e)}")
 
-    # Optional: Mark absents
+    # Mark absents
     if date_from and date_to:
         print("DEBUG - Checking for missing dates to mark as absent...")
         for emp in Employee.query.filter(Employee.id.in_(employee_ids)).all():
@@ -305,11 +318,11 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
                     ))
                     records_created += 1
                 current_date += timedelta(days=1)
-
         db.session.commit()
 
     print(f"DEBUG - Finished processing. Created {records_created} records, processed {logs_processed} logs")
     return records_created, logs_processed
+
 
 
 def process_unprocessed_logs_old(limit=None, date_from=None, date_to=None):

@@ -769,8 +769,6 @@
                                 <th>Check In</th>
                                 <th>Check Out</th>
                                 <th>Work Hours</th>
-                                <th>Grace Period Minutes</th>
-                                <th>Grace OverTime</th>
                                 <th>Overtime(HR)</th>
                                 <th>Overtime(Weight)</th>
                                 <th>Late (min)</th>
@@ -863,9 +861,7 @@
                     <td>${record.check_in || '-'}</td>
                     <td>${record.check_out || '-'}</td>
                     <td>${record.work_hours ? record.work_hours.toFixed(1) : '-'}</td>
-                    <td>${record.grace_period_minutes} Min</td>
-                    <td>${record.is_weekend || record.is_holiday ? '0.00 hr' : record.grace_overtime_hours}</td>
-                    <td>${adjustedOvertime.toFixed(2) }</td>
+                    <td>${record.status === 'absent'  ? '0.00 hr' :adjustedOvertime.toFixed(2) }</td>
                     <td>${record.overt_time_weighted.toFixed(1) } </td>
                     <td>${record.late_minutes || '-'}</td>
                     <td>${record.note || '-'}</td>
