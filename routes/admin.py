@@ -301,7 +301,7 @@ def create_missing_users_for_employees():
                 'employee_id': employee.odoo_id,
                 'phone': employee.phone
             },))
-            thread.start()
+        thread.start()
 
     print(f"\n⚠️ Skipped Employees (Missing Data): {len(skipped_employees)}")
     for emp in skipped_employees:
@@ -313,7 +313,7 @@ def create_missing_users_for_employees():
             'employee_id': employee.odoo_id,
             'phone': employee.phone
         },))
-        thread.start()
+    thread.start()
 
     return created_employees, skipped_employees
 
