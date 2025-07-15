@@ -8,6 +8,8 @@ from models import User, Employee, Shift, ShiftAssignment, AttendanceDevice, Odo
 from itsdangerous import URLSafeSerializer, BadSignature
 import threading
 import requests
+import random
+import string
 
 
 
@@ -225,7 +227,7 @@ def delete_user():
 def notify_odoo_user_created(data):
     try:
         print(" odoo hit methdo ")
-        requests.post("http://erp.mir.ae:8069/attendance_user_created", data=data, timeout=3)
+        requests.post("http://erp.mir.ae:8050/attendance_user_created", data=data, timeout=3)
     except requests.exceptions.RequestException as e:
         print("Failed to notify Odoo:", e)
 
@@ -278,7 +280,8 @@ def create_missing_users_for_employees():
                 'username': new_user.username,
                 'password': default_password,
                 'employee_id': employee.odoo_id,
-                'phone': employee.phone
+                'phone': employee.phone,
+                'is_reset':False
             },))
             thread.start()
 
@@ -299,7 +302,8 @@ def create_missing_users_for_employees():
                 'username': new_user.username,
                 'password': default_password,
                 'employee_id': employee.odoo_id,
-                'phone': employee.phone
+                'phone': employee.phone,
+                'is_reset':False
             },))
         thread.start()
 
@@ -339,17 +343,19 @@ def create_user():
 
     # Optionally get employee info
     employee = Employee.query.get(employee_id)
+    random_password = generate_random_password()
+
 
     new_user = User(
         email=email,
-        username=username,
+        username=employee.employee_code,
         phone_number=phone,
         role=role,
         employee_id=employee_id,
         department=employee.department if employee else None,
         # password_hash=generate_password_hash("Default123", method='pbkdf2:sha256')  # Change default password policy
     )
-    new_user.set_password('Default123')
+    new_user.set_password(random_password)
     db.session.add(new_user)
     db.session.commit()
     print (" i am here odoo hit 0000000000000000000000000")
@@ -357,15 +363,22 @@ def create_user():
 
     thread = threading.Thread(target=notify_odoo_user_created, args=({
         'email': email,
-        'username': username,
-        'password': 'Default123',
+        'username': employee.employee_code,
+        'password': random_password,
         'employee_id': employee.odoo_id,
-        'phone':phone
+        'phone':phone,
+        'is_reset':False
     },))
     thread.start()
 
     flash(f"User account created for {employee.name}", "success")
     return redirect(url_for('admin.employees'))
+
+
+def generate_random_password(length=8):
+    chars = string.ascii_letters + string.digits  # a-z, A-Z, 0-9
+    return ''.join(random.choice(chars) for _ in range(length))
+
 
 
 @bp.route('/users/create')
@@ -512,8 +525,10 @@ def reset_user_password():
     new_password = request.form.get('new_password')
     confirm_password = request.form.get('confirm_password')
     force_change = 'force_change' in request.form
+
     
     user = User.query.get_or_404(user_id)
+    employee = Employee.query.get(user.employee_id)
     
     # Validate passwords
     if not new_password or len(new_password) < 8:
@@ -532,6 +547,18 @@ def reset_user_password():
         user.force_password_change = force_change
     
     db.session.commit()
+
+    thread = threading.Thread(target=notify_odoo_user_created, args=({
+        'email': user.email,
+        'username': user.username,
+        'password': new_password,
+        'employee_id': employee.employee_id,
+        'phone': user.phone_number,
+        'is_reset':True
+    },))
+    thread.start()
+
+
     
     flash(f'Password for "{user.username}" has been reset successfully', 'success')
     return redirect(url_for('admin.users'))
