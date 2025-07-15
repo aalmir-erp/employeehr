@@ -224,14 +224,31 @@ def delete_user():
 
 def notify_odoo_user_created(data):
     try:
-        print(" odoo hit methdo ")
+        print("✅ odoo hit method")
         requests.post("http://erp.mir.ae:8069/attendance_user_created", data=data, timeout=3)
     except requests.exceptions.RequestException as e:
-        print("Failed to notify Odoo:", e)
+        print("❌ Failed to notify Odoo (created):", e)
 
 
+def notify_odoo_user_created_list(data):
+    try:
+        print("✅ notifying Odoo with created user list")
+        requests.post("http://erp.mir.ae:8069/attendance_user_created_list", data=data, timeout=3)
+    except requests.exceptions.RequestException as e:
+        print("❌ Failed to notify Odoo (list):", e)
 
 
+def notify_odoo_user_skipped_employees(data):
+    try:
+        print("✅ notifying Odoo with skipped employee")
+        requests.post("http://erp.mir.ae:8069/attendance_skipped_employee", data=data, timeout=3)
+    except requests.exceptions.RequestException as e:
+        print("❌ Failed to notify Odoo (skipped):", e)
+
+
+# ----- MAIN ROUTE -----
+@bp.route('/create_missing_users_for_employees', methods=['GET', 'POST'])
+@login_required
 def create_missing_users_for_employees():
     default_password = 'Default123'
     employees = Employee.query.all()
@@ -240,10 +257,6 @@ def create_missing_users_for_employees():
     skipped_employees = []
 
     for employee in employees:
-        # Skip if already has a linked user
-        if User.query.filter_by(employee_id=employee.id).first():
-            continue
-
         # Skip if email or phone is missing
         if not employee.email or not employee.phone:
             skipped_employees.append({
@@ -251,34 +264,48 @@ def create_missing_users_for_employees():
                 'name': employee.name,
                 'reason': 'Missing email or phone',
                 'email': employee.email,
-                'phone': employee.phone
             })
             continue
 
-        # Create user
+        # Skip if user already exists with same employee_id or email
+        existing_user = User.query.filter(
+            (User.employee_id == employee.id) |
+            (User.email == employee.email)
+        ).first()
+
+        if existing_user:
+            skipped_employees.append({
+                'id': employee.id,
+                'name': employee.name,
+                'reason': 'User already exists with same employee or email',
+                'email': employee.email,
+            })
+            continue
+
         new_user = User(
             email=employee.email,
             username=employee.employee_code or f"user{employee.id}",
-            phone_number=employee.phone,
             role='employee',
             employee_id=employee.id,
             department=employee.department,
+            is_admin=False,
+            created_at=datetime.utcnow(),
+            last_login=None,
+            force_password_change=False
         )
         new_user.set_password(default_password)
         db.session.add(new_user)
-        db.session.flush()  # To get new_user.id
+        db.session.flush()  
 
-        # Link back if needed
         employee.user_id = new_user.id
 
-        # Notify Odoo
+        # Notify Odoo (if odoo_id exists)
         if employee.odoo_id:
             thread = threading.Thread(target=notify_odoo_user_created, args=({
                 'email': new_user.email,
                 'username': new_user.username,
                 'password': default_password,
                 'employee_id': employee.odoo_id,
-                'phone': employee.phone
             },))
             thread.start()
 
@@ -286,36 +313,35 @@ def create_missing_users_for_employees():
             'id': employee.id,
             'name': employee.name,
             'username': new_user.username,
-            'email': new_user.email
+            'email': new_user.email,
+            'odoo_id': employee.odoo_id
         })
 
     db.session.commit()
 
-    print(f"\n✅ Created Users: {len(created_employees)}")
+    # Notify Odoo: Created users
     for emp in created_employees:
-        print(f" - {emp['name']} ({emp['email']})")
         thread = threading.Thread(target=notify_odoo_user_created_list, args=({
-                'email': new_user.email,
-                'username': new_user.username,
-                'password': default_password,
-                'employee_id': employee.odoo_id,
-                'phone': employee.phone
-            },))
+            'email': emp['email'],
+            'username': emp['username'],
+            'password': default_password,
+            'employee_id': emp['odoo_id'],
+        },))
         thread.start()
 
-    print(f"\n⚠️ Skipped Employees (Missing Data): {len(skipped_employees)}")
+    # Notify Odoo: Skipped employees
     for emp in skipped_employees:
-        print(f" - {emp['name']} | Email: {emp['email']} | Phone: {emp['phone']}")
-    thread = threading.Thread(target=notify_odoo_user_skipped_employees, args=({
-            'email': new_user.email,
-            'username': new_user.username,
+        thread = threading.Thread(target=notify_odoo_user_skipped_employees, args=({
+            'email': emp['email'],
+            'username': emp['name'],
             'password': default_password,
-            'employee_id': employee.odoo_id,
-            'phone': employee.phone
+            'employee_id': None,
         },))
-    thread.start()
+        thread.start()
 
-    return created_employees, skipped_employees
+    flash(f"{len(created_employees)} User account created" , "success")
+    flash(f"{len(skipped_employees)} User account Skipped" , "success")
+    return redirect(url_for('admin.employees'))
 
 
 
