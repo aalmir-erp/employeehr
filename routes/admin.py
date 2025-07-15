@@ -6,6 +6,10 @@ from app import db
 from utils.odoo_connector import odoo_connector
 from models import User, Employee, Shift, ShiftAssignment, AttendanceDevice, OdooConfig, OdooMapping, ERPConfig, SystemConfig
 from itsdangerous import URLSafeSerializer, BadSignature
+import threading
+import requests
+
+
 
 
 
@@ -218,6 +222,100 @@ def delete_user():
     flash(f'User "{username}" deleted successfully', 'success')
     return redirect(url_for('admin.users'))
 
+def notify_odoo_user_created(data):
+    try:
+        print(" odoo hit methdo ")
+        requests.post("http://erp.mir.ae:8069/attendance_user_created", data=data, timeout=3)
+    except requests.exceptions.RequestException as e:
+        print("Failed to notify Odoo:", e)
+
+
+
+
+def create_missing_users_for_employees():
+    default_password = 'Default123'
+    employees = Employee.query.all()
+
+    created_employees = []
+    skipped_employees = []
+
+    for employee in employees:
+        # Skip if already has a linked user
+        if User.query.filter_by(employee_id=employee.id).first():
+            continue
+
+        # Skip if email or phone is missing
+        if not employee.email or not employee.phone:
+            skipped_employees.append({
+                'id': employee.id,
+                'name': employee.name,
+                'reason': 'Missing email or phone',
+                'email': employee.email,
+                'phone': employee.phone
+            })
+            continue
+
+        # Create user
+        new_user = User(
+            email=employee.email,
+            username=employee.employee_code or f"user{employee.id}",
+            phone_number=employee.phone,
+            role='employee',
+            employee_id=employee.id,
+            department=employee.department,
+        )
+        new_user.set_password(default_password)
+        db.session.add(new_user)
+        db.session.flush()  # To get new_user.id
+
+        # Link back if needed
+        employee.user_id = new_user.id
+
+        # Notify Odoo
+        if employee.odoo_id:
+            thread = threading.Thread(target=notify_odoo_user_created, args=({
+                'email': new_user.email,
+                'username': new_user.username,
+                'password': default_password,
+                'employee_id': employee.odoo_id,
+                'phone': employee.phone
+            },))
+            thread.start()
+
+        created_employees.append({
+            'id': employee.id,
+            'name': employee.name,
+            'username': new_user.username,
+            'email': new_user.email
+        })
+
+    db.session.commit()
+
+    print(f"\n✅ Created Users: {len(created_employees)}")
+    for emp in created_employees:
+        print(f" - {emp['name']} ({emp['email']})")
+        thread = threading.Thread(target=notify_odoo_user_created_list, args=({
+                'email': new_user.email,
+                'username': new_user.username,
+                'password': default_password,
+                'employee_id': employee.odoo_id,
+                'phone': employee.phone
+            },))
+            thread.start()
+
+    print(f"\n⚠️ Skipped Employees (Missing Data): {len(skipped_employees)}")
+    for emp in skipped_employees:
+        print(f" - {emp['name']} | Email: {emp['email']} | Phone: {emp['phone']}")
+    thread = threading.Thread(target=notify_odoo_user_skipped_employees, args=({
+            'email': new_user.email,
+            'username': new_user.username,
+            'password': default_password,
+            'employee_id': employee.odoo_id,
+            'phone': employee.phone
+        },))
+        thread.start()
+
+    return created_employees, skipped_employees
 
 
 
@@ -254,6 +352,17 @@ def create_user():
     new_user.set_password('Default123')
     db.session.add(new_user)
     db.session.commit()
+    print (" i am here odoo hit 0000000000000000000000000")
+    print (employee.odoo_id, "employee.odoo_id")
+
+    thread = threading.Thread(target=notify_odoo_user_created, args=({
+        'email': email,
+        'username': username,
+        'password': 'Default123',
+        'employee_id': employee.odoo_id,
+        'phone':phone
+    },))
+    thread.start()
 
     flash(f"User account created for {employee.name}", "success")
     return redirect(url_for('admin.employees'))

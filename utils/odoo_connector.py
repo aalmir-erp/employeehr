@@ -68,9 +68,21 @@ class OdooConnector:
                 return False
             
             logger.info(f"Attempting connection to Odoo PostgreSQL at {host}:{port}...")
+#             self.connection = psycopg2.connect(
+#     "host=sib.mir.ae port=5432 dbname=july_04 user=odoo9 password=odoo9"
+# )
+
+# app.config["ODOO_USER"] = os.environ.get("PGUSER", "mir-plastic-erp")
+# app.config["ODOO_PASSWORD"] = os.environ.get("PGPASSWORD", "aalmir123")
+# app.config["ODOO_DATABASE"] = os.environ.get("PGDATABASE", "mir_plastic")
+
+#             self.connection = psycopg2.connect(
+#     "host=172.16.40.160 port=5432 dbname=mir_plastic user=mir-plastic-erp password=aalmir123"
+# )
+
             self.connection = psycopg2.connect(
-    "host=sib.mir.ae port=5432 dbname=aalmir__2025_05_06 user=odoo9 password=odoo9"
-)
+                "host=172.16.40.160 port=5432 dbname=mir_plastic user=mir-plastic-erp password=aalmir123 sslmode=require"
+            )
             # self.connection = psycopg2.connect(
             #     host=host,
             #     port=port,
@@ -88,7 +100,7 @@ class OdooConnector:
                 
             return True
         except Exception as e:
-            logger.error(f"Failed to connect to Odoo database: {str(e)}")
+            logger.error(f"Failed to connect to Odoo database2222222: {str(e)}")
             logger.exception("Detailed exception information:")
             return False
     
@@ -136,6 +148,7 @@ class OdooConnector:
                     e.id as odoo_id,
                     e.name_related as name,
                     e.work_phone,
+                    -- e.is_bonus,
                     e.work_email,
                     e.mobile_phone,
                     p.name as department_name,
@@ -234,6 +247,9 @@ class OdooConnector:
                         
                     if 'active' in emp_data:
                         employee.is_active = emp_data['active']
+
+                    if 'is_bonus' in emp_data:
+                        employee.is_bonus = emp_data['is_bonus']
                     
                     # Apply any dynamic mapped fields
                     for odoo_field, employee_field in mappings.items():
@@ -250,6 +266,7 @@ class OdooConnector:
                         'department': emp_data.get('department_name'),
                         'position': emp_data.get('job_name'),
                         'is_active': emp_data.get('active', True),
+                        'is_bonus': emp_data.get('is_bonus', False),
                         'employee_code': f"EMP{emp_data['odoo_id']:04d}"
                     }
                     
@@ -260,7 +277,7 @@ class OdooConnector:
                     elif 'work_phone' in emp_data:
                         employee_data['phone'] =  emp_data['work_phone']
                     if 'work_email' in emp_data and emp_data['work_email']:
-                        employee.email = emp_data['work_email']
+                        employee_data['email'] = emp_data['work_email']
                         
                     if 'join_date' in emp_data:
                         employee_data['join_date'] = emp_data['join_date']

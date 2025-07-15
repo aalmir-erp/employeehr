@@ -109,7 +109,7 @@ class Employee(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     name = db.Column(db.String(128), nullable=False)
     employee_code = db.Column(db.String(64), unique=True)
-    email = db.Column(db.String(120), unique=True, nullable=True)  # 👈 New field added here
+    email = db.Column(db.String(120),  nullable=True)  # 👈 New field added here
 
     department = db.Column(db.String(128), nullable=True)  # Store department as string
     # Note: department_id is commented out since it does not exist in the database yet
@@ -117,6 +117,8 @@ class Employee(db.Model):
     position = db.Column(db.String(128), nullable=True)
     join_date = db.Column(db.Date, nullable=True)
     is_active = db.Column(db.Boolean, default=True)
+    is_bonus = db.Column(db.Boolean, default=True)
+
     phone = db.Column(db.String(20), nullable=True)
     current_shift_id = db.Column(db.Integer, db.ForeignKey('shift.id'), nullable=True)
     weekend_days = db.Column(JSONB, nullable=True)  # Store list of days (0-6, Monday=0, Sunday=6)
@@ -923,6 +925,7 @@ class BonusQuestion(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    # need to  create boolen here for thee type Attendance, Efficiency, Waste Reduction
     
     # Relationships
     creator = db.relationship('User', foreign_keys=[created_by])
