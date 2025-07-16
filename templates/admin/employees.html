@@ -78,9 +78,11 @@
                         <tr>
                             <th>Code</th>
                             <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>User</th>
                             <th>Department</th>
                             <th>Position</th>
-                        
                             <th>Join Date</th>
                             <th>Current Shift</th>
                             <th>Status</th>
@@ -92,9 +94,17 @@
                         <tr>
                             <td>{{ employee.employee_code }}</td>
                             <td>{{ employee.name }}</td>
+                            <td>{{ employee.email or 'N/A' }}</td>
+                            <td>{{ employee.phone or 'N/A' }}</td>
+                            <td>
+                                {% if employee.user_id %}
+                                    <span class="badge bg-success">True</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">False</span>
+                                {% endif %}
+                            </td>
                             <td>{{ employee.department or 'N/A' }}</td>
                             <td>{{ employee.position or 'N/A' }}</td>
-                            
                             <td>{{ employee.join_date.strftime('%Y-%m-%d') if employee.join_date else 'N/A' }}</td>
                             <td>
                                 {% if employee.current_shift %}
@@ -117,36 +127,36 @@
                                     <a href="{{ url_for('shifts.assign_shift') }}?employee_id={{ employee.id }}" class="btn btn-sm btn-outline-success" title="Assign Shift">
                                         <i class="bi bi-clock"></i>
                                     </a>
-<button type="button"
-        class="btn btn-sm btn-outline-success open-user-modal"
-        data-bs-toggle="modal"
-        data-bs-target="#createUserModal"
-        data-employee-id="{{ employee.id }}"
-        data-employee-name="{{ employee.name }}"
-        data-employee-phone="{{ employee.phone or '' }}"
-        data-employee-email="{{ employee.email or '' }}"
-        title="Create User">
-    <i class="bi bi-person-plus"></i>
-</button>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-success open-user-modal"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#createUserModal"
+                                            data-employee-id="{{ employee.id }}"
+                                            data-employee-name="{{ employee.name }}"
+                                            data-employee-phone="{{ employee.phone or '' }}"
+                                            data-employee-email="{{ employee.email or '' }}"
+                                            title="Create User">
+                                        <i class="bi bi-person-plus"></i>
+                                    </button>
                                     <button type="button" class="btn btn-sm btn-outline-secondary toggle-status"
-                                           data-bs-toggle="modal" data-bs-target="#toggleStatusModal"
-                                           data-employee-id="{{ employee.id }}"
-                                           data-employee-name="{{ employee.name }}"
-                                           data-current-status="{{ 'active' if employee.is_active else 'inactive' }}"
-                                           title="Toggle Status">
+                                            data-bs-toggle="modal" data-bs-target="#toggleStatusModal"
+                                            data-employee-id="{{ employee.id }}"
+                                            data-employee-name="{{ employee.name }}"
+                                            data-current-status="{{ 'active' if employee.is_active else 'inactive' }}"
+                                            title="Toggle Status">
                                         <i class="bi bi-toggle-on"></i>
                                     </button>
-
                                 </div>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="8" class="text-center">No employees found</td>
+                            <td colspan="11" class="text-center">No employees found</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
+                
             </div>
         </div>
     </div>
