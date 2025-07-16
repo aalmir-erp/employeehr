@@ -337,15 +337,16 @@
                                                 {% elif request.args.get('show_unassigned') == '1'
                                                         and day.month == month_start.month
                                                         and not holidays.get(day.strftime('%Y-%m-%d')) %}
-                                                    <div class="month-shift-badge bg-danger text-white"
-                                                         style="border-radius: 3px;
-                                                                margin-bottom: 2px;
-                                                                padding: 1px 3px;
-                                                                font-size: 0.7rem;
-                                                                white-space: nowrap;"
-                                                         title="{{ employee.name }}: Not Assigned">
-                                                        {{ employee.name|truncate(15, True) }} - Not Assigned
-                                                    </div>
+                                                        <div class="month-shift-badge bg-danger text-white"
+                                                                style="border-radius: 3px;
+                                                                    margin-bottom: 2px;
+                                                                    padding: 1px 3px;
+                                                                    font-size: 0.7rem;
+                                                                    white-space: nowrap;"
+                                                                title="{{ employee.name }}: Not Assigned">
+                                                            {{ employee.name|truncate(15, True) }} - <strong>Not Assigned</strong>
+                                                        </div>
+                                                   
                                                 {% endif %}
                                             {% endfor %}
                                             

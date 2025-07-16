@@ -300,14 +300,14 @@ def create_missing_users_for_employees():
         employee.user_id = new_user.id
 
         # Notify Odoo (if odoo_id exists)
-        if employee.odoo_id:
-            thread = threading.Thread(target=notify_odoo_user_created, args=({
-                'email': new_user.email,
-                'username': new_user.username,
-                'password': default_password,
-                'employee_id': employee.odoo_id,
-            },))
-            thread.start()
+        # if employee.odoo_id:
+        #     # thread = threading.Thread(target=notify_odoo_user_created, args=({
+        #     #     'email': new_user.email,
+        #     #     'username': new_user.username,
+        #     #     'password': default_password,
+        #     #     'employee_id': employee.odoo_id,
+        #     # },))
+        #     # thread.start()
 
         created_employees.append({
             'id': employee.id,
@@ -320,24 +320,24 @@ def create_missing_users_for_employees():
     db.session.commit()
 
     # Notify Odoo: Created users
-    for emp in created_employees:
-        thread = threading.Thread(target=notify_odoo_user_created_list, args=({
-            'email': emp['email'],
-            'username': emp['username'],
-            'password': default_password,
-            'employee_id': emp['odoo_id'],
-        },))
-        thread.start()
+    # for emp in created_employees:
+    #     # thread = threading.Thread(target=notify_odoo_user_created_list, args=({
+    #     #     'email': emp['email'],
+    #     #     'username': emp['username'],
+    #     #     'password': default_password,
+    #     #     'employee_id': emp['odoo_id'],
+    #     # },))
+    #     # thread.start()
 
     # Notify Odoo: Skipped employees
-    for emp in skipped_employees:
-        thread = threading.Thread(target=notify_odoo_user_skipped_employees, args=({
-            'email': emp['email'],
-            'username': emp['name'],
-            'password': default_password,
-            'employee_id': None,
-        },))
-        thread.start()
+    # for emp in skipped_employees:
+    #     # thread = threading.Thread(target=notify_odoo_user_skipped_employees, args=({
+    #     #     'email': emp['email'],
+    #     #     'username': emp['name'],
+    #     #     'password': default_password,
+    #     #     'employee_id': None,
+    #     # },))
+    #     # thread.start()
 
     flash(f"{len(created_employees)} User account created" , "success")
     flash(f"{len(skipped_employees)} User account Skipped" , "success")
