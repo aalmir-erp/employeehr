@@ -404,6 +404,34 @@ def scheduler():
     ).all()
     holidays = {h.date.strftime('%Y-%m-%d'): h.name for h in holiday_records}
 
+    show_unassigned = request.args.get('show_unassigned') == '1'
+
+    employee_assignments = {}
+
+    for employee in filtered_employees:
+        employee_assignments[employee.id] = {}
+
+        for day in month_days:
+            date_key = day.strftime('%Y-%m-%d')
+            employee_assignments[employee.id][date_key] = None  # Default to None
+
+    # Fill in actual assignments
+    for assignment in assignments:
+        if selected_department and assignment.employee_id not in [e.id for e in filtered_employees]:
+            continue
+
+        assignment.shift = next((s for s in all_shifts if s.id == assignment.shift_id), None)
+
+        assignment_start = max(assignment.start_date, query_start_date)
+        assignment_end = min(assignment.end_date or query_end_date, query_end_date)
+
+        current = assignment_start
+        while current <= assignment_end:
+            date_key = current.strftime('%Y-%m-%d')
+            if assignment.employee_id in employee_assignments:
+                employee_assignments[assignment.employee_id][date_key] = assignment
+            current += timedelta(days=1)
+
     # Format helper
     def format_date(d):
         return d.strftime('%d/%m/%Y')

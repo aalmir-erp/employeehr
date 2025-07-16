@@ -131,6 +131,17 @@
                                         </span>
                                     </div>
                                 </div>
+
+                                <div class="col-md-3">
+                                    <div class="form-check mt-4">
+                                        <input class="form-check-input" type="checkbox" value="1" id="show_unassigned" name="show_unassigned"
+                                            {% if request.args.get('show_unassigned') == '1' %}checked{% endif %}>
+                                        <label class="form-check-label" for="show_unassigned">
+                                            Show Unassigned Employees
+                                        </label>
+                                    </div>
+                                </div>
+                                
                                 
                                 <!-- Navigation buttons -->
                                 <div class="col-md-6 d-flex align-items-end">
@@ -202,7 +213,10 @@
                                 {% for day in days %}
                                     {% set assignment = employee_assignments.get(employee.id, {}).get(day.strftime('%Y-%m-%d')) %}
                                     {% set is_holiday = holidays.get(day.strftime('%Y-%m-%d')) %}
-                                    <td class="text-center position-relative p-1{% if day.weekday() >= 5 %} bg-warning bg-opacity-10{% endif %}{% if is_holiday %} bg-info bg-opacity-10{% endif %}">
+                                    <td class="text-center position-relative p-1
+                                               {% if day.weekday() >= 5 %} bg-warning bg-opacity-10{% endif %}
+                                               {% if is_holiday %} bg-info bg-opacity-10{% endif %}">
+                                        
                                         <!-- Holiday Display -->
                                         {% if is_holiday %}
                                             <div class="badge bg-info w-100 mb-1">
@@ -210,7 +224,7 @@
                                             </div>
                                         {% endif %}
                                         
-                                        <!-- Shift Assignment Display -->
+                                        <!-- Shift Assignment -->
                                         {% if assignment %}
                                             <div class="shift-assignment" data-assignment-id="{{ assignment.id }}">
                                                 <div class="shift-badge mb-1" style="background-color: {{ assignment.shift.color_code }}">
@@ -227,25 +241,33 @@
                                                     </div>
                                                 {% endif %}
                                             </div>
-                                        {% elif current_user.is_admin %}
-                                            <div class="shift-assignment-cell" data-employee-id="{{ employee.id }}" data-date="{{ day.strftime('%Y-%m-%d') }}">
-                                                <button type="button" class="btn btn-sm btn-outline-primary add-shift-btn">
-                                                    <i class="bi bi-plus"></i>
-                                                </button>
-                                                <div class="shift-selector d-none">
-                                                    {% for shift in shifts %}
-                                                        <button type="button" class="btn btn-sm w-100 mb-1 text-white assign-shift-btn" 
-                                                                style="background-color: {{ shift.color_code }}" 
-                                                                data-shift-id="{{ shift.id }}">
-                                                            {{ shift.name }}
-                                                        </button>
-                                                    {% endfor %}
-                                                    <button type="button" class="btn btn-sm btn-outline-secondary cancel-btn">
-                                                        <i class="bi bi-x"></i>
+                                        
+                                        <!-- Show "Not Assigned" -->
+                                        {% elif request.args.get('show_unassigned') == '1'
+                                        and not is_holiday %}
+                                    <div class="text-danger small fw-bold mb-1">
+                                        Not Assigned
+                                    </div>
+                                
+                                    {% if current_user.is_admin %}
+                                        <div class="shift-assignment-cell" data-employee-id="{{ employee.id }}" data-date="{{ day.strftime('%Y-%m-%d') }}">
+                                            <button type="button" class="btn btn-sm btn-outline-primary add-shift-btn">
+                                                <i class="bi bi-plus"></i>
+                                            </button>
+                                            <div class="shift-selector d-none mt-1">
+                                                {% for shift in shifts %}
+                                                    <button type="button" class="btn btn-sm w-100 mb-1 text-white assign-shift-btn" 
+                                                            style="background-color: {{ shift.color_code }}" 
+                                                            data-shift-id="{{ shift.id }}">
+                                                        {{ shift.name }}
                                                     </button>
-                                                </div>
+                                                {% endfor %}
+                                                <button type="button" class="btn btn-sm btn-outline-secondary cancel-btn">
+                                                    <i class="bi bi-x"></i>
+                                                </button>
                                             </div>
-                                        {% else %}
+                                        </div>
+                                    {% endif %}
                                             <span class="text-muted">No shift</span>
                                         {% endif %}
                                     </td>
@@ -296,22 +318,37 @@
                                             
                                             <div class="day-shifts">
                                                 {% for employee in employees %}
-                                                    {% set assignment = employee_assignments.get(employee.id, {}).get(day.strftime('%Y-%m-%d')) %}
-                                                    {% if assignment %}
-                                                        <div class="month-shift-badge" 
-                                                             style="background-color: {{ assignment.shift.color_code }}; 
-                                                                    border-radius: 3px;
-                                                                    margin-bottom: 2px;
-                                                                    padding: 1px 3px;
-                                                                    font-size: 0.7rem;
-                                                                    white-space: nowrap;
-                                                                    overflow: hidden;
-                                                                    text-overflow: ellipsis;"
-                                                             title="{{ employee.name }}: {{ assignment.shift.name }} ({{ assignment.shift.start_time.strftime('%H:%M') }} - {{ assignment.shift.end_time.strftime('%H:%M') }})">
-                                                            {{ employee.name|truncate(15, True) }}
-                                                        </div>
-                                                    {% endif %}
-                                                {% endfor %}
+                                                {% set assignment = employee_assignments.get(employee.id, {}).get(day.strftime('%Y-%m-%d')) %}
+                                                
+                                                {% if assignment %}
+                                                    <div class="month-shift-badge" 
+                                                         style="background-color: {{ assignment.shift.color_code }};
+                                                                border-radius: 3px;
+                                                                margin-bottom: 2px;
+                                                                padding: 1px 3px;
+                                                                font-size: 0.7rem;
+                                                                white-space: nowrap;
+                                                                overflow: hidden;
+                                                                text-overflow: ellipsis;"
+                                                         title="{{ employee.name }}: {{ assignment.shift.name }} ({{ assignment.shift.start_time.strftime('%H:%M') }} - {{ assignment.shift.end_time.strftime('%H:%M') }})">
+                                                        {{ employee.name|truncate(15, True) }}
+                                                    </div>
+                                            
+                                                {% elif request.args.get('show_unassigned') == '1'
+                                                        and day.month == month_start.month
+                                                        and not holidays.get(day.strftime('%Y-%m-%d')) %}
+                                                    <div class="month-shift-badge bg-danger text-white"
+                                                         style="border-radius: 3px;
+                                                                margin-bottom: 2px;
+                                                                padding: 1px 3px;
+                                                                font-size: 0.7rem;
+                                                                white-space: nowrap;"
+                                                         title="{{ employee.name }}: Not Assigned">
+                                                        {{ employee.name|truncate(15, True) }} - Not Assigned
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                            
                                                 
                                                 {% if current_user.is_admin and day.month == month_start.month %}
                                                     <button type="button" class="btn btn-sm btn-outline-primary month-add-btn" 
@@ -365,6 +402,7 @@
                                 <h6>Color Key:</h6>
                                 <span class="badge bg-warning bg-opacity-25 me-2">Weekend</span>
                                 <span class="badge bg-info bg-opacity-25 me-2">Holiday</span>
+                                <span class="badge bg-danger bg-opacity-25 me-2">Not Assigned</span>
                             </div>
                             <div class="mb-3">
                                 <h6>Available Shifts (Drag to Assign):</h6>
