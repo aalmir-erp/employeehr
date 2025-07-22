@@ -158,7 +158,8 @@ class OdooConnector:
                 FROM hr_employee e
                 LEFT JOIN hr_department p ON e.department_id = p.id
                 LEFT JOIN hr_job j ON e.job_id = j.id
-                WHERE e.remove_not_wanted_employees = false;
+                WHERE e.remove_not_wanted_employees IS DISTINCT FROM true;
+
             """
         
         # Build dynamic select statement
@@ -200,10 +201,21 @@ class OdooConnector:
         try:
             # Build and execute the dynamic query
             query = self.build_dynamic_query()
+            print(query)
+            print("query")
             self.cursor.execute(query)
             
             employees_data = self.cursor.fetchall()
-            print (employees_data)
+
+            bouns_query = """SELECT employee_id FROM hr_contract where state = 'open' AND struct_id IN (4, 5)"""
+
+            self.cursor.execute(bouns_query)
+            
+            bouns_emp = self.cursor.fetchall()
+            print (bouns_emp)
+            bonus_emp_ids = set(emp_id[0] for emp_id in bouns_emp)
+
+            # print (employees_data)
 
 
             # for row in employees_data:
@@ -214,21 +226,24 @@ class OdooConnector:
             
             # Get field mappings for applying to employee model
             mappings = {m.odoo_field: m.employee_field for m in OdooMapping.query.filter_by(is_active=True).all()}
-            
+            print(" Employee data lenght")
+            # print(len(employees_data))
             for emp_data in employees_data:
-                print(type(emp_data))
-                print(list(emp_data.keys()))
-                print("---------------233-----------------------------")
-                print(emp_data['odoo_id'])
+                print (type(emp_data))
+                # print (emp_data['is_bonus'] , "emp_data['is_bonus'] ")
+                if 'odoo_id' in emp_data:
 
-                for key, value in emp_data.items():
-                    print(f"{key}: {value}")
+                    is_bonus = emp_data.get('odoo_id') in bonus_emp_ids if 'odoo_id' in emp_data else False
+                else:
+                    is_bonus = False  # or skip this employee entirely
+
+                print(is_bonus,"is_bonus", emp_data['odoo_id'])
 
                 # Check if employee exists in our database
                 employee = Employee.query.filter_by(odoo_id=emp_data['odoo_id']).first()
                 
                 if employee:
-                    print(" in if ")
+                    # print(" in if ")
                     # Update existing employee with standard fields
                     if 'name' in emp_data:
                         employee.name = emp_data['name']
@@ -240,7 +255,7 @@ class OdooConnector:
                     # Update phone number for WhatsApp OTP if available
                     if 'mobile_phone' in emp_data and emp_data['mobile_phone']:
                         employee.phone = emp_data['mobile_phone']
-                    elif 'work_phone' in emp_data:
+                    elif 'work_phone' in emp_data and emp_data['work_phone']:
                         employee.phone = emp_data['work_phone']
                     if 'work_email' in emp_data and emp_data['work_email']:
                         employee.email = emp_data['work_email']
@@ -248,8 +263,8 @@ class OdooConnector:
                     if 'active' in emp_data:
                         employee.is_active = emp_data['active']
 
-                    if 'is_bonus' in emp_data:
-                        employee.is_bonus = emp_data['is_bonus']
+                    # if 'is_bonus' in emp_data:
+                    employee.is_bonus = is_bonus
                     
                     # Apply any dynamic mapped fields
                     for odoo_field, employee_field in mappings.items():
@@ -258,7 +273,7 @@ class OdooConnector:
                     
                     employee.last_sync = datetime.utcnow()
                 else:
-                    print(" in elase ")
+                    # print(" in elase ")
                     # Create new employee with default required fields
                     employee_data = {
                         'odoo_id': emp_data['odoo_id'],
@@ -266,7 +281,7 @@ class OdooConnector:
                         'department': emp_data.get('department_name'),
                         'position': emp_data.get('job_name'),
                         'is_active': emp_data.get('active', True),
-                        'is_bonus': emp_data.get('is_bonus', False),
+                        'is_bonus': is_bonus,
                         'employee_code': f"EMP{emp_data['odoo_id']:04d}"
                     }
                     

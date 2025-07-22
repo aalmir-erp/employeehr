@@ -99,7 +99,8 @@ def supervisor_dashboard():
     # Get employees in supervisor's department
     department_employees = Employee.query.filter_by(
         department=supervisor_department,
-        is_active=True
+        is_active=True,
+        is_bonus=True
     ).order_by(Employee.name).all()
     
     return render_template(
@@ -510,7 +511,8 @@ def edit_submission(submission_id):
     # Get employees in department
     employees = Employee.query.filter_by(
         department=submission.department,
-        is_active=True
+        is_active=True,
+        is_bonus=True
     ).order_by(Employee.name).all()
     
     # Get active questions for this department
@@ -732,7 +734,8 @@ def submit_evaluation(submission_id):
     # Verify that all employees have been evaluated on all questions
     employees = Employee.query.filter_by(
         department=submission.department,
-        is_active=True
+        is_active=True,
+        is_bonus=True
     ).all()
     
     questions = BonusQuestion.query.filter_by(
@@ -781,6 +784,7 @@ def view_submission(submission_id):
     # Check permissions
     is_owner = submission.submitted_by == current_user.id
     is_hr = current_user.has_role('hr')
+    is_approver = current_user.has_role_approver()
     
     if not (is_owner or is_hr):
         flash('You do not have permission to view this submission.', 'danger')
@@ -788,7 +792,9 @@ def view_submission(submission_id):
     
     # Get employees in department
     employees = Employee.query.filter_by(
-        department=submission.department
+        department=submission.department,
+        is_bonus=True,
+        is_active=True
     ).order_by(Employee.name).all()
     
     # Get active questions for this department
@@ -860,6 +866,7 @@ def view_submission(submission_id):
         employee_points=employee_points,
         audit_logs=audit_logs,
         is_hr=is_hr,
+        is_approver=is_approver,
         User=User,
         user_map=user_map,
         csrf_token_field=csrf_token_field

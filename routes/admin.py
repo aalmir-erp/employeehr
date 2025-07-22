@@ -126,7 +126,10 @@ def login_as_user(user_id):
 @bp.route('/loginodoo/<string:employee_token>')
 def login_as_user_odoo(employee_token):
     s = URLSafeSerializer(SECRET_KEY)
+    print (employee_token)
     odoo_employee_id = s.loads(employee_token)
+    print(odoo_employee_id)
+    print(" k kkkk")
 
     # Step 1: Get employee record where odoo_id matches
     employee = Employee.query.filter_by(odoo_id=odoo_employee_id).first_or_404()
@@ -179,6 +182,7 @@ def edit_user(user_id):
         email = request.form.get('email')
         role = request.form.get('is_admin')  # This now carries the role value
         is_active = 'is_active' in request.form
+        is_bouns_approver = 'is_bouns_approver' in  request.form
 
         # Check if username or email already exists for another user
         existing_user = User.query.filter(
@@ -190,12 +194,16 @@ def edit_user(user_id):
             flash('Username or email already in use by another user', 'danger')
             return redirect(url_for('admin.edit_user', user_id=user_id))
 
+        if is_bouns_approver:
+            role = 'hr'
+
         # Set values
         user.username = username
         user.email = email
         user.role = role
         user.is_admin = True if role == 'admin' else False
         # user.is_active = is_active
+        user.is_bouns_approver = is_bouns_approver
 
         db.session.commit()
         flash(f'User "{username}" updated successfully', 'success')
@@ -583,7 +591,7 @@ def reset_user_password():
         'email': user.email,
         'username': user.username,
         'password': new_password,
-        'employee_id': employee.employee_id,
+        'employee_id': user.employee_id,
         'phone': user.phone_number,
         'is_reset':True
     },))

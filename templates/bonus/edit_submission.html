@@ -91,7 +91,7 @@
                                     <th class="employee-name">Employee</th>
                                     {% for question in questions %}
                                     <th class="score-cell" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ question.question_text }}">
-                                        <span class="d-block text-truncate" style="max-width: 150px;">{{ question.question_text }}</span>
+                                        <span class="d-block " style="max-width: 100px;">{{ question.question_text }}</span>
                                         <small class="d-block text-muted">({{ question.min_value }}-{{ question.max_value }})</small>
                                     </th>
                                     {% endfor %}

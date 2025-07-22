@@ -53,6 +53,7 @@ class User(UserMixin, db.Model):
 
     # Fix AmbiguousForeignKeysError
     employee = db.relationship('Employee', backref='users', foreign_keys=[employee_id])
+    is_bouns_approver = db.Column(db.Boolean, default=False)
 
     
     @property
@@ -66,6 +67,15 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
     
+    def has_role_approver(self):
+        """Check if user has the specified role or higher privileges"""
+
+        if self.is_bouns_approver:
+            return True
+            
+        # Otherwise check role hierarchy
+        return False
+
     def has_role(self, role):
         """Check if user has the specified role or higher privileges"""
         role_hierarchy = {

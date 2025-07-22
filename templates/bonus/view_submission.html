@@ -112,7 +112,7 @@
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
                     <h4 class="mb-0">Employee Evaluations</h4>
                     <div>
-                        {% if is_hr and (submission.status == 'submitted' or submission.status == 'in_review') %}
+                        {% if is_hr and not is_approver and  (submission.status == 'submitted') %}
                         <button type="button" id="reject-button" class="btn btn-danger me-2">
                             Reject
                         </button>
@@ -125,6 +125,22 @@
                         </a>
                         {% endif %}
                     </div>
+
+                    <div>
+                        {% if is_approver and (submission.status == 'in_review') %}
+                        <button type="button" id="reject-button" class="btn btn-danger me-2">
+                            Reject
+                        </button>
+                        <button type="button" id="approve-button" class="btn btn-success">
+                            Approve
+                        </button>
+                        {% elif is_hr and submission.status == 'approved' %}
+                        <a href="{{ url_for('bonus.export_submission', submission_id=submission.id) }}" class="btn btn-primary">
+                            Export to Odoo
+                        </a>
+                        {% endif %}
+                    </div>
+
                 </div>
                 <div class="card-body">
                     {% if employees and questions %}
@@ -187,7 +203,7 @@
                                     <th class="employee-name">Employee</th>
                                     {% for question in questions %}
                                     <th class="score-cell" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ question.question_text }}">
-                                        <span class="d-block text-truncate" style="max-width: 150px;">{{ question.question_text }}</span>
+                                        <span class="d-block " style="max-width: 100px;">{{ question.question_text }}</span>
                                         <small class="d-block text-muted">({{ question.min_value }}-{{ question.max_value }})</small>
                                     </th>
                                     {% endfor %}
