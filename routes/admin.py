@@ -235,8 +235,10 @@ def delete_user():
 def notify_odoo_user_created(data):
     try:
         print(" odoo hit methdo ")
-        requests.post("http://erp.mir.ae:8050/attendance_user_created", data=data, timeout=3)
-
+        print (data)
+        res = requests.post("http://erp.mir.ae:8069/attendance_user_created", data=data, timeout=3)
+        print(res, " restune ")
+        print(res.text)  # Gets the raw text response
     except requests.exceptions.RequestException as e:
         print("❌ Failed to notify Odoo (created):", e)
 
@@ -591,7 +593,7 @@ def reset_user_password():
         'email': user.email,
         'username': user.username,
         'password': new_password,
-        'employee_id': user.employee_id,
+        'employee_id': employee.odoo_id,
         'phone': user.phone_number,
         'is_reset':True
     },))
