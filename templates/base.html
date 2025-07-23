@@ -353,6 +353,14 @@
                             <i class="bi bi-award"></i> Bonus System
                         </a>
                     </li>
+
+                    <li class="dropdown-item">
+                        <a class="nav-link {% if request.path.startswith('users') %}active{% endif %}" href="{{ url_for('admin.users') }}">
+                            <i class="bi bi-award"></i> User
+                        </a>
+                    </li>
+
+                    
                     {% if current_user.has_role('hr') %}
                      <li>
                                 <a class="dropdown-item" href="{{ url_for('admin.employees') }}">

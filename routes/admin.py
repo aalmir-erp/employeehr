@@ -546,7 +546,7 @@ def users():
 @login_required
 def reset_password_form(user_id):
     """Display form to reset a user's password"""
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to reset passwords', 'danger')
         return redirect(url_for('auth.login'))
     
@@ -559,7 +559,7 @@ def reset_password_form(user_id):
 def reset_user_password():
     """Process form to reset a user's password"""
     # Ensure user is admin
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to reset passwords', 'danger')
         return redirect(url_for('auth.login'))
     user_id = request.form.get('user_id')
