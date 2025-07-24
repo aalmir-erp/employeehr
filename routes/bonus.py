@@ -8,6 +8,8 @@ from markupsafe import Markup
 from sqlalchemy import func
 import csv
 from io import StringIO
+import threading
+import requests
 
 from models import (
     db, User, Employee, Department, BonusQuestion, BonusEvaluationPeriod, 
@@ -154,6 +156,7 @@ def add_question():
         max_value = request.form.get('max_value', type=int)
         default_value = request.form.get('default_value', type=int)
         weight = request.form.get('weight', type=float)
+        only_hr = 'only_hr' in request.form
         
         # Validate input
         if not department or not question_text:
@@ -185,6 +188,7 @@ def add_question():
             max_value=max_value,
             default_value=default_value,
             weight=weight,
+            only_hr=only_hr,
             created_by=current_user.id
         )
         
@@ -219,6 +223,7 @@ def edit_question(question_id):
         default_value = request.form.get('default_value', type=int)
         weight = request.form.get('weight', type=float)
         is_active = 'is_active' in request.form
+        only_hr = 'only_hr' in request.form
         
         # Validate input
         if not department or not question_text:
@@ -250,6 +255,7 @@ def edit_question(question_id):
         question.default_value = default_value
         question.weight = weight
         question.is_active = is_active
+        question.only_hr = only_hr
         question.updated_at = datetime.now()
         
         db.session.commit()
@@ -917,6 +923,16 @@ def hr_review():
         filter_status=filter_status
     )
 
+def notify_odoo_user_bonus_approvel(data):
+    # try:
+
+
+        requests.post("http://erp.mir.ae:8050/odoo_user_bonus_approvel", data=data, timeout=3)
+
+    # except requests.exceptions.RequestException as e:
+    #     print("❌ Failed to notify Odoo (created):", e)
+
+
 
 @bp.route('/hr/review/<int:submission_id>', methods=['GET', 'POST'])
 @login_required
@@ -925,12 +941,14 @@ def hr_review_submission(submission_id):
     """HR review a specific submission with multi-level approval"""
     # Get how many HR approvals are required from system config
     system_config = SystemConfig.query.first()
+    print(" kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk")
     required_approvals = 2  # Default fallback
     
     if system_config and system_config.required_approvals:
         required_approvals = system_config.required_approvals
     
     submission = BonusSubmission.query.get_or_404(submission_id)
+    print(submission.department, " 00000000000000000000000000")
     
     # Check if submission can be reviewed
     if submission.status not in ['submitted', 'in_review']:
@@ -974,6 +992,7 @@ def hr_review_submission(submission_id):
         
         # Handle approval - multi-level process
         current_approvers = submission.approvers or []
+
         
         # Check if current user already approved
         if current_user.id in current_approvers:
@@ -990,6 +1009,36 @@ def hr_review_submission(submission_id):
         # Change status to in_review after first approval
         if submission.status == 'submitted':
             submission.status = 'in_review'
+
+            print(" odoo hit methdo  Super HR ")
+            
+            # users = User.query.filter_by(is_bouns_approver=True).all()
+            users = User.query.filter_by(is_bouns_approver=True).all()
+            emp = Employee.query.filter_by(id=users[0].employee_id).first()
+
+            # print(users[0].email)
+            
+            # data['email'] = users.email
+            # data['body'] = " HR has been Approved the bonus. Please Review and Approve"
+            body_html = """
+                <p>Dear {EMPNAME},</p>
+                <p>HR has approved and submitted the bonuses for {DEPARTMENT} department for your review in ERP. Please review and approve.</p>
+                <b>Login to your ERP and click attendance app link.</p>
+                <p>Best regards,<br/>HR Department</p>
+            """.format(EMPNAME=emp.name, DEPARTMENT=submission.department)
+            # data['body'] = body_html
+            # data['employee_id'] = users.employee_id.odoo_id
+
+            thread = threading.Thread(target=notify_odoo_user_bonus_approvel, args=({
+                    'email': emp.email,
+                    'body': body_html,
+                    'employee_id': emp.odoo_id,
+                    # 'employee_id': employee.odoo_id,
+                    # 'phone': employee.phone,
+                    # 'is_reset':False
+                },))
+            thread.start()
+
         
         # Create audit log entry for this approval
         log = BonusAuditLog(
@@ -998,7 +1047,8 @@ def hr_review_submission(submission_id):
             user_id=current_user.id,
             notes=notes or f'Approval level {len(current_approvers)} of {required_approvals}'
         )
-        
+
+
         db.session.add(log)
         
         # Check if all required approvals received
@@ -1018,6 +1068,37 @@ def hr_review_submission(submission_id):
             )
             
             db.session.add(final_log)
+            print(" odoo hit methdo  Super HR ")
+            
+            # users = User.query.filter_by(is_bouns_approver=True).all()
+            users = User.query.filter_by(role='hr', is_bouns_approver=False).all()
+            for user in users:
+
+                emp = Employee.query.filter_by(id=user.employee_id).first()
+
+                # print(users[0].email)
+                
+                # data['email'] = users.email
+                # data['body'] = " HR has been Approved the bonus. Please Review and Approve"
+                body_html = """
+                    <p>Dear {EMPNAME},</p>
+                    <p>Final approval for the payroll bonuses  for {DEPARTMENT} department has been Done. Please review and Submit to payroll.</p>
+                    
+                    <p>Best regards,<br/>HR Department</p>
+                """.format(EMPNAME=emp.name, DEPARTMENT=submission.department)
+                # data['body'] = body_html
+                # data['employee_id'] = users.employee_id.odoo_id
+
+                thread = threading.Thread(target=notify_odoo_user_bonus_approvel, args=({
+                        'email': emp.email,
+                        'body': body_html,
+                        'employee_id': emp.odoo_id,
+                        # 'employee_id': employee.odoo_id,
+                        # 'phone': employee.phone,
+                        # 'is_reset':False
+                    },))
+                thread.start()
+
             
             # Update original_value for all evaluations
             evaluations = BonusEvaluation.query.filter_by(
