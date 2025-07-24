@@ -113,6 +113,33 @@ class Department(db.Model):
     def __repr__(self):
         return f'<Department {self.name}>'
 
+class PayrollStatus(db.Model):
+    __tablename__ = 'payroll_status'
+
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Foreign Key to Employee model
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
+    
+    # Payroll ID (optional: make it a string or integer depending on your use case)
+    # payroll_id = db.Column(db.Integer, nullable=True)        # Integer ID from Odoo
+    payroll_name = db.Column(db.String(64), nullable=True)
+    payroll_id_odoo = db.Column(db.Integer, nullable=True)  
+
+    
+    # Status fields
+    odoo_status = db.Column(db.String(64), nullable=True)
+    status = db.Column(db.String(64), nullable=True)
+    
+    # Payroll date
+    payroll_date = db.Column(db.Date, nullable=True)
+
+    # Optional relationship backref to Employee
+    employee = db.relationship('Employee', backref='payroll_statuses')
+
+    def __repr__(self):
+        return f'<PayrollStatus EmployeeID={self.employee_id} Status={self.status}>'
+
 class Employee(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     odoo_id = db.Column(db.Integer, unique=True)
@@ -936,6 +963,7 @@ class BonusQuestion(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
     # need to  create boolen here for thee type Attendance, Efficiency, Waste Reduction
+    only_hr = db.Column(db.Boolean, default=True)
     
     # Relationships
     creator = db.relationship('User', foreign_keys=[created_by])

@@ -70,6 +70,12 @@
                         </div>
 
                         <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="only_hr" name="only_hr" {% if question.only_hr %}checked{% endif %}>
+                            <label class="form-check-label" for="only_hr">Only HR and Higher Management can Eidt </label>
+                            <div class="form-text">If Your , this question will not be Editable for supervisor.</div>
+                        </div>
+
+                        <div class="mb-3 form-check">
                             <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if question.is_active %}checked{% endif %}>
                             <label class="form-check-label" for="is_active">Active</label>
                             <div class="form-text">Inactive questions won't appear in new evaluations.</div>

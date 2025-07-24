@@ -92,7 +92,7 @@
                                     {% for question in questions %}
                                     <th class="score-cell" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ question.question_text }}">
                                         <span class="d-block " style="max-width: 100px;">{{ question.question_text }}</span>
-                                        <small class="d-block text-muted">({{ question.min_value }}-{{ question.max_value }})</small>
+                                        <small class="d-block text-muted">({{ question.min_value }} to {{ question.max_value }})</small>
                                     </th>
                                     {% endfor %}
                                     <th class="score-cell">Total</th>
@@ -115,7 +115,8 @@
                                                 data-question-id="{{ question.id }}"
                                                 min="{{ question.min_value }}"
                                                 max="{{ question.max_value }}"
-                                                value="{% if employee.id in evaluation_matrix and question.id in evaluation_matrix[employee.id] %}{{ evaluation_matrix[employee.id][question.id].value }}{% else %}{{ question.default_value }}{% endif %}">
+                                                value="{% if employee.id in evaluation_matrix and question.id in evaluation_matrix[employee.id] %}{{ evaluation_matrix[employee.id][question.id].value }}{% else %}{{ question.default_value }}{% endif %}"
+                                                {% if question.only_hr and not current_user.has_role('hr') %}readonly{% endif %}>
                                                
                                             </form>
                                       
@@ -289,6 +290,8 @@
             const max = parseFloat(input.max);
 
             if (value < min || value > max) {
+                input.value = 0; // reset the value to 0
+
                 alert(`Value must be between ${min} and ${max}`);
                 return;
             }

@@ -204,7 +204,7 @@
                                     {% for question in questions %}
                                     <th class="score-cell" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ question.question_text }}">
                                         <span class="d-block " style="max-width: 100px;">{{ question.question_text }}</span>
-                                        <small class="d-block text-muted">({{ question.min_value }}-{{ question.max_value }})</small>
+                                        <small class="d-block text-muted">({{ question.min_value }} to {{ question.max_value }})</small>
                                     </th>
                                     {% endfor %}
                                     <th class="score-cell">Total</th>
@@ -234,7 +234,8 @@
                                                         min="{{ question.min_value }}"
                                                         max="{{ question.max_value }}"
                                                         value="{{ evaluation.value }}"
-                                                    >
+                                                        {% if question.only_hr and not current_user.has_role('hr') %}readonly{% endif %}>
+
                                                     <div class="mt-1">
                                                         <small class="saving-indicator" style="display: none;">
                                                             <i class="bi bi-arrow-repeat"></i> Saving...
@@ -521,6 +522,24 @@
 {% endif %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+
+        const inputs = document.querySelectorAll('.edit-score-input');
+
+    inputs.forEach(input => {
+        console.log(" heherherheeh")
+        input.addEventListener('change', function () {
+            const value = parseFloat(input.value);
+            const min = parseFloat(input.min);
+            const max = parseFloat(input.max);
+
+            if (value < min || value > max) {
+                alert(`Value must be between ${min} and ${max}`);
+                input.value = 0;
+            }
+        });
+    });
+// });
+
         console.log('Bonus submission page loaded');
         
         // Simple working button handlers
