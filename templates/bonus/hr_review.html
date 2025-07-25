@@ -90,9 +90,30 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <a href="{{ url_for('bonus.view_submission', submission_id=submission.id) }}" class="btn btn-sm btn-primary">
-                                            Review
+
+                                        {% if submission.status == 'submitted' and not is_bonus_approver %}
+                                    <a href="{{ url_for('bonus.edit_submission', submission_id=submission.id) }}" class="btn btn-sm btn-primary">
+                                            Review and Submit 
                                         </a>
+                                        {% endif %}
+                                    {% if submission.status == 'submitted' and  is_bonus_approver %}
+                                    <a href="{{ url_for('bonus.view_submission', submission_id=submission.id) }}" class="btn btn-sm btn-primary">
+                                            Review 
+                                        </a>
+                                        {% endif %}
+
+                                    {% if submission.status == 'in_review' and is_bonus_approver%}
+                                    <a href="{{ url_for('bonus.edit_submission', submission_id=submission.id) }}" class="btn btn-sm btn-primary">
+                                            Review and Submit 
+                                        </a>
+                                        {% endif %}
+
+                                    {% if submission.status == 'in_review' and not is_bonus_approver%}
+                                    <a href="{{ url_for('bonus.view_submission', submission_id=submission.id) }}" class="btn btn-sm btn-primary">
+                                            Review 
+                                        </a>
+                                        {% endif %}
+
                                     </td>
                                 </tr>
                                 {% endfor %}
