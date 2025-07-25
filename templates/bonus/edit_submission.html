@@ -70,6 +70,20 @@
             <div class="card">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
                     <h4 class="mb-0">Employee Evaluations</h4>
+                    
+{% if  current_user.has_role('hr') %} 
+                    <div>
+<button type="button" id="reject-button" class="btn btn-danger me-2">
+                            Reject
+                        </button>
+                        <button type="button" id="approve-button" class="btn btn-success">
+                            Approve
+                        </button>
+                    </div>
+
+                    {% endif %}
+
+{% if not  current_user.has_role('hr') %} 
                     <div>
                         <button type="button" class="btn btn-outline-info me-2" data-bs-toggle="modal" data-bs-target="#evaluationGuideModal">
                             <i class="bi bi-info-circle me-1"></i> Evaluation Guide
@@ -81,13 +95,66 @@
                             </button>
                         </form>
                     </div>
+
+                    {% endif %}
+                    
                 </div>
                 <div class="card-body">
+
+                    <!-- Bulk Update Controls -->
+                    {% if current_user.has_role('hr') and (submission.status == 'approved' or submission.status == 'submitted' or submission.status == 'in_review') %}
+                    <div class="card mb-4 border">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">Bulk Update Controls</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="bulk-update-form" method="post">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Select Question:</label>
+                                        <select id="bulk-question-select" name="bulk-question-id" class="form-select mb-2" required>
+                                            <option value="">-- Select question --</option>
+                                            {% for question in questions %}
+                                            <option value="{{ question.id }}" 
+                                                    data-min="{{ question.min_value }}" 
+                                                    data-max="{{ question.max_value }}">
+                                                {{ question.question_text }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Set Score Value:</label>
+                                        <input type="number" id="bulk-score-value" name="bulk-score-value" class="form-control mb-2" min="0" max="10" step="0.5" required>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label">Select Employees:</label>
+                                        <div class="d-flex">
+                                            <button type="button" id="select-all-employees" class="btn btn-secondary btn-sm flex-grow-1 me-2">Select All</button>
+                                            <button type="button" id="deselect-all-employees" class="btn btn-outline-secondary btn-sm flex-grow-1">Deselect All</button>
+                                        </div>
+                                        <div id="employee-checkboxes-container" class="d-none">
+                                            <!-- Checkboxes will be cloned here via JavaScript -->
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <button type="button" id="bulk-update-btn" class="btn btn-primary">Apply Updates</button>
+                                    <span id="bulk-update-status" class="ms-3" style="display: none;"></span>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
                     {% if employees and questions %}
                     <div class="table-responsive">
                         <table class="table table-bordered evaluation-table">
                             <thead>
                                 <tr>
+                                    <th style="width: 35px;">
+                                        <input type="checkbox" class="form-check-input" id="header-select-all">
+                                    </th>
                                     <th class="employee-name">Employee</th>
                                     {% for question in questions %}
                                     <th class="score-cell" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ question.question_text }}">
@@ -101,6 +168,10 @@
                             <tbody>
                                 {% for employee in employees %}
                                 <tr data-employee-id="{{ employee.id }}">
+                                    <td>
+                                        <input type="checkbox" class="form-check-input employee-checkbox" data-employee-id="{{ employee.id }}">
+                                    </td>
+
                                     <td class="employee-name">{{ employee.name }}</td>
                                     {% for question in questions %}
                                     <td class="score-cell">
@@ -232,21 +303,250 @@
         </div>
     </div>
 </div>
+
+
+
+<!-- HR Review Modals -->
+{% if current_user.has_role('hr') and (submission.status == 'submitted' or submission.status == 'in_review') %}
+<!-- Approve Modal -->
+<div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="approveModalLabel">Approve Submission</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{{ url_for('bonus.hr_review_submission', submission_id=submission.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <p>Are you sure you want to approve this submission?</p>
+                    <p>After approval, this submission can still be edited for fine-tuning before export.</p>
+                    
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Notes (Optional):</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                    </div>
+                    
+                    <input type="hidden" name="decision" value="approve">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Approve</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="rejectModalLabel">Reject Submission</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{{ url_for('bonus.hr_review_submission', submission_id=submission.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Rejecting will allow the supervisor to make changes and resubmit.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="reject-notes" class="form-label">Rejection Reason (Required):</label>
+                        <textarea class="form-control" id="reject-notes" name="notes" rows="3" required></textarea>
+                    </div>
+                    
+                    <input type="hidden" name="decision" value="reject">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Reject</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        let pendingRequests = 0;
-        let isSubmitting = false;
-    
-        const showLoader = (input) => {
-            let cell = input.closest('td');
-            if (!cell.querySelector('.saving-indicator')) {
-                let span = document.createElement('span');
-                span.classList.add('saving-indicator');
-                span.innerHTML = 'Saving...';
-                cell.appendChild(span);
-            }
-            cell.querySelector('.saving-indicator').style.display = 'inline';
-        };
+
+
+        const approveButton = document.getElementById('approve-button');
+        const rejectButton = document.getElementById('reject-button');
+        const selectAllBtn = document.getElementById('select-all-employees');
+        const deselectAllBtn = document.getElementById('deselect-all-employees');
+        const headerCheckbox = document.getElementById('header-select-all');
+        const employeeCheckboxes = document.querySelectorAll('.employee-checkbox');
+        const bulkUpdateBtn = document.getElementById('bulk-update-btn');
+
+
+        // Approve button
+        if (approveButton) {
+            console.log('Adding approve button listener');
+            approveButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('Approve button clicked');
+                const approveModal = new bootstrap.Modal(document.getElementById('approveModal'));
+                approveModal.show();
+            });
+        }
+        
+
+        
+        // Reject button  
+        if (rejectButton) {
+            console.log('Adding reject button listener');
+            rejectButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('Reject button clicked');
+                const rejectModal = new bootstrap.Modal(document.getElementById('rejectModal'));
+                rejectModal.show();
+            });
+        }
+
+       // Select all button
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', function() {
+                employeeCheckboxes.forEach(checkbox => {
+                    checkbox.checked = true;
+                });
+                if (headerCheckbox) headerCheckbox.checked = true;
+            });
+        }
+        
+        // Deselect all button
+        if (deselectAllBtn) {
+            deselectAllBtn.addEventListener('click', function() {
+                employeeCheckboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                if (headerCheckbox) headerCheckbox.checked = false;
+            });
+        }
+        
+        // Header checkbox
+        if (headerCheckbox) {
+            headerCheckbox.addEventListener('change', function() {
+                employeeCheckboxes.forEach(checkbox => {
+                    checkbox.checked = headerCheckbox.checked;
+                });
+            });
+        }
+        
+        // Bulk update button
+        if (bulkUpdateBtn) {
+            bulkUpdateBtn.addEventListener('click', function() {
+                const questionSelect = document.getElementById('bulk-question-select');
+                const scoreValue = document.getElementById('bulk-score-value');
+                
+                if (!questionSelect || !questionSelect.value) {
+                    alert('Please select a question first');
+                    return;
+                }
+                
+                const questionId = questionSelect.value;
+                const newValue = parseFloat(scoreValue.value);
+                const selectedOption = questionSelect.options[questionSelect.selectedIndex];
+                const minValue = parseFloat(selectedOption.dataset.min);
+                const maxValue = parseFloat(selectedOption.dataset.max);
+                
+                if (isNaN(newValue) || newValue < minValue || newValue > maxValue) {
+                    alert(`Please enter a valid score between ${minValue} and ${maxValue}`);
+                    return;
+                }
+                
+                const selectedEmployees = [];
+                employeeCheckboxes.forEach(checkbox => {
+                    if (checkbox.checked) {
+                        selectedEmployees.push(checkbox.dataset.employeeId);
+                    }
+                });
+                
+                if (selectedEmployees.length === 0) {
+                    alert('Please select at least one employee');
+                    return;
+                }
+                
+                const bulkUpdateStatus = document.getElementById('bulk-update-status');
+                bulkUpdateStatus.textContent = "Updating scores...";
+                bulkUpdateStatus.className = "text-info";
+                bulkUpdateStatus.style.display = "block";
+                
+                selectedEmployees.forEach(employeeId => {
+                    const row = document.querySelector(`tr[data-employee-id="${employeeId}"]`);
+                    if (row) {
+                        const questionInput = row.querySelector(`input[data-question-id="${questionId}"]`);
+                        if (questionInput) {
+                            questionInput.value = newValue;
+                            questionInput.classList.add('score-value-changed');
+                        }
+                    }
+                });
+                
+                bulkUpdateStatus.textContent = `Updated ${selectedEmployees.length} scores successfully!`;
+                bulkUpdateStatus.className = "text-success";
+                
+                // Update totals after bulk update
+                updateEmployeeTotals();
+            });
+        }
+        
+        // Function to calculate and update employee totals
+        function updateEmployeeTotals() {
+            console.log('Updating employee totals...');
+            
+            // Get all employee rows
+            const employeeRows = document.querySelectorAll('tr[data-employee-id]');
+            console.log(employeeRows)
+            console.log("1")
+            
+            employeeRows.forEach(row => {
+                const employeeId = row.dataset.employeeId;
+                const scoreInputs = row.querySelectorAll('input[data-question-id]');
+                let total = 0;
+                
+                scoreInputs.forEach(input => {
+                    const value = parseFloat(input.value) || 0;
+                    const questionId = input.dataset.questionId;
+                    
+                    // Get question weight (you can store this in data attributes or calculate)
+                    const weight = 1.0; // Default weight, you can make this dynamic
+                    total += value * weight;
+                });
+                
+                // Update the total display
+                const totalElement = document.getElementById(`total-${employeeId}`);
+                if (totalElement) {
+                    totalElement.textContent = total.toFixed(1);
+                }
+            });
+
+            console.log(employeeRows)
+            console.log("1")
+
+                    const inputs = document.querySelectorAll('.score-input');
+
+                            inputs.forEach(input => {
+            saveInput(input);  // send each one to DB regardless of change
+        });
+
+console.log(" alasthhhh ")
+        }  
+
+
+            // let cell = input.closest('td');
+            // if (!cell.querySelector('.saving-indicator')) {
+            //     let span = document.createElement('span');
+            //     span.classList.add('saving-indicator');
+            //     span.innerHTML = 'Saving...';
+            //     cell.appendChild(span);
+            // }
+            // cell.querySelector('.saving-indicator').style.display = 'inline';
+        // };
     
         const hideLoader = (input) => {
             let cell = input.closest('td');
@@ -259,6 +559,7 @@
         const inputs = document.querySelectorAll('.score-input');
 
         const saveInput = (input) => {
+            console.log(" under save input -------------------")
             console.log(input)
             const employeeRows = document.querySelectorAll('tr[data-employee-id]');
             
@@ -299,6 +600,8 @@
             const form = input.closest('form');
             const formData = new FormData(form);
             const url = form.getAttribute('action');
+            console.log(" posting  bulk URL")
+            console.log(url)
 
             fetch(url, {
                 method: 'POST',
@@ -330,7 +633,7 @@
             });
         });
 
-    
+
         // Intercept the submit form
         const submitBtn = document.querySelector('#final-submit-form button[type="submit"]');
         const form = document.getElementById('final-submit-form');
@@ -346,6 +649,7 @@
             });
         }
     });
+
     </script>
 
 {% endblock %}

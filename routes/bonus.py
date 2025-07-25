@@ -510,9 +510,9 @@ def edit_submission(submission_id):
         return redirect(url_for('bonus.index'))
     
     # Check if submission is editable
-    if submission.status not in ['draft', 'rejected']:
-        flash('This submission is no longer editable.', 'warning')
-        return redirect(url_for('bonus.view_submission', submission_id=submission.id))
+    # if submission.status not in ['draft', 'rejected']:
+    #     flash('This submission is no longer editable.', 'warning')
+    #     return redirect(url_for('bonus.view_submission', submission_id=submission.id))
     
     # Get employees in department
     employees = Employee.query.filter_by(
@@ -805,7 +805,8 @@ def view_submission(submission_id):
     
     # Get active questions for this department
     questions = BonusQuestion.query.filter_by(
-        department=submission.department
+        department=submission.department,
+        is_active=True
     ).order_by(BonusQuestion.id).all()
     
     # Get evaluations
@@ -915,19 +916,23 @@ def hr_review():
         other_submissions = BonusSubmission.query.filter(
             BonusSubmission.status.in_(['approved', 'rejected'])
         ).order_by(BonusSubmission.reviewed_at.desc()).all()
+
+    print(current_user.is_bouns_approver)
+    print(" hhhhhhhhhhhhhhhhhhhh")
     
     return render_template(
         'bonus/hr_review.html',
         pending_submissions=pending_submissions,
         other_submissions=other_submissions,
-        filter_status=filter_status
+        filter_status=filter_status,
+        is_bonus_approver=current_user.is_bouns_approver
     )
 
 def notify_odoo_user_bonus_approvel(data):
     # try:
 
 
-        requests.post("http://erp.mir.ae:8050/odoo_user_bonus_approvel", data=data, timeout=3)
+        requests.post("http://erp.mir.ae:8069/odoo_user_bonus_approvel", data=data, timeout=3)
 
     # except requests.exceptions.RequestException as e:
     #     print("❌ Failed to notify Odoo (created):", e)
@@ -1014,7 +1019,14 @@ def hr_review_submission(submission_id):
             
             # users = User.query.filter_by(is_bouns_approver=True).all()
             users = User.query.filter_by(is_bouns_approver=True).all()
+            print ( users) 
+            print("---------------------------")
+            print (users[0].employee_id)
+            for user in users:
+                print(user.employee_id)
+                print(" hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh")
             emp = Employee.query.filter_by(id=users[0].employee_id).first()
+            print(emp)
 
             # print(users[0].email)
             
@@ -1073,8 +1085,11 @@ def hr_review_submission(submission_id):
             # users = User.query.filter_by(is_bouns_approver=True).all()
             users = User.query.filter_by(role='hr', is_bouns_approver=False).all()
             for user in users:
+                print (user)
+                print(" hahashdahdsahsd sa")
 
                 emp = Employee.query.filter_by(id=user.employee_id).first()
+                print(emp)
 
                 # print(users[0].email)
                 
