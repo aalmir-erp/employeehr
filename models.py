@@ -991,6 +991,7 @@ class BonusEvaluationPeriod(db.Model):
         return f"<BonusEvaluationPeriod {self.name}>"
 
 
+
 class BonusSubmission(db.Model):
     """Bonus submission by supervisor for a department"""
     id = db.Column(db.Integer, primary_key=True)
@@ -1045,6 +1046,29 @@ class BonusSubmission(db.Model):
         return f"<BonusSubmission {self.department} - {self.period.name if self.period else 'No Period'}>"
 
 
+class BonusEvaluationHistory(db.Model):
+    __tablename__ = 'bonus_evaluation_history'
+
+    id = db.Column(db.Integer, primary_key=True)
+    submission_id = db.Column(db.Integer, db.ForeignKey('bonus_submission.id'), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
+    question_id = db.Column(db.Integer, db.ForeignKey('bonus_question.id'), nullable=False)
+    value = db.Column(db.Integer, nullable=False)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    record_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    odoo_status = db.Column(db.String(64), nullable=True)
+
+    # Forward relationships only
+    creator = db.relationship('User')
+    submission = db.relationship('BonusSubmission')  # No back_populates
+    employee = db.relationship('Employee')
+    question = db.relationship('BonusQuestion')
+
+    def __repr__(self):
+        return f"<BonusEvaluationHistory Employee={self.employee_id} Question={self.question_id} Value={self.value}>"
+
 class BonusEvaluation(db.Model):
     """Individual bonus evaluation for an employee on a specific question"""
     id = db.Column(db.Integer, primary_key=True)
@@ -1061,6 +1085,7 @@ class BonusEvaluation(db.Model):
     submission = db.relationship('BonusSubmission', back_populates='evaluations')
     employee = db.relationship('Employee')
     question = db.relationship('BonusQuestion', back_populates='evaluations')
+    odoo_status = db.Column(db.String(64), nullable=True)
     
     def __repr__(self):
         return f"<BonusEvaluation Employee={self.employee_id} Question={self.question_id} Value={self.value}>"

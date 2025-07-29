@@ -63,6 +63,10 @@
                     <i class="bi bi-file-earmark-spreadsheet"></i> Export CSV
                 </button>
                 <button id="sendToOdooBtn" class="btn btn-primary">Send to MIR</button>
+                <button id="sendToOdooBtn_model" onclick="showMirSendingOption()" class="btn btn-primary" >
+Send to MIR All</button>
+                <button id="fetch_pay_roll" class="btn btn-primary">Fetch Payroll</button>
+
 
             </div>
         </div>
@@ -83,16 +87,21 @@
                             <th class="text-end">Absent Days</th>
                             <th class="text-end">Avg. Rate</th>
                             <th class="text-end">Weighted(OT)</th>
+                            <th class="text-end">Payrol</th>
+                            <th class="text-end">Payrol Status</th>
+                            <th class="text-end">Bouns Point</th>
                             <th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for result in results %}
-                        <tr data-employee-id="{{ result.employee_code }}" data-empid="{{ result.id }}" 
-                            data-overtime='{{ "%.1f"|format(result.overt_time_weighted if result.overt_time_weighted is not none else 0) }}'>
+                        <tr data-employee-id="{{ result.employee_code }}" data-employee-odoo_id="{{ result.odoo_id }}"  data-empid="{{ result.id }}" 
+                            data-overtime='{{ "%.1f"|format(result.overt_time_weighted if result.overt_time_weighted is not none else 0) }}' data-bonus="{{ bonus_point_map.get(result.id, 0) }}"
+    data-payslip="{{ payroll_mappayroll_id_odoo.get(result.id, 0) }}">
+
+
                 
-                            <td><input type="checkbox" class="employeeCheckbox" data-employee-id="{{ result.employee_code }}" data-empid="{{ result.id }}" 
-                                data-overtime='{{ "%.1f"|format(result.overt_time_weighted if result.overt_time_weighted is not none else 0) }}'></td>
+                            <td><input type="checkbox" class="employeeCheckbox" ></td>
                 
                             <td>{{ result.employee_code }}</td>
                             <td>
@@ -118,6 +127,11 @@
                             <td class="text-end">{{ result.absent_days or 0 }}</td>
                             <td class="text-end">{{ "%.2f"|format(result.avg_rate if result.avg_rate is not none else 0) }}x</td>
                             <td class="text-end">{{ "%.2f"|format(result.overt_time_weighted if result.overt_time_weighted is not none else 0) }}x</td>
+                            <td>{{ payroll_map_name.get(result.id, '-') }}</td>
+
+                            <td>{{ payroll_map_state.get(result.id, '-') }}</td>
+                            <td>{{bonus_point_map.get(result.id, '-')[0] }}</td>
+
                             
                             <td class="text-end">
                                 <a href="{{ url_for('overtime.employee_overtime', employee_id=result.id) }}" class="btn btn-sm btn-outline-primary">
@@ -152,17 +166,113 @@
         </div>
     </div>
 </div>
+
+
+<div class="modal fade" id="sendToOdooModal" tabindex="-1" role="dialog" aria-labelledby="sendToOdooModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <form id="sendToOdooForm" method="POST" action="{{ url_for('overtime.send_overtime_to_odoo') }}">
+          <input type="hidden" name="selected_employees" id="selectedEmployeesInput">
+          <input type="hidden" name="selected_data" id="selectedDataInput">
+
+          <input type="hidden" name="from_date" id="pop_from_date">
+          <input type="hidden" name="to_date" id="pop_to_date">
+
+
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="sendToOdooModalLabel">Select Options to Send</h5>
+          <!-- <button type="button" class="close" data-dismiss="modal" aria-label="Close"> -->
+            <!-- <span aria-hidden="true">&times;</span> -->
+          <!-- </button> -->
+        </div>
+
+        <div class="modal-body">
+          <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="checkbox1" name="is_overtime" value="1">
+            <label class="form-check-label" for="checkbox1">Send Overtime Data</label>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="checkbox2" name="is_leave" value="1">
+            <label class="form-check-label" for="checkbox2">Send Abcent Summary</label>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="checkbox3" name="is_bonus" value="1">
+            <label class="form-check-label" for="checkbox3">Send Bonus Info</label>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <!-- <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button> -->
+          <button type="submit" class="btn btn-primary">Send Now</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
+
+        function showMirSendingOption() {
+        // Show the modal
+            const checkedCount = $('.employeeCheckbox:checked').length;
+    if (checkedCount === 0) {
+      alert("Please select at least one record to send.");
+      return;
+    }
+
+        const modal = new bootstrap.Modal(document.getElementById('sendToOdooModal'));
+        modal.show();
+    }
+    
+
+$('#sendToOdooModal').on('show.bs.modal', function (event) {
+    var selectedEmployees = [];
+        var selectedData = [];
+console.log($('#from_date').val())
+$('#pop_from_date').val($('#from_date').val())
+$('#pop_to_date').val($('#to_date').val())
+
+$("#pop_to_date").val()
+
+
+    // Loop over all checked checkboxes
+ $('.employeeCheckbox:checked').each(function () {
+      var row = $(this).closest('tr');
+      var empData = {
+        emp_id: row.data('empid'),
+        employee_code: row.data('employee-id'),
+        odoo_id: row.data('employee-odoo_id'),
+        weighted_ot: row.data('overtime'),
+        bonus_point: row.data('bonus'),
+        payslip_id: row.data('payslip')
+      };
+      selectedData.push(empData);
+    });
+
+    // Inject into the hidden input
+    $('#selectedEmployeesInput').val(JSON.stringify(selectedEmployees));
+        $('#selectedDataInput').val(JSON.stringify(selectedData));
+
+  });
+
+  // Optional: Select All logic
+  $('#selectAll').on('change', function () {
+    $('.employeeCheckbox').prop('checked', this.checked);
+  });
+
+
 $(document).ready(function() {
     // Initialize Select2
     $('.select2').select2({
         theme: 'bootstrap-5',
         width: '100%'
     });
-    
+
+
     // Initialize DataTable with export functionality if not already initialized
     var overtimeTable;
     if ($('#overtimeTable').length > 0) {
@@ -259,6 +369,53 @@ $(document).ready(function() {
    console.log(" hhhhhhhhhhhhhhhhhhhhh ")
 
 
+$('#fetch_pay_roll').click(function() {
+        var runId = $(this).data('run-id');
+        var overtimeData = [];
+        var from_date = $('#from_date').val()
+        var to_date = $('#to_date').val()
+        
+        console.log(to_date , from_date , "----------------------------------------------------------------")
+        $('#overtimeTable tbody tr').each(function() {
+            var checkbox = $(this).find('.employeeCheckbox');
+            console.log(checkbox)
+            // if (checkbox.is(':checked')) {
+                console.log("yes here ")
+                var id = $(this).data('empid');
+        console.log(id, '---------------')
+                var employeeId = $(this).data('employee-odoo_id');
+                var overtime = $(this).data('overtime') || 0;
+                overtimeData.push({
+                    employee_id: employeeId,
+                    id:id
+                                    });
+            // }
+        });
+
+        if (overtimeData.length === 0) {
+            alert('Please select at least one employee.');
+            return;
+        }
+
+        $.ajax({
+            url: "{{ url_for('overtime.fetch_pay_roll_from_odoo') }}",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({
+                run_id: runId,
+                overtime_data: overtimeData,
+                from_date: from_date,
+                to_date: to_date
+            }),
+            success: function(response) {
+                alert(response.message || 'Overtime sent successfully.');
+            },
+            error: function(xhr) {
+                alert('Failed to send overtime: ' + xhr.responseText);
+            }
+        });
+    });
+
 
     $('#sendToOdooBtn').click(function() {
         var runId = $(this).data('run-id');
@@ -278,7 +435,7 @@ $(document).ready(function() {
                 var overtime = $(this).data('overtime') || 0;
                 overtimeData.push({
                     employee_id: employeeId,
-                    id:id
+                    id:id,
                     total_overtime: parseFloat(overtime)
                 });
             }
