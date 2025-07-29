@@ -13,7 +13,7 @@ import requests
 
 from models import (
     db, User, Employee, Department, BonusQuestion, BonusEvaluationPeriod, 
-    BonusSubmission, BonusEvaluation, BonusAuditLog, SystemConfig
+    BonusSubmission, BonusEvaluation, BonusAuditLog, SystemConfig, BonusEvaluationHistory
 )
 from utils.decorators import role_required
 from utils.wassenger import send_whatsapp_notifications
@@ -720,6 +720,44 @@ def save_single_evaluation():
     return redirect(request.referrer or url_for('bonus.edit_submission', submission_id=submission_id))
 
 
+def save_evaluation_history(submission_id):
+    evaluations = BonusEvaluation.query.filter_by(submission_id=submission_id).all()
+
+    for eval in evaluations:
+        history = BonusEvaluationHistory(
+            submission_id=eval.submission_id,
+            employee_id=eval.employee_id,
+            question_id=eval.question_id,
+            value=eval.value,
+            notes=eval.notes,
+            record_by=current_user.id,
+            # odoo_status=eval.odoo_status  # optional: copy status too
+        )
+        db.session.add(history)
+
+    db.session.commit()
+
+
+@bp.route('/get_evaluation_history')
+def get_evaluation_history():
+    employee_id = request.args.get('employee_id')
+    submission_id = request.args.get('submission_id')
+    print (" get_evaluation_history ")
+    print(employee_id, "employee_id -----")
+
+    evaluations = BonusEvaluationHistory.query.filter_by(employee_id=employee_id,submission_id=submission_id).all()
+
+    data = [{
+        'question_id': e.question.question_text if e.question else '-',
+        'value': e.value,
+        # 'value': e.value,
+        'record_by': e.creator.employee.name,
+    } for e in evaluations]
+
+    return jsonify({'data': data})
+
+
+
 @bp.route('/submission/<int:submission_id>/submit', methods=['POST'])
 @login_required
 def submit_evaluation(submission_id):
@@ -754,6 +792,14 @@ def submit_evaluation(submission_id):
         submission_id=submission_id
     ).count()
     
+
+    evaluation_submit = BonusEvaluation.query.filter_by(
+        submission_id=submission_id
+    )
+
+    save_evaluation_history(submission_id)
+    
+
     expected_count = len(employees) * len(questions)
     
     # if evaluation_count < expected_count:
@@ -929,13 +975,12 @@ def hr_review():
     )
 
 def notify_odoo_user_bonus_approvel(data):
-    # try:
+    try:
 
+        requests.post("http://erp.mir.ae:8050/odoo_user_bonus_approvel", data=data, timeout=3)
 
-        requests.post("http://erp.mir.ae:8069/odoo_user_bonus_approvel", data=data, timeout=3)
-
-    # except requests.exceptions.RequestException as e:
-    #     print("❌ Failed to notify Odoo (created):", e)
+    except requests.exceptions.RequestException as e:
+        print("❌ Failed to notify Odoo (created):", e)
 
 
 
@@ -982,6 +1027,11 @@ def hr_review_submission(submission_id):
                 user_id=current_user.id,
                 notes=notes or 'Submission rejected by HR'
             )
+
+
+
+
+
             
             db.session.add(log)
             db.session.commit()
@@ -1029,14 +1079,18 @@ def hr_review_submission(submission_id):
             print(emp)
 
             # print(users[0].email)
+
+
+            # need to make history here
+            save_evaluation_history(submission_id)
             
             # data['email'] = users.email
             # data['body'] = " HR has been Approved the bonus. Please Review and Approve"
             body_html = """
-                <p>Dear {EMPNAME},</p>
-                <p>HR has approved and submitted the bonuses for {DEPARTMENT} department for your review in ERP. Please review and approve.</p>
-                <b>Login to your ERP and click attendance app link.</p>
-                <p>Best regards,<br/>HR Department</p>
+                Dear {EMPNAME},
+                HR has approved and submitted the bonuses for {DEPARTMENT} department for your review in ERP. Please review and approve.
+                Login to your ERP and click attendance app link.
+                Best regards,<br/>HR Department
             """.format(EMPNAME=emp.name, DEPARTMENT=submission.department)
             # data['body'] = body_html
             # data['employee_id'] = users.employee_id.odoo_id
@@ -1111,10 +1165,10 @@ def hr_review_submission(submission_id):
                 # data['email'] = users.email
                 # data['body'] = " HR has been Approved the bonus. Please Review and Approve"
                 body_html = """
-                    <p>Dear {EMPNAME},</p>
-                    <p>Final approval for the payroll bonuses  for {DEPARTMENT} department has been Done. Please review and Submit to payroll.</p>
+                    Dear {EMPNAME},
+                    Final approval for the payroll bonuses  for {DEPARTMENT} department has been Done. Please review and Submit to payroll.
                     
-                    <p>Best regards,<br/>HR Department</p>
+                    Best regards,<br/>HR Department
                 """.format(EMPNAME=emp.name, DEPARTMENT=submission.department)
                 # data['body'] = body_html
                 # data['employee_id'] = users.employee_id.odoo_id

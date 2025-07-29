@@ -110,7 +110,8 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0">Employee Evaluations 1233</h4>
+
+                    <h4 class="mb-0">Employee Evaluations </h4>
                     <div>
                         {% if is_hr and not is_approver and  (submission.status == 'submitted') %}
                         <button type="button" id="reject-button" class="btn btn-danger me-2">
@@ -242,6 +243,7 @@
 
 
 
+
                                                     <div class="mt-1">
                                                         <small class="saving-indicator" style="display: none;">
                                                             <i class="bi bi-arrow-repeat"></i> Saving...
@@ -276,6 +278,11 @@
                                         0.0
                                         </span>
                                     </td>
+                                    <td>
+                                        <button class="btn btn-primary btn-sm view-evaluations-btn" 
+                                                data-employee-id="{{ employee.id }}">View</button>
+                                    </td>
+  
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -291,6 +298,24 @@
             </div>
         </div>
     </div>
+
+    <!-- Evaluation History Modal -->
+    <div class="modal fade" id="evaluationModal" tabindex="-1" role="dialog" aria-labelledby="evaluationModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Evaluation Details</h5>
+            <!-- <button type="button" class="close" data-dismiss="modal" aria-label="Close"> -->
+              <!-- <span>&times;</span> -->
+            <!-- </button> -->
+          </div>
+          <div class="modal-body" id="evaluation-modal-body">
+            <p class="text-muted">Loading evaluation data...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
 
     <div class="row mb-4">
         <div class="col-md-6">
@@ -523,9 +548,60 @@
 </div>
 {% endif %}
 <script>
+
     document.addEventListener('DOMContentLoaded', function() {
 
+
 updateEmployeeTotals();
+          document.querySelectorAll('.view-evaluations-btn').forEach(button => {
+                button.addEventListener('click', function () {
+                    const employeeId = this.getAttribute('data-employee-id');
+                    const submission_id = {{submission.id}};
+                    console.log(employeeId,"mmmmmmmmmmmmmmmmmmmmmmmmmmmm")
+                    const evaluationUrl = "{{ url_for('bonus.get_evaluation_history') }}";
+
+
+                    const modal = new bootstrap.Modal(document.getElementById('evaluationModal'));
+                    modal.show();
+
+                    const modalBody = document.getElementById('evaluation-modal-body');
+                    modalBody.innerHTML = '<p class="text-muted">Loading evaluation data...</p>';
+
+                    fetch(`${evaluationUrl}?employee_id=${employeeId}&submission_id=${submission_id}`)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            let html = '<table class="table table-bordered">';
+                            html += '<thead><tr><th>Question ID</th><th>Value</th><th>Record By</th></tr></thead><tbody>';
+
+                            if (data.data.length > 0) {
+                                data.data.forEach(item => {
+                                    html += `<tr>
+                                        <td>${item.question_id}</td>
+                                        <td>${item.value}</td>
+                                        <td>${item.record_by}</td>
+                                    
+                                    </tr>`;
+                                });
+                            } else {
+                                html += '<tr><td colspan="6" class="text-center text-muted">No evaluations found.</td></tr>';
+                            }
+
+                            html += '</tbody></table>';
+                            modalBody.innerHTML = html;
+                        })
+                        .catch(error => {
+                            console.error('Error fetching data:', error);
+                            modalBody.innerHTML = '<p class="text-danger">Error loading data.</p>';
+                        });
+                });
+            });
+
+
 
         const inputs = document.querySelectorAll('.edit-score-input');
 

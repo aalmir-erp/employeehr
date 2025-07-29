@@ -9,8 +9,12 @@ import xmlrpc.client
 
 from flask_login import login_required, current_user
 from sqlalchemy import func, desc,case
-from models import db, OvertimeRule, AttendanceRecord, Employee
+from models import db, OvertimeRule, AttendanceRecord, Employee, BonusEvaluation, BonusSubmission
 from utils.overtime_engine import process_attendance_records, calculate_monthly_overtime, calculate_weekly_overtime
+import requests
+from models import PayrollStatus  # adjust import as per your project structure
+import json
+
 
 bp = Blueprint('overtime', __name__)
 
@@ -520,16 +524,141 @@ def employee_overtime(employee_id):
         weeks=weeks
     )
 
+@bp.route('/fetch_pay_roll_from_odoo', methods=['POST'])
+def fetch_pay_roll_from_odoo():
+
+
+    data = request.get_json()
+    run_id = 350
+    overtime_data = data.get('overtime_data')
+    from_date = data.get('from_date')
+    to_date = data.get('to_date')
+
+    print(overtime_data )
+
+    payload = {
+    'employee_ids': overtime_data,
+    'run_id': run_id,
+    'from_date': from_date,
+    'to_date': to_date
+    }
+
+    # Send POST request to Odoo controller (adjust URL accordingly)
+    try:
+        response = requests.post('http://localhost:8050/payroll/fetch_payroll_id', json=payload)
+        print(response.text)
+        odoo_response = response.json()
+
+        response.raise_for_status()
+    except Exception as e:
+        return {'error': str(e)}, 500
+
+    payroll_data = odoo_response.get('result', [])
+
+    for item in payroll_data:
+        employee_id = item['employee_id']
+        payroll_number = item['payroll_number']
+        payroll_id = item['payroll_id']
+        payroll_date = datetime.strptime(item['payroll_date'], '%Y-%m-%d').date()
+        state = item['state']
+
+        # Optional: prevent duplicates (e.g., same emp, same payroll_id)
+        existing = PayrollStatus.query.filter_by(employee_id=employee_id, payroll_id_odoo=payroll_id).first()
+        if existing:
+            continue  # Skip existing record
+
+        new_status = PayrollStatus(
+            employee_id=employee_id,
+            payroll_id_odoo=payroll_id,
+            payroll_name=payroll_number,
+            payroll_date=payroll_date,
+            odoo_status='pending',
+            status='created'
+        )
+        db.session.add(new_status)
+
+    db.session.commit()
+
+    return {'message': 'Payroll status records saved successfully.', 'count': len(payroll_data)}
+
+
+
 @bp.route('/send_overtime_to_odoo', methods=['POST'])
 def send_overtime_to_odoo():
-    if 1:
+    # if 1:
+
+    raw_data = request.form.get('selected_data')
+    from_date = request.form.get('from_date')
+    to_date = request.form.get('to_date')
+    is_overtime = request.form.get('is_overtime')
+    # is_payroll = request.form.get('is_payroll')
+    is_bonus = request.form.get('is_bonus')
+    is_leave = request.form.get('is_leave')
+    selected_employees = json.loads(raw_data) if raw_data else []
+    print(selected_employees)
+    absent = []
+    action_dict = {'is_bonus':is_bonus,'is_overtime':is_overtime, 'is_leave':is_leave}
+
+
+
+    for item in selected_employees:
+        emp_id = item['emp_id']
+        print (" ------------------------------------------------------------------JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ")
+        print (item)
+        
+        empl_absent = AttendanceRecord.query.filter(
+            AttendanceRecord.date >= from_date,
+            AttendanceRecord.employee_id == emp_id,
+            AttendanceRecord.date <= to_date,
+            AttendanceRecord.status == 'absent',
+        ).order_by(AttendanceRecord.date).all()
+
+        for record in empl_absent:
+            employee = Employee.query.filter_by(id=record.employee_id).first()
+            if not employee or not employee.odoo_id:
+                print(f"❌ Skipping: No Odoo ID for employee_id {record.employee_id}")
+                continue
+
+            odoo_employee_id = employee.odoo_id
+            leave_date_str = str(record.date)
+            absent.append({'odoo_employee_id':odoo_employee_id,'leave_date_str':leave_date_str})
+
+
+
+        # item['absent_days'] = len(empl_absent)
+        
+
+        
+        ot = float(item.get('weighted_ot', 0))
+        bonus = item.get('bonus_point')
+        payslip = item.get('payslip_id')
+
+        print("Employee:", emp_id, "| OT:", ot, "| Bonus:", bonus, "| Payslip:", payslip)
+
+    res = requests.post("http://sib.mir.ae:8050/update_overtime_from_ams", json={'payroll': selected_employees,'absent':absent,'action_dict':action_dict}, timeout=10)
+    print ("-00-----------------------------------------------------------------------------------")
+    print (res.text)
+    
+
+    response = json.loads(res.text)
+    update_odoo_status_from_response(response)
+
+
+    return redirect(url_for('overtime.report'))
+    # return None 
+
+        # process as needed...
+
+    # return redirectt(url_for('some_view'))
+    if False:
+
         data = request.get_json()
         run_id = 350
         overtime_data = data.get('overtime_data')
 
         # Odoo credentials
         URL = 'http://sib.mir.ae:8050'
-        DB = 'aalmir__2025_05_06'
+        DB = 'july_04'
         USER = 'admin'
         PASSWORD = '123'
 
@@ -575,19 +704,43 @@ def send_overtime_to_odoo():
         return
 
         # Authenticate with Odoo
-        common = xmlrpc.client.ServerProxy(f'{URL}/xmlrpc/2/common')
-        uid = common.authenticate(DB, USER, PASSWORD, {})
+        # common = xmlrpc.client.ServerProxy(f'{URL}/xmlrpc/2/common')
+        # uid = common.authenticate(DB, USER, PASSWORD, {})
 
-        models = xmlrpc.client.ServerProxy(f'{URL}/xmlrpc/2/object')
-        result = models.execute_kw(DB, uid, PASSWORD,
-            'hr.payslip.run', 'set_overtime_for_payslip_run',
-            [run_id, overtime_data]
-        )
+        # models = xmlrpc.client.ServerProxy(f'{URL}/xmlrpc/2/object')
+        # result = models.execute_kw(DB, uid, PASSWORD,
+        #     'hr.payslip.run', 'set_overtime_for_payslip_run',
+        #     [run_id, overtime_data]
+        # )
 
         return jsonify({'message': 'Data sent successfully to Odoo.', 'result': result}), 200
 
     # except Exception as e:
         # return jsonify({'message': 'Error sending data.', 'error': str(e)}), 500
+
+def update_odoo_status_from_response(response):
+    if response.get("result", {}).get("status") == "success":
+        data_list = response["result"].get("data", [])
+        for record in data_list:
+            for emp_id_str, result_list in record.items():
+                if result_list and result_list[0]:  # Check if first value is True
+                    emp_id = int(emp_id_str)
+
+                    # Query and update PayrollStatus
+                    status_record = PayrollStatus.query.filter_by(employee_id=emp_id).first()
+                    if status_record:
+                        status_record.status = "updated"
+                        db.session.add(status_record)  # optional, but safe
+
+                if len(result_list) >= 3 and result_list[1] is True:
+                    bonus_id = result_list[2]
+                    print ( "bouns id ---------------", bonus_id)
+                    bonus_record = BonusEvaluation.query.get(bonus_id)
+                    if bonus_record:
+                        bonus_record.odoo_status = "updated"
+                        db.session.add(bonus_record)
+
+        db.session.commit()
 
 
 @bp.route('/report', methods=['GET'])
@@ -625,12 +778,49 @@ def report():
         next_month = from_date.replace(month=from_date.month + 1 if from_date.month < 12 else 1,
                                       year=from_date.year if from_date.month < 12 else from_date.year + 1)
         to_date = (next_month - timedelta(days=1))
+
+    # Fetch payroll data in the same date range
+    payroll_data = PayrollStatus.query.filter(
+        PayrollStatus.payroll_date >= from_date,
+        PayrollStatus.payroll_date <= to_date
+    ).all()
+
+    # Create mapping: employee_id => payroll_name
+    payroll_map_name = {p.employee_id: p.payroll_name for p in payroll_data}
+    payroll_map_state = {p.employee_id: p.status for p in payroll_data}
+    payroll_mappayroll_id_odoo = {p.employee_id: p.payroll_id_odoo for p in payroll_data}
+    
+
+    approved_evals = db.session.query(BonusEvaluation).join(BonusSubmission).filter(
+    BonusSubmission.status == 'approved'
+    ).order_by(
+        BonusEvaluation.employee_id,
+        desc(BonusSubmission.submitted_at)  # latest first
+    ).all()
+
+    # Step 2: Keep only the latest per employee
+    latest_eval_map = {}
+    status_eval_map = {}
+
+    for bonus in approved_evals:
+        emp_id = bonus.employee_id
+        if emp_id not in latest_eval_map:
+            latest_eval_map[emp_id] = [bonus.value, bonus.id] # keep first (latest due to ordering)
+            status_eval_map [emp_id] = bonus.odoo_status
+
+    # Result: {employee_id: latest approved value}
+    # print(latest_eval_map)
+    # print("ooooooooooooooooooooooooooooooooooooooooooooooooooooo")
+
+
+
     
     # Query with eligibility fields
     query = db.session.query(
         Employee.id,
         Employee.name,
         Employee.employee_code,
+        Employee.odoo_id,
         Employee.department,
         Employee.eligible_for_weekday_overtime,
         Employee.eligible_for_weekend_overtime,
@@ -647,13 +837,15 @@ def report():
         ), 0).label('absent_days'),
         func.coalesce(func.sum(AttendanceRecord.holiday_overtime_hours), 0).label('holiday_overtime'),
         func.coalesce(func.avg(AttendanceRecord.overtime_rate), 0).label('avg_rate')
-    ).join(
+    ).outerjoin(
         AttendanceRecord, Employee.id == AttendanceRecord.employee_id
     ).filter(
         AttendanceRecord.date >= from_date,
         AttendanceRecord.date <= to_date,
         Employee.is_active == True
     )
+
+    print ('kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk')
     
     if department:
         query = query.filter(Employee.department == department)
@@ -662,6 +854,7 @@ def report():
         Employee.id,
         Employee.name,
         Employee.employee_code,
+        Employee.odoo_id,
         Employee.department,
         Employee.eligible_for_weekday_overtime,
         Employee.eligible_for_weekend_overtime,
@@ -669,6 +862,8 @@ def report():
     ).order_by(
         desc('total_overtime')
     ).all()
+
+    # print(results)
     
     # Calculate totals with eligibility check
     total_overtime = sum(r.total_overtime or 0 for r in results)
@@ -695,7 +890,12 @@ def report():
         total_holiday_overtime=total_holiday_overtime,
         total_absents=total_absents,
         departments=unique_departments,
-        selected_department=department
+        payroll_map_name=payroll_map_name,
+        payroll_map_state=payroll_map_state,
+        payroll_mappayroll_id_odoo=payroll_mappayroll_id_odoo,
+        selected_department=department,
+        bonus_point_map=latest_eval_map,
+        status_eval_map=status_eval_map
     )
 
 
