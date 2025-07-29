@@ -545,7 +545,7 @@ def fetch_pay_roll_from_odoo():
 
     # Send POST request to Odoo controller (adjust URL accordingly)
     try:
-        response = requests.post('http://localhost:8050/payroll/fetch_payroll_id', json=payload)
+        response = requests.post('http://erp.mir.ae:8069/payroll/fetch_payroll_id', json=payload)
         print(response.text)
         odoo_response = response.json()
 
@@ -635,7 +635,7 @@ def send_overtime_to_odoo():
 
         print("Employee:", emp_id, "| OT:", ot, "| Bonus:", bonus, "| Payslip:", payslip)
 
-    res = requests.post("http://sib.mir.ae:8050/update_overtime_from_ams", json={'payroll': selected_employees,'absent':absent,'action_dict':action_dict}, timeout=10)
+    res = requests.post("http://erp.mir.ae:8069/update_overtime_from_ams", json={'payroll': selected_employees,'absent':absent,'action_dict':action_dict}, timeout=10)
     print ("-00-----------------------------------------------------------------------------------")
     print (res.text)
     
@@ -798,6 +798,36 @@ def report():
         desc(BonusSubmission.submitted_at)  # latest first
     ).all()
 
+    # Step 1: Get the latest approved submission
+    latest_submission = db.session.query(BonusSubmission).filter(
+        BonusSubmission.status == 'approved'
+    ).order_by(BonusSubmission.submitted_at.desc()).first()
+
+    # Step 2: Group evaluation values by employee
+    grouped_scores = []
+    if latest_submission:
+        grouped_scores = db.session.query(
+            BonusEvaluation.employee_id,
+            func.sum(BonusEvaluation.value).label('total_score')
+        ).filter(
+            BonusEvaluation.submission_id == latest_submission.id
+        ).group_by(BonusEvaluation.employee_id).all()
+
+        # Optional: Convert to dicts for JSON/API
+        grouped_scores = [
+            {'employee_id': emp_id, 'total_score': score}
+            for emp_id, score in grouped_scores
+        ]
+
+    bonus_point_map = {
+    emp_id: score for emp_id, score in db.session.query(
+        BonusEvaluation.employee_id,
+        func.sum(BonusEvaluation.value)
+    ).filter(
+        BonusEvaluation.submission_id == latest_submission.id
+    ).group_by(BonusEvaluation.employee_id).all()
+}
+
     # Step 2: Keep only the latest per employee
     latest_eval_map = {}
     status_eval_map = {}
@@ -809,8 +839,8 @@ def report():
             status_eval_map [emp_id] = bonus.odoo_status
 
     # Result: {employee_id: latest approved value}
-    # print(latest_eval_map)
-    # print("ooooooooooooooooooooooooooooooooooooooooooooooooooooo")
+    print(bonus_point_map)
+    print("ooooooooooooooooooooooooooooooooooooooooooooooooooooo")
 
 
 
@@ -894,7 +924,7 @@ def report():
         payroll_map_state=payroll_map_state,
         payroll_mappayroll_id_odoo=payroll_mappayroll_id_odoo,
         selected_department=department,
-        bonus_point_map=latest_eval_map,
+        bonus_point_map=bonus_point_map,
         status_eval_map=status_eval_map
     )
 
