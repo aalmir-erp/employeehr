@@ -77,7 +77,7 @@
                     <li class="breadcrumb-item active" aria-current="page">View Submission</li>
                 </ol>
             </nav>
-            <h1 class="mb-3">Bonus Submission</h1>
+            <h1 class="mb-3">Bonus Submission 123456</h1>
             <p class="lead">
                 Department: <strong>{{ submission.department }}</strong> | 
                 Period: <strong>{{ submission.period.name }}</strong> | 
@@ -110,7 +110,7 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0">Employee Evaluations</h4>
+                    <h4 class="mb-0">Employee Evaluations 1233</h4>
                     <div>
                         {% if is_hr and not is_approver and  (submission.status == 'submitted') %}
                         <button type="button" id="reject-button" class="btn btn-danger me-2">
@@ -227,14 +227,20 @@
                                             {% if is_hr and (submission.status == 'approved' or submission.status == 'submitted' or submission.status == 'in_review') %}
                                                 <!-- HR can edit evaluations during review and after approval -->
                                                 <div class="score-value {% if evaluation.original_value is not none and evaluation.original_value != evaluation.value %}score-value-changed{% endif %}">
-                                                    <input type="number" 
-                                                        class="form-control edit-score-input"
-                                                        data-evaluation-id="{{ evaluation.id }}"
-                                                        data-question-id="{{ question.id }}"
-                                                        min="{{ question.min_value }}"
-                                                        max="{{ question.max_value }}"
-                                                        value="{{ evaluation.value }}"
-                                                        {% if question.only_hr and not current_user.has_role('hr') %}readonly{% endif %}>
+                                                   
+                                                    <input type="number" disabled style="width: 100%;    padding: .2rem .6rem;"
+                                                class=" score-input"
+                                                name="value"
+                                                data-employee-id="{{ employee.id }}"
+                                                data-question-id="{{ question.id }}"
+                                                min="{{ question.min_value }}"
+                                                max="{{ question.max_value }}"
+                                                value="{% if employee.id in evaluation_matrix and question.id in evaluation_matrix[employee.id] %}{{ evaluation_matrix[employee.id][question.id].value }}{% else %}{{ question.default_value }}{% endif %}"
+                                                {% if question.only_hr and not current_user.has_role('hr') %}readonly{% endif %}>
+                                               
+                                            </form>
+
+
 
                                                     <div class="mt-1">
                                                         <small class="saving-indicator" style="display: none;">
@@ -267,11 +273,7 @@
                                     {% endfor %}
                                     <td class="score-cell">
                                         <span class="total-points" id="total-{{ employee.id }}">
-                                            {% if employee.id in employee_points %}
-                                                {{ "%.1f"|format(employee_points[employee.id]) }} 
-                                            {% else %}
-                                                0.0
-                                            {% endif %}
+                                        0.0
                                         </span>
                                     </td>
                                 </tr>
@@ -522,6 +524,8 @@
 {% endif %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+
+updateEmployeeTotals();
 
         const inputs = document.querySelectorAll('.edit-score-input');
 
