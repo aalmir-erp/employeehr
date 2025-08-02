@@ -502,18 +502,13 @@ def save_single_score(submission_id):
 @bp.route('/submission/<int:submission_id>/edit', methods=['GET'])
 @login_required
 def edit_submission(submission_id):
-    """Edit a bonus submission - NEW WORKING VERSION"""
+    """Edit a bonus submission - UPDATED VERSION with remarks"""
     submission = BonusSubmission.query.get_or_404(submission_id)
     
     # Check permissions
     if not current_user.has_role('hr') and (submission.submitted_by != current_user.id):
         flash('You do not have permission to edit this submission.', 'danger')
         return redirect(url_for('bonus.index'))
-    
-    # Check if submission is editable
-    # if submission.status not in ['draft', 'rejected']:
-    #     flash('This submission is no longer editable.', 'warning')
-    #     return redirect(url_for('bonus.view_submission', submission_id=submission.id))
     
     # Get employees in department
     employees = Employee.query.filter_by(
@@ -528,31 +523,30 @@ def edit_submission(submission_id):
         is_active=True
     ).order_by(BonusQuestion.id).all()
     
-    # Get existing evaluations
+    # Get evaluations
     evaluations = BonusEvaluation.query.filter_by(
         submission_id=submission.id
     ).all()
+    
+    # Organize evaluations in a matrix
+    evaluation_matrix = {}
+    employee_remarks_map = {}
 
+    for eval in evaluations:
+        if eval.employee_id not in evaluation_matrix:
+            evaluation_matrix[eval.employee_id] = {}
+        
+        # Store question answers
+        if eval.question_id is not None:
+            evaluation_matrix[eval.employee_id][eval.question_id] = eval
+        
+        # Store remarks separately
+        if eval.remarks and eval.remarks.strip():
+            employee_remarks_map[eval.employee_id] = eval.remarks.strip()
+    
     audit_logs = BonusAuditLog.query.filter_by(
         submission_id=submission.id
     ).order_by(BonusAuditLog.timestamp.desc()).all()
-    
-    # Organize evaluations in a matrix for easy access
-    evaluation_matrix = {}
-    for eval in evaluations:
-        if eval.employee_id not in evaluation_matrix:
-            evaluation_matrix[eval.employee_id] = {}
-        evaluation_matrix[eval.employee_id][eval.question_id] = eval
-    
-    # Get existing evaluations and organize them properly
-    evaluations = BonusEvaluation.query.filter_by(submission_id=submission.id).all()
-    
-    # Create evaluation matrix that the template expects
-    evaluation_matrix = {}
-    for eval in evaluations:
-        if eval.employee_id not in evaluation_matrix:
-            evaluation_matrix[eval.employee_id] = {}
-        evaluation_matrix[eval.employee_id][eval.question_id] = eval
     
     return render_template(
         'bonus/edit_submission.html',
@@ -560,8 +554,10 @@ def edit_submission(submission_id):
         employees=employees,
         questions=questions,
         evaluation_matrix=evaluation_matrix,
-        audit_logs=audit_logs,
+        employee_remarks_map=employee_remarks_map,
+        audit_logs=audit_logs
     )
+
 
 
 @bp.route('/api/evaluation/save', methods=['POST'])
@@ -743,6 +739,7 @@ def save_single_evaluation():
             question_id=question_id,
             value=value
         )
+        
         db.session.add(evaluation)
 
     try:
@@ -952,15 +949,24 @@ def view_submission(submission_id):
     
     # Organize evaluations in a matrix for easy access
     evaluation_matrix = {}
+    employee_remarks_map = {}
+
     for eval in evaluations:
+        print(eval.remarks,"eval.remarks============")
         if eval.employee_id not in evaluation_matrix:
             evaluation_matrix[eval.employee_id] = {}
-        # print(eval, "eval")
-        # print(eval.value)
-        evaluation_matrix[eval.employee_id][eval.question_id] = eval
+
+        # Always add question-based answers
+        if eval.question_id is not None:
+            evaluation_matrix[eval.employee_id][eval.question_id] = eval
+
+        # Always update remarks separately
+        if eval.remarks and eval.remarks.strip():
+            employee_remarks_map[eval.employee_id] = eval.remarks.strip()
     
     # Calculate total points for each employee
-    print(' calculate_total_points')
+    print(employee_remarks_map,"employee_remarks_map===============")
+    
     employee_points = submission.calculate_total_points()
     
     # Get audit logs
@@ -1012,7 +1018,8 @@ def view_submission(submission_id):
         is_approver=is_approver,
         User=User,
         user_map=user_map,
-        csrf_token_field=csrf_token_field
+        csrf_token_field=csrf_token_field,
+        employee_remarks_map=employee_remarks_map
     )
 
 

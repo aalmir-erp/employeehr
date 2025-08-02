@@ -6,6 +6,16 @@ from datetime import datetime
 from flask import current_app
 from app import db
 from models import Employee, User, OdooMapping, OdooConfig
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+db_host = os.getenv('DB_HOST')
+db_port = os.getenv('DB_PORT')
+db_name = os.getenv('DB_NAME')
+db_user = os.getenv('DB_USER')
+db_password = os.getenv('DB_PASSWORD')
+db_sslmode = os.getenv('DB_SSLMODE', 'require')
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +44,11 @@ class OdooConnector:
                 user = config.user
                 password = config.password
                 database = config.database
-                host = 'erp.mir.ae'
-                port = '5432'
-                user = 'mir-plastic-erp'
-                password = 'aalmir123'
-                database = 'mir_plastic'
+                host = db_host
+                port = db_port
+                user = db_user
+                password = db_password
+                database = db_name
                 
 
                 # Log connection parameters (mask password)
@@ -68,28 +78,12 @@ class OdooConnector:
                 return False
             
             logger.info(f"Attempting connection to Odoo PostgreSQL at {host}:{port}...")
-#             self.connection = psycopg2.connect(
-#     "host=sib.mir.ae port=5432 dbname=july_04 user=odoo9 password=odoo9"
-# )
 
-# app.config["ODOO_USER"] = os.environ.get("PGUSER", "mir-plastic-erp")
-# app.config["ODOO_PASSWORD"] = os.environ.get("PGPASSWORD", "aalmir123")
-# app.config["ODOO_DATABASE"] = os.environ.get("PGDATABASE", "mir_plastic")
 
-#             self.connection = psycopg2.connect(
-#     "host=172.16.40.160 port=5432 dbname=mir_plastic user=mir-plastic-erp password=aalmir123"
-# )
+            conn_string = f"host={db_host} port={db_port} dbname={db_name} user={db_user} password={db_password} sslmode={db_sslmode}"
 
-            self.connection = psycopg2.connect(
-                "host=172.16.40.160 port=5432 dbname=mir_plastic user=mir-plastic-erp password=aalmir123 sslmode=require"
-            )
-            # self.connection = psycopg2.connect(
-            #     host=host,
-            #     port=port,
-            #     user=user,
-            #     password=password,
-            #     database=database
-            # )
+            self.connection = psycopg2.connect(conn_string)
+            
             self.cursor = self.connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
             logger.info("Successfully connected to Odoo database")
             

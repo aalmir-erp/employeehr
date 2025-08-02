@@ -256,6 +256,7 @@
                                                 <!-- Read-only view -->
                                                 <div class="score-value {% if evaluation.original_value is not none and evaluation.original_value != evaluation.value %}score-value-changed{% endif %}">
                                                     {{ evaluation.value }} 
+                                                    
                                                     {% if evaluation.original_value is not none and evaluation.original_value != evaluation.value %}
                                                     <span class="hr-edit-indicator">Original: {{ evaluation.original_value }} </span>
                                                     {% endif %}
@@ -267,11 +268,12 @@
                                     </td>
                                     {% endfor %}
                                     <td>
-                                       <input type="text"
-                                           class="form-control mt-1 remarks-input"
-                                           placeholder="Remarks"
-                                           name="remarks"
-                                           readonly>
+                                      <input type="text"
+                                            class="form-control"
+                                            name="remarks"
+                                            readonly
+                                            value="{{ employee_remarks_map.get(employee.id, '') }}"
+                                            placeholder="Remarks">
                                     </td>
                                     <td class="score-cell">
                                         <span class="total-points" id="total-{{ employee.id }}">
