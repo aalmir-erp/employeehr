@@ -47,7 +47,7 @@
                                                 {% set has_submission = true %}
                                                 {% if submission.status == 'draft' %}
                                                     <a href="{{ url_for('bonus.edit_submission', submission_id=submission.id) }}" class="btn btn-sm btn-warning">
-                                                        Continue Draft
+                                                        Continue Draft 
                                                     </a>
                                                 {% else %}
                                                     <a href="{{ url_for('bonus.view_submission', submission_id=submission.id) }}" class="btn btn-sm btn-info">

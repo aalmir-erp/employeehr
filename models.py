@@ -1065,6 +1065,7 @@ class BonusEvaluationHistory(db.Model):
     submission = db.relationship('BonusSubmission')  # No back_populates
     employee = db.relationship('Employee')
     question = db.relationship('BonusQuestion')
+    remarks = db.Column(db.String(255))
 
     def __repr__(self):
         return f"<BonusEvaluationHistory Employee={self.employee_id} Question={self.question_id} Value={self.value}>"
@@ -1086,6 +1087,7 @@ class BonusEvaluation(db.Model):
     employee = db.relationship('Employee')
     question = db.relationship('BonusQuestion', back_populates='evaluations')
     odoo_status = db.Column(db.String(64), nullable=True)
+    remarks = db.Column(db.String(255))
     
     def __repr__(self):
         return f"<BonusEvaluation Employee={self.employee_id} Question={self.question_id} Value={self.value}>"
