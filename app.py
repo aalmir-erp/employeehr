@@ -45,9 +45,11 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # Configure Odoo connection settings
 app.config["ODOO_HOST"] = os.environ.get("PGHOST", "localhost")
 app.config["ODOO_PORT"] = os.environ.get("PGPORT", "5432")
-app.config["ODOO_USER"] = os.environ.get("PGUSER", "odoo9")
-app.config["ODOO_PASSWORD"] = os.environ.get("PGPASSWORD", "odoo9")
-app.config["ODOO_DATABASE"] = os.environ.get("PGDATABASE", "aalmir__2025_05_06")
+app.config["ODOO_USER"] = os.environ.get("PGUSER", "mir-12312313plastic-e123rp")
+app.config["ODOO_PASSWORD"] = os.environ.get("PGPASSWORD", "aalm123132ir123")
+app.config["ODOO_DATABASE"] = os.environ.get("PGDATABASE", "mir_322342341plas1231tic")
+
+
 
 # Initialize extensions with app
 db.init_app(app)
