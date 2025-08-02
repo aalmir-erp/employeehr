@@ -162,6 +162,7 @@
                                         <small class="d-block text-muted">({{ question.min_value }} to {{ question.max_value }})</small>
                                     </th>
                                     {% endfor %}
+                                    <th class="score-cell">Remarks</th>
                                     <th class="score-cell">Total</th>
                                 </tr>
                             </thead>
@@ -193,6 +194,21 @@
                                       
                                     </td>
                                     {% endfor %}
+                                   <td>
+                                        <form method="post" action="{{ url_for('bonus.save_employee_remarks') }}" class="remarks-form">
+                                            <input type="hidden" name="submission_id" value="{{ submission.id }}">
+                                            <input type="hidden" name="employee_id" value="{{ employee.id }}">
+                                            
+                                            <div class="input-group">
+                                                <input type="text"
+                                                    name="remarks"
+                                                    class="form-control remarks-input"
+                                                    placeholder="Remarks"
+                                                    value="{{ employee_remarks_map.get(employee.id, '') }}">
+                                            </div>
+                                        </form>
+                                    </td>
+    
                                     <td class="score-cell">
                                         <span class="total-points" id="total-{{ employee.id }}">0.0</span>
                                     </td>
@@ -369,10 +385,105 @@
         </div>
     </div>
 </div>
+
+ <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Audit Log</h4>
+                </div>
+                <div class="card-body">
+                    {% if audit_logs %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>User</th>
+                                    <th>Action</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in audit_logs %}
+                                <tr>
+                                    <td>{{ log.timestamp|format_date }}</td>
+                                    <td>{{ log.user.username }}</td>
+                                    <td>
+                                        <span class="badge 
+                                        {% if log.action == 'created' %}bg-primary
+                                        {% elif log.action == 'updated' %}bg-info
+                                        {% elif log.action == 'submitted' %}bg-success
+                                        {% elif log.action == 'approved' %}bg-success
+                                        {% elif log.action == 'rejected' %}bg-danger
+                                        {% elif log.action == 'hr_updated' %}bg-warning
+                                        {% else %}bg-secondary
+                                        {% endif %}">
+                                            {{ log.action }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if log.employee %}
+                                            <strong>{{ log.employee.name }}</strong> - 
+                                        {% endif %}
+                                        
+                                        {% if log.question %}
+                                            {{ log.question.question_text|truncate(40) }}
+                                        {% endif %}
+                                        
+                                        {% if log.old_value is not none and log.new_value is not none %}
+                                            ({{ log.old_value }} → {{ log.new_value }})
+                                        {% elif log.new_value is not none %}
+                                            (New value: {{ log.new_value }})
+                                        {% endif %}
+                                        
+                                        {% if log.notes %}
+                                            <div class="text-muted small mt-1">{{ log.notes }}</div>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle me-2"></i> No audit logs found for this submission.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 {% endif %}
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+
+        const inputs_remarks = document.querySelectorAll(".remarks-input");
+
+        inputs_remarks.forEach(input => {
+            let typingTimer;
+            const doneTypingInterval = 1000; // 1 second
+
+            input.addEventListener("keyup", function () {
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(() => {
+                    const form = input.closest(".remarks-form");
+                    if (form && input.value.trim() !== "") {
+                        form.submit();
+                    }
+                }, doneTypingInterval);
+            });
+
+            input.addEventListener("keydown", function () {
+                clearTimeout(typingTimer);
+            });
+        });
+
 
 
         const approveButton = document.getElementById('approve-button');

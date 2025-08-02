@@ -545,10 +545,8 @@ def fetch_pay_roll_from_odoo():
 
     # Send POST request to Odoo controller (adjust URL accordingly)
     try:
+
         response = requests.post('http://erp.mir.ae:8069/payroll/fetch_payroll_id', json=payload)
-        print("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk")
-        print(response.text)
-        print("llllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll")
 
         odoo_response = response.json()
 
@@ -640,12 +638,10 @@ def send_overtime_to_odoo():
         bonus = [item.get('bonus_point'), 1]
         payslip = item.get('payslip_id')
 
-        print("Employee:", emp_id, "| OT:", ot, "| Bonus:", bonus, "| Payslip:", payslip)
     print(selected_employees, "selected_employees")
 
     res = requests.post("http://erp.mir.ae:8069/update_overtime_from_ams", json={'payroll': selected_employees,'absent':absent,'action_dict':action_dict}, timeout=50)
-    print ("-00-----------------------------------------------------------------------------------")
-    print (res.text)
+
     
 
     response = json.loads(res.text)

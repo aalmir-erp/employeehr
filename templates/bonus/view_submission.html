@@ -208,6 +208,7 @@
                                         <small class="d-block text-muted">({{ question.min_value }} to {{ question.max_value }})</small>
                                     </th>
                                     {% endfor %}
+                                    <th class="score-cell">Remarks</th>
                                     <th class="score-cell">Total</th>
                                 </tr>
                             </thead>
@@ -263,6 +264,7 @@
                                                 <!-- Read-only view -->
                                                 <div class="score-value {% if evaluation.original_value is not none and evaluation.original_value != evaluation.value %}score-value-changed{% endif %}">
                                                     {{ evaluation.value }} 
+                                                    
                                                     {% if evaluation.original_value is not none and evaluation.original_value != evaluation.value %}
                                                     <span class="hr-edit-indicator">Original: {{ evaluation.original_value }} </span>
                                                     {% endif %}
@@ -273,6 +275,14 @@
                                         {% endif %}
                                     </td>
                                     {% endfor %}
+                                    <td>
+                                      <input type="text"
+                                            class="form-control"
+                                            name="remarks"
+                                            readonly
+                                            value="{{ employee_remarks_map.get(employee.id, '') }}"
+                                            placeholder="Remarks">
+                                    </td>
                                     <td class="score-cell">
                                         <span class="total-points" id="total-{{ employee.id }}">
                                         0.0
@@ -575,23 +585,27 @@ updateEmployeeTotals();
                             return response.json();
                         })
                         .then(data => {
+
                             let html = '<table class="table table-bordered">';
-                            html += '<thead><tr><th>Question ID</th><th>Value</th><th>Record By</th></tr></thead><tbody>';
 
-                            if (data.data.length > 0) {
-                                data.data.forEach(item => {
-                                    html += `<tr>
-                                        <td>${item.question_id}</td>
-                                        <td>${item.value}</td>
-                                        <td>${item.record_by}</td>
-                                    
-                                    </tr>`;
-                                });
-                            } else {
-                                html += '<tr><td colspan="6" class="text-center text-muted">No evaluations found.</td></tr>';
-                            }
+const groupedData = data.data;
 
-                            html += '</tbody></table>';
+groupedData.forEach(group => {
+    html += `<thead><tr><th colspan="3" style="background:#f0f0f0">${group.record_by}</th></tr></thead>`;
+    html += '<thead><tr><th>Question</th><th>Value</th></tr></thead><tbody>';
+
+    group.records.forEach(item => {
+        html += `<tr>
+                    <td>${item.question_id}</td>
+                    <td>${item.value}</td>
+                 </tr>`;
+    });
+
+    html += '</tbody>';
+});
+
+html += '</table>';
+
                             modalBody.innerHTML = html;
                         })
                         .catch(error => {
