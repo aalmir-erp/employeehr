@@ -3,15 +3,18 @@ Routes for employee bonus management system
 """
 from datetime import datetime
 from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify, current_app
+from collections import defaultdict, OrderedDict
 from flask_login import login_required, current_user
 from markupsafe import Markup
 from sqlalchemy import func
 import csv
 from io import StringIO
+import threading
+import requests
 
 from models import (
     db, User, Employee, Department, BonusQuestion, BonusEvaluationPeriod, 
-    BonusSubmission, BonusEvaluation, BonusAuditLog, SystemConfig
+    BonusSubmission, BonusEvaluation, BonusAuditLog, SystemConfig, BonusEvaluationHistory
 )
 from utils.decorators import role_required
 from utils.wassenger import send_whatsapp_notifications
@@ -99,7 +102,8 @@ def supervisor_dashboard():
     # Get employees in supervisor's department
     department_employees = Employee.query.filter_by(
         department=supervisor_department,
-        is_active=True
+        is_active=True,
+        is_bonus=True
     ).order_by(Employee.name).all()
     
     return render_template(
@@ -153,6 +157,7 @@ def add_question():
         max_value = request.form.get('max_value', type=int)
         default_value = request.form.get('default_value', type=int)
         weight = request.form.get('weight', type=float)
+        only_hr = 'only_hr' in request.form
         
         # Validate input
         if not department or not question_text:
@@ -184,6 +189,7 @@ def add_question():
             max_value=max_value,
             default_value=default_value,
             weight=weight,
+            only_hr=only_hr,
             created_by=current_user.id
         )
         
@@ -218,6 +224,7 @@ def edit_question(question_id):
         default_value = request.form.get('default_value', type=int)
         weight = request.form.get('weight', type=float)
         is_active = 'is_active' in request.form
+        only_hr = 'only_hr' in request.form
         
         # Validate input
         if not department or not question_text:
@@ -249,6 +256,7 @@ def edit_question(question_id):
         question.default_value = default_value
         question.weight = weight
         question.is_active = is_active
+        question.only_hr = only_hr
         question.updated_at = datetime.now()
         
         db.session.commit()
@@ -503,14 +511,15 @@ def edit_submission(submission_id):
         return redirect(url_for('bonus.index'))
     
     # Check if submission is editable
-    if submission.status not in ['draft', 'rejected']:
-        flash('This submission is no longer editable.', 'warning')
-        return redirect(url_for('bonus.view_submission', submission_id=submission.id))
+    # if submission.status not in ['draft', 'rejected']:
+    #     flash('This submission is no longer editable.', 'warning')
+    #     return redirect(url_for('bonus.view_submission', submission_id=submission.id))
     
     # Get employees in department
     employees = Employee.query.filter_by(
         department=submission.department,
-        is_active=True
+        is_active=True,
+        is_bonus=True
     ).order_by(Employee.name).all()
     
     # Get active questions for this department
@@ -523,6 +532,10 @@ def edit_submission(submission_id):
     evaluations = BonusEvaluation.query.filter_by(
         submission_id=submission.id
     ).all()
+
+    audit_logs = BonusAuditLog.query.filter_by(
+        submission_id=submission.id
+    ).order_by(BonusAuditLog.timestamp.desc()).all()
     
     # Organize evaluations in a matrix for easy access
     evaluation_matrix = {}
@@ -546,7 +559,8 @@ def edit_submission(submission_id):
         submission=submission,
         employees=employees,
         questions=questions,
-        evaluation_matrix=evaluation_matrix
+        evaluation_matrix=evaluation_matrix,
+        audit_logs=audit_logs,
     )
 
 
@@ -655,6 +669,39 @@ def save_evaluation():
         return jsonify({'status': 'error', 'message': 'Failed to save evaluation'}), 500
 
 
+@bp.route('/save_employee_remarks', methods=['POST'])
+@login_required
+def save_employee_remarks():
+    print (" save_employee_remarks -----------")
+    employee_id = request.form.get('employee_id')
+    submission_id = request.form.get('submission_id')
+    remarks = request.form.get('remarks')
+    print ( remarks)
+
+    # Find or update existing evaluation (depends on your schema)
+    evaluation = BonusEvaluation.query.filter_by(
+        employee_id=employee_id,
+        submission_id=submission_id
+    ).first()
+
+    if evaluation:
+        evaluation.remarks = remarks
+    else:
+        # Or insert new if required
+        evaluation = BonusEvaluation(
+            employee_id=employee_id,
+            submission_id=submission_id,
+            remarks=remarks,
+            created_by=current_user.id
+        )
+        db.session.add(evaluation)
+
+    db.session.commit()
+    flash('Remarks saved successfully!', 'success')
+    return redirect(request.referrer)
+
+
+
 @bp.route('/save_single_evaluation', methods=['POST'])
 @login_required
 def save_single_evaluation():
@@ -662,7 +709,8 @@ def save_single_evaluation():
     employee_id = request.form.get('employee_id')
     question_id = request.form.get('question_id')
     value = request.form.get('value')
-    print(submission_id,employee_id,question_id,value,"==============================>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<=======")
+    remarks = request.form.get('remarks')
+    print(remarks,employee_id,question_id,value,"==============================>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<=======")
 
     if not all([submission_id, employee_id, question_id, value]):
         message = "Missing evaluation data."
@@ -712,6 +760,94 @@ def save_single_evaluation():
     return redirect(request.referrer or url_for('bonus.edit_submission', submission_id=submission_id))
 
 
+def save_evaluation_history(submission_id):
+    evaluations = BonusEvaluation.query.filter_by(submission_id=submission_id).all()
+
+    for eval in evaluations:
+        history = BonusEvaluationHistory(
+            submission_id=eval.submission_id,
+            employee_id=eval.employee_id,
+            question_id=eval.question_id,
+            value=eval.value,
+            notes=eval.notes,
+            record_by=current_user.id,
+            # odoo_status=eval.odoo_status  # optional: copy status too
+        )
+        db.session.add(history)
+
+    db.session.commit()
+
+
+@bp.route('/get_evaluation_history')
+def get_evaluation_history():
+    employee_id = request.args.get('employee_id')
+    submission_id = request.args.get('submission_id')
+    print (" get_evaluation_history ")
+    print(employee_id, "employee_id -----")
+
+    # evaluations = BonusEvaluationHistory.query.filter_by(employee_id=employee_id,submission_id=submission_id).all()
+
+    # data = [{
+    #     'question_id': e.question.question_text if e.question else '-',
+    #     'value': e.value,
+    #     # 'value': e.value,
+    #     'record_by': e.creator.employee.name,
+    # } for e in evaluations]
+
+    # return jsonify({'data': data})
+
+    # evaluations = BonusEvaluationHistory.query.filter_by(employee_id=employee_id, submission_id=submission_id).all()
+
+    # grouped_data = defaultdict(list)
+    # for e in evaluations:
+    #     record_by = e.creator.employee.name if e.creator and e.creator.employee else 'Unknown'
+    #     grouped_data[record_by].append({
+    #         'question_id': e.question.question_text if e.question else '-',
+    #         'value': e.value,
+    #     })
+    
+    # Step 1: Get all evaluations
+    evaluations = BonusEvaluationHistory.query.filter_by(
+        employee_id=employee_id, submission_id=submission_id
+    ).order_by(BonusEvaluationHistory.id.asc()).all()
+
+    # Step 2: Group by user, collect all records, and find the latest created_at for each user
+    user_data = defaultdict(lambda: {'records': [], 'latest': None})
+
+    for e in evaluations:
+        record_by = e.creator.employee.name if e.creator and e.creator.employee else 'Unknown'
+        created_at = e.id
+
+        user_data[record_by]['records'].append({
+            'question_id': e.question.question_text if e.question else '-',
+            'value': e.value,
+            'created_at': created_at
+        })
+
+        # Keep track of the **latest evaluation time** per user
+        if not user_data[record_by]['latest'] or created_at > user_data[record_by]['latest']:
+            user_data[record_by]['latest'] = created_at
+
+    # Step 3: Sort the user groups by latest evaluation time DESC
+    sorted_user_data = dict(
+        sorted(user_data.items(), key=lambda item: item[1]['latest'], reverse=True)
+    )
+
+    print (sorted_user_data)
+
+    # final_data should be a list, not a dict
+    final_data = []
+    for record_by, user_info in sorted_user_data.items():
+        final_data.append({
+            'record_by': record_by,
+            'records': user_info['records']
+        })
+
+    return jsonify({'data': final_data})
+
+
+
+
 @bp.route('/submission/<int:submission_id>/submit', methods=['POST'])
 @login_required
 def submit_evaluation(submission_id):
@@ -732,7 +868,8 @@ def submit_evaluation(submission_id):
     # Verify that all employees have been evaluated on all questions
     employees = Employee.query.filter_by(
         department=submission.department,
-        is_active=True
+        is_active=True,
+        is_bonus=True
     ).all()
     
     questions = BonusQuestion.query.filter_by(
@@ -745,6 +882,14 @@ def submit_evaluation(submission_id):
         submission_id=submission_id
     ).count()
     
+
+    evaluation_submit = BonusEvaluation.query.filter_by(
+        submission_id=submission_id
+    )
+
+    save_evaluation_history(submission_id)
+    
+
     expected_count = len(employees) * len(questions)
     
     # if evaluation_count < expected_count:
@@ -781,6 +926,7 @@ def view_submission(submission_id):
     # Check permissions
     is_owner = submission.submitted_by == current_user.id
     is_hr = current_user.has_role('hr')
+    is_approver = current_user.has_role_approver()
     
     if not (is_owner or is_hr):
         flash('You do not have permission to view this submission.', 'danger')
@@ -788,12 +934,15 @@ def view_submission(submission_id):
     
     # Get employees in department
     employees = Employee.query.filter_by(
-        department=submission.department
+        department=submission.department,
+        is_bonus=True,
+        is_active=True
     ).order_by(Employee.name).all()
     
     # Get active questions for this department
     questions = BonusQuestion.query.filter_by(
-        department=submission.department
+        department=submission.department,
+        is_active=True
     ).order_by(BonusQuestion.id).all()
     
     # Get evaluations
@@ -860,6 +1009,7 @@ def view_submission(submission_id):
         employee_points=employee_points,
         audit_logs=audit_logs,
         is_hr=is_hr,
+        is_approver=is_approver,
         User=User,
         user_map=user_map,
         csrf_token_field=csrf_token_field
@@ -902,13 +1052,26 @@ def hr_review():
         other_submissions = BonusSubmission.query.filter(
             BonusSubmission.status.in_(['approved', 'rejected'])
         ).order_by(BonusSubmission.reviewed_at.desc()).all()
+
+    print(current_user.is_bouns_approver)
+    print(" hhhhhhhhhhhhhhhhhhhh")
     
     return render_template(
         'bonus/hr_review.html',
         pending_submissions=pending_submissions,
         other_submissions=other_submissions,
-        filter_status=filter_status
+        filter_status=filter_status,
+        is_bonus_approver=current_user.is_bouns_approver
     )
+
+def notify_odoo_user_bonus_approvel(data):
+    try:
+
+        requests.post("http://erp.mir.ae:8050/odoo_user_bonus_approvel", data=data, timeout=3)
+
+    except requests.exceptions.RequestException as e:
+        print("❌ Failed to notify Odoo (created):", e)
+
 
 
 @bp.route('/hr/review/<int:submission_id>', methods=['GET', 'POST'])
@@ -918,12 +1081,14 @@ def hr_review_submission(submission_id):
     """HR review a specific submission with multi-level approval"""
     # Get how many HR approvals are required from system config
     system_config = SystemConfig.query.first()
+    print(" kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk")
     required_approvals = 2  # Default fallback
     
     if system_config and system_config.required_approvals:
         required_approvals = system_config.required_approvals
     
     submission = BonusSubmission.query.get_or_404(submission_id)
+    print(submission.department, " 00000000000000000000000000")
     
     # Check if submission can be reviewed
     if submission.status not in ['submitted', 'in_review']:
@@ -952,6 +1117,11 @@ def hr_review_submission(submission_id):
                 user_id=current_user.id,
                 notes=notes or 'Submission rejected by HR'
             )
+
+
+
+
+
             
             db.session.add(log)
             db.session.commit()
@@ -967,6 +1137,7 @@ def hr_review_submission(submission_id):
         
         # Handle approval - multi-level process
         current_approvers = submission.approvers or []
+
         
         # Check if current user already approved
         if current_user.id in current_approvers:
@@ -983,6 +1154,47 @@ def hr_review_submission(submission_id):
         # Change status to in_review after first approval
         if submission.status == 'submitted':
             submission.status = 'in_review'
+
+            print(" odoo hit methdo  Super HR ")
+            
+            # users = User.query.filter_by(is_bouns_approver=True).all()
+            users = User.query.filter_by(is_bouns_approver=True).all()
+            print ( users) 
+            print("---------------------------")
+            print (users[0].employee_id)
+            for user in users:
+                print(user.employee_id)
+                print(" hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh")
+            emp = Employee.query.filter_by(id=users[0].employee_id).first()
+            print(emp)
+
+            # print(users[0].email)
+
+
+            # need to make history here
+            save_evaluation_history(submission_id)
+            
+            # data['email'] = users.email
+            # data['body'] = " HR has been Approved the bonus. Please Review and Approve"
+            body_html = """
+                Dear {EMPNAME},
+                HR has approved and submitted the bonuses for {DEPARTMENT} department for your review in ERP. Please review and approve.
+                Login to your ERP and click attendance app link.
+                Best regards,<br/>HR Department
+            """.format(EMPNAME=emp.name, DEPARTMENT=submission.department)
+            # data['body'] = body_html
+            # data['employee_id'] = users.employee_id.odoo_id
+
+            thread = threading.Thread(target=notify_odoo_user_bonus_approvel, args=({
+                    'email': emp.email,
+                    'body': body_html,
+                    'employee_id': emp.odoo_id,
+                    # 'employee_id': employee.odoo_id,
+                    # 'phone': employee.phone,
+                    # 'is_reset':False
+                },))
+            thread.start()
+
         
         # Create audit log entry for this approval
         log = BonusAuditLog(
@@ -991,7 +1203,8 @@ def hr_review_submission(submission_id):
             user_id=current_user.id,
             notes=notes or f'Approval level {len(current_approvers)} of {required_approvals}'
         )
-        
+
+
         db.session.add(log)
         
         # Check if all required approvals received
@@ -1009,8 +1222,43 @@ def hr_review_submission(submission_id):
                 user_id=current_user.id,
                 notes=notes or 'Final approval by HR'
             )
-            
+            save_evaluation_history(submission_id)
+
             db.session.add(final_log)
+            print(" odoo hit methdo  Super HR ")
+            
+            # users = User.query.filter_by(is_bouns_approver=True).all()
+            users = User.query.filter_by(role='hr', is_bouns_approver=False).all()
+            for user in users:
+                print (user)
+                print(" hahashdahdsahsd sa")
+
+                emp = Employee.query.filter_by(id=user.employee_id).first()
+                print(emp)
+
+                # print(users[0].email)
+                
+                # data['email'] = users.email
+                # data['body'] = " HR has been Approved the bonus. Please Review and Approve"
+                body_html = """
+                    Dear {EMPNAME},
+                    Final approval for the payroll bonuses  for {DEPARTMENT} department has been Done. Please review and Submit to payroll.
+                    
+                    Best regards,<br/>HR Department
+                """.format(EMPNAME=emp.name, DEPARTMENT=submission.department)
+                # data['body'] = body_html
+                # data['employee_id'] = users.employee_id.odoo_id
+
+                thread = threading.Thread(target=notify_odoo_user_bonus_approvel, args=({
+                        'email': emp.email,
+                        'body': body_html,
+                        'employee_id': emp.odoo_id,
+                        # 'employee_id': employee.odoo_id,
+                        # 'phone': employee.phone,
+                        # 'is_reset':False
+                    },))
+                thread.start()
+
             
             # Update original_value for all evaluations
             evaluations = BonusEvaluation.query.filter_by(

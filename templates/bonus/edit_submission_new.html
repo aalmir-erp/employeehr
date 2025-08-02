@@ -100,7 +100,8 @@
                                            step="1"
                                            value="{{ existing_evaluation.value if existing_evaluation else '' }}"
                                            required
-                                           {% if submission.status != 'draft' %}disabled{% endif %}>
+                                           {% if submission.status != 'draft' %}disabled{% endif %}
+                                        {% if question.only_hr and not current_user.has_role('hr') %}readonly{% endif %}>
                                     <div class="save-status mt-1">
                                         <span class="saving text-warning d-none">
                                             <i class="bi bi-clock"></i> Saving...

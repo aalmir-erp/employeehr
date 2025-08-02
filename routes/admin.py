@@ -8,6 +8,8 @@ from models import User, Employee, Shift, ShiftAssignment, AttendanceDevice, Odo
 from itsdangerous import URLSafeSerializer, BadSignature
 import threading
 import requests
+import random
+import string
 
 
 
@@ -124,7 +126,10 @@ def login_as_user(user_id):
 @bp.route('/loginodoo/<string:employee_token>')
 def login_as_user_odoo(employee_token):
     s = URLSafeSerializer(SECRET_KEY)
+    print (employee_token)
     odoo_employee_id = s.loads(employee_token)
+    print(odoo_employee_id)
+    print(" k kkkk")
 
     # Step 1: Get employee record where odoo_id matches
     employee = Employee.query.filter_by(odoo_id=odoo_employee_id).first_or_404()
@@ -177,6 +182,7 @@ def edit_user(user_id):
         email = request.form.get('email')
         role = request.form.get('is_admin')  # This now carries the role value
         is_active = 'is_active' in request.form
+        is_bouns_approver = 'is_bouns_approver' in  request.form
 
         # Check if username or email already exists for another user
         existing_user = User.query.filter(
@@ -188,12 +194,16 @@ def edit_user(user_id):
             flash('Username or email already in use by another user', 'danger')
             return redirect(url_for('admin.edit_user', user_id=user_id))
 
+        if is_bouns_approver:
+            role = 'hr'
+
         # Set values
         user.username = username
         user.email = email
         user.role = role
         user.is_admin = True if role == 'admin' else False
         # user.is_active = is_active
+        user.is_bouns_approver = is_bouns_approver
 
         db.session.commit()
         flash(f'User "{username}" updated successfully', 'success')
@@ -224,33 +234,43 @@ def delete_user():
 
 def notify_odoo_user_created(data):
     try:
-        print("✅ odoo hit method")
-        requests.post("http://erp.mir.ae:8069/attendance_user_created", data=data, timeout=3)
+        print(" odoo hit methdo ")
+        requests.post("http://erp.mir.ae:8050/attendance_user_created", data=data, timeout=3)
+
     except requests.exceptions.RequestException as e:
         print("❌ Failed to notify Odoo (created):", e)
 
 
 def notify_odoo_user_created_list(data):
-    try:
+    # try:
         print("✅ notifying Odoo with created user list")
-        requests.post("http://erp.mir.ae:8069/attendance_user_created_list", data=data, timeout=3)
-    except requests.exceptions.RequestException as e:
-        print("❌ Failed to notify Odoo (list):", e)
+        print (data, "data")
+        requests.post("http://sib.mir.ae:8050/notify_odoo_user_created_list", json={'users': data}, timeout=3)
+
+        # requests.post("http://erp.mir.ae:8050/attendance_user_created_list", json={'users': data}, timeout=3)
+
+        # requests.post("http://erp.mir.ae:8050/attendance_user_created_list", data=data, timeout=3)
+    # except requests.exceptions.RequestException as e:
+    #     print("❌ Failed to notify Odoo (list):", e)
 
 
 def notify_odoo_user_skipped_employees(data):
-    try:
+    # try:
         print("✅ notifying Odoo with skipped employee")
-        requests.post("http://erp.mir.ae:8069/attendance_skipped_employee", data=data, timeout=3)
-    except requests.exceptions.RequestException as e:
-        print("❌ Failed to notify Odoo (skipped):", e)
+        # print (data, "data")
+        requests.post("http://erp.mir.ae:8050/notify_odoo_user_skipped_employees", json={'employees': data}, timeout=3)
+
+        # requests.post("http://erp.mir.ae:8050/attendance_skipped_employee", json={'users': data}, timeout=3)
+    # except requests.exceptions.RequestException as e:
+    #     print("❌ Failed to notify Odoo (skipped):", e)
 
 
 # ----- MAIN ROUTE -----
 @bp.route('/create_missing_users_for_employees', methods=['GET', 'POST'])
 @login_required
 def create_missing_users_for_employees():
-    default_password = 'Default123'
+    # default_password = 'Default123'
+    default_password = generate_random_password()
     employees = Employee.query.all()
 
     created_employees = []
@@ -264,6 +284,7 @@ def create_missing_users_for_employees():
                 'name': employee.name,
                 'reason': 'Missing email or phone',
                 'email': employee.email,
+                'phone': employee.phone,
             })
             continue
 
@@ -279,65 +300,61 @@ def create_missing_users_for_employees():
                 'name': employee.name,
                 'reason': 'User already exists with same employee or email',
                 'email': employee.email,
+                'phone': employee.phone,
             })
             continue
 
-        new_user = User(
-            email=employee.email,
-            username=employee.employee_code or f"user{employee.id}",
-            role='employee',
-            employee_id=employee.id,
-            department=employee.department,
-            is_admin=False,
-            created_at=datetime.utcnow(),
-            last_login=None,
-            force_password_change=False
-        )
-        new_user.set_password(default_password)
-        db.session.add(new_user)
-        db.session.flush()  
+        # new_user = User(
+        #     email=employee.email,
+        #     username=employee.employee_code or f"user{employee.id}",
+        #     role='employee',
+        #     employee_id=employee.id,
+        #     department=employee.department,
+        #     is_admin=False,
+        #     created_at=datetime.utcnow(),
+        #     last_login=None,
+        #     force_password_change=False
+        # )
+        # new_user.set_password(default_password)
+        # db.session.add(new_user)
+        # db.session.flush()  
 
-        employee.user_id = new_user.id
+        # employee.user_id = new_user.id
 
         # Notify Odoo (if odoo_id exists)
-        # if employee.odoo_id:
-        #     # thread = threading.Thread(target=notify_odoo_user_created, args=({
-        #     #     'email': new_user.email,
-        #     #     'username': new_user.username,
-        #     #     'password': default_password,
-        #     #     'employee_id': employee.odoo_id,
-        #     # },))
-        #     # thread.start()
+        if employee.odoo_id:
+            pass
+            thread = threading.Thread(target=notify_odoo_user_created, args=({
+                'email': employee.email,
+                'username': employee.employee_code,
+                'password': default_password,
+                'employee_id': employee.odoo_id,
+                'phone': employee.phone,
+                'is_reset':False
+            },))
+            thread.start()
 
         created_employees.append({
             'id': employee.id,
             'name': employee.name,
-            'username': new_user.username,
-            'email': new_user.email,
-            'odoo_id': employee.odoo_id
+            'username': employee.employee_code,
+            'email': employee.email,
+            'odoo_id': employee.odoo_id,
+            'phone': employee.phone,
         })
 
     db.session.commit()
 
     # Notify Odoo: Created users
-    # for emp in created_employees:
-    #     # thread = threading.Thread(target=notify_odoo_user_created_list, args=({
-    #     #     'email': emp['email'],
-    #     #     'username': emp['username'],
-    #     #     'password': default_password,
-    #     #     'employee_id': emp['odoo_id'],
-    #     # },))
-    #     # thread.start()
+    # ✅ Notify Odoo: Created users (single call)
+    if created_employees:
+        thread = threading.Thread(target=notify_odoo_user_created_list, args=(created_employees,))
+        thread.start()
 
-    # Notify Odoo: Skipped employees
-    # for emp in skipped_employees:
-    #     # thread = threading.Thread(target=notify_odoo_user_skipped_employees, args=({
-    #     #     'email': emp['email'],
-    #     #     'username': emp['name'],
-    #     #     'password': default_password,
-    #     #     'employee_id': None,
-    #     # },))
-    #     # thread.start()
+    # ✅ Notify Odoo: Skipped employees (single call)
+    if skipped_employees:
+        thread = threading.Thread(target=notify_odoo_user_skipped_employees, args=(skipped_employees,))
+        thread.start()
 
     flash(f"{len(created_employees)} User account created" , "success")
     flash(f"{len(skipped_employees)} User account Skipped" , "success")
@@ -365,17 +382,19 @@ def create_user():
 
     # Optionally get employee info
     employee = Employee.query.get(employee_id)
+    random_password = generate_random_password()
+
 
     new_user = User(
         email=email,
-        username=username,
+        username=employee.employee_code,
         phone_number=phone,
         role=role,
         employee_id=employee_id,
         department=employee.department if employee else None,
         # password_hash=generate_password_hash("Default123", method='pbkdf2:sha256')  # Change default password policy
     )
-    new_user.set_password('Default123')
+    new_user.set_password(random_password)
     db.session.add(new_user)
     db.session.commit()
     print (" i am here odoo hit 0000000000000000000000000")
@@ -383,15 +402,22 @@ def create_user():
 
     thread = threading.Thread(target=notify_odoo_user_created, args=({
         'email': email,
-        'username': username,
-        'password': 'Default123',
+        'username': employee.employee_code,
+        'password': random_password,
         'employee_id': employee.odoo_id,
-        'phone':phone
+        'phone':phone,
+        'is_reset':False
     },))
     thread.start()
 
     flash(f"User account created for {employee.name}", "success")
     return redirect(url_for('admin.employees'))
+
+
+def generate_random_password(length=8):
+    chars = string.ascii_letters + string.digits  # a-z, A-Z, 0-9
+    return ''.join(random.choice(chars) for _ in range(length))
+
 
 
 @bp.route('/users/create')
@@ -518,7 +544,7 @@ def users():
 @login_required
 def reset_password_form(user_id):
     """Display form to reset a user's password"""
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to reset passwords', 'danger')
         return redirect(url_for('auth.login'))
     
@@ -531,15 +557,17 @@ def reset_password_form(user_id):
 def reset_user_password():
     """Process form to reset a user's password"""
     # Ensure user is admin
-    if not current_user.is_admin:
+    if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to reset passwords', 'danger')
         return redirect(url_for('auth.login'))
     user_id = request.form.get('user_id')
     new_password = request.form.get('new_password')
     confirm_password = request.form.get('confirm_password')
     force_change = 'force_change' in request.form
+
     
     user = User.query.get_or_404(user_id)
+    employee = Employee.query.get(user.employee_id)
     
     # Validate passwords
     if not new_password or len(new_password) < 8:
@@ -558,6 +586,18 @@ def reset_user_password():
         user.force_password_change = force_change
     
     db.session.commit()
+
+    thread = threading.Thread(target=notify_odoo_user_created, args=({
+        'email': user.email,
+        'username': user.username,
+        'password': new_password,
+        'employee_id': user.employee_id,
+        'phone': user.phone_number,
+        'is_reset':True
+    },))
+    thread.start()
+
+
     
     flash(f'Password for "{user.username}" has been reset successfully', 'success')
     return redirect(url_for('admin.users'))

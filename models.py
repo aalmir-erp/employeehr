@@ -53,6 +53,7 @@ class User(UserMixin, db.Model):
 
     # Fix AmbiguousForeignKeysError
     employee = db.relationship('Employee', backref='users', foreign_keys=[employee_id])
+    is_bouns_approver = db.Column(db.Boolean, default=False)
 
     
     @property
@@ -66,6 +67,15 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
     
+    def has_role_approver(self):
+        """Check if user has the specified role or higher privileges"""
+
+        if self.is_bouns_approver:
+            return True
+            
+        # Otherwise check role hierarchy
+        return False
+
     def has_role(self, role):
         """Check if user has the specified role or higher privileges"""
         role_hierarchy = {
@@ -102,6 +112,33 @@ class Department(db.Model):
     
     def __repr__(self):
         return f'<Department {self.name}>'
+
+class PayrollStatus(db.Model):
+    __tablename__ = 'payroll_status'
+
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Foreign Key to Employee model
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
+    
+    # Payroll ID (optional: make it a string or integer depending on your use case)
+    # payroll_id = db.Column(db.Integer, nullable=True)        # Integer ID from Odoo
+    payroll_name = db.Column(db.String(64), nullable=True)
+    payroll_id_odoo = db.Column(db.Integer, nullable=True)  
+
+    
+    # Status fields
+    odoo_status = db.Column(db.String(64), nullable=True)
+    status = db.Column(db.String(64), nullable=True)
+    
+    # Payroll date
+    payroll_date = db.Column(db.Date, nullable=True)
+
+    # Optional relationship backref to Employee
+    employee = db.relationship('Employee', backref='payroll_statuses')
+
+    def __repr__(self):
+        return f'<PayrollStatus EmployeeID={self.employee_id} Status={self.status}>'
 
 class Employee(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -926,6 +963,7 @@ class BonusQuestion(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
     # need to  create boolen here for thee type Attendance, Efficiency, Waste Reduction
+    only_hr = db.Column(db.Boolean, default=True)
     
     # Relationships
     creator = db.relationship('User', foreign_keys=[created_by])
@@ -951,6 +989,7 @@ class BonusEvaluationPeriod(db.Model):
     
     def __repr__(self):
         return f"<BonusEvaluationPeriod {self.name}>"
+
 
 
 class BonusSubmission(db.Model):
@@ -1007,6 +1046,30 @@ class BonusSubmission(db.Model):
         return f"<BonusSubmission {self.department} - {self.period.name if self.period else 'No Period'}>"
 
 
+class BonusEvaluationHistory(db.Model):
+    __tablename__ = 'bonus_evaluation_history'
+
+    id = db.Column(db.Integer, primary_key=True)
+    submission_id = db.Column(db.Integer, db.ForeignKey('bonus_submission.id'), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
+    question_id = db.Column(db.Integer, db.ForeignKey('bonus_question.id'), nullable=False)
+    value = db.Column(db.Integer, nullable=False)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    record_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    odoo_status = db.Column(db.String(64), nullable=True)
+
+    # Forward relationships only
+    creator = db.relationship('User')
+    submission = db.relationship('BonusSubmission')  # No back_populates
+    employee = db.relationship('Employee')
+    question = db.relationship('BonusQuestion')
+    remarks = db.Column(db.String(255))
+
+    def __repr__(self):
+        return f"<BonusEvaluationHistory Employee={self.employee_id} Question={self.question_id} Value={self.value}>"
+
 class BonusEvaluation(db.Model):
     """Individual bonus evaluation for an employee on a specific question"""
     id = db.Column(db.Integer, primary_key=True)
@@ -1023,6 +1086,8 @@ class BonusEvaluation(db.Model):
     submission = db.relationship('BonusSubmission', back_populates='evaluations')
     employee = db.relationship('Employee')
     question = db.relationship('BonusQuestion', back_populates='evaluations')
+    odoo_status = db.Column(db.String(64), nullable=True)
+    remarks = db.Column(db.String(255))
     
     def __repr__(self):
         return f"<BonusEvaluation Employee={self.employee_id} Question={self.question_id} Value={self.value}>"

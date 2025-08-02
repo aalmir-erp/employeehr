@@ -163,7 +163,7 @@ def send_absent_to_odoo():
         employee_ids = data.get('employee_ids', [])
 
         URL = 'http://sib.mir.ae:8050'
-        DB = 'aalmir__2025_05_06'
+        DB = 'july_04'
         USER = 'admin'
         PASSWORD = '123'
 

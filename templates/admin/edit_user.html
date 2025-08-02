@@ -52,8 +52,23 @@
                         </label>
                         <div class="form-text">Full access to all system features</div>
                     </div>
+
+                    <!-- <div class="form-check">
+                        <input class="form-check-input" type="radio" name="is_bouns_approver" id="is_bouns_approver" value="1" 
+                               {% if user.is_bouns_approver %}checked{% endif %}>
+                        <label class="form-check-label" for="is_bouns_approver">
+                            Final Bonus Approval (HR)
+                        </label>
+                        <div class="form-text">Same As HR user but for Bouns Final Approval</div>
+                    </div> -->
                 </div>
                 
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="is_bouns_approver" name="is_bouns_approver" {% if user.is_bouns_approver %}checked{% endif %}>
+                    <label class="form-check-label" for="is_bouns_approver">Final Bonus Approval (HR)</label>
+                    <div class="form-text">Same As HR user but for Bouns Final Approval</div>
+                </div>
+
                 
                 <div class="mb-3 form-check">
                     <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if user.is_active %}checked{% endif %}>
