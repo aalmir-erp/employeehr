@@ -531,6 +531,7 @@ def edit_submission(submission_id):
     # Organize evaluations in a matrix
     evaluation_matrix = {}
     employee_remarks_map = {}
+    employee_status_map = {}
 
     for eval in evaluations:
         if eval.employee_id not in evaluation_matrix:
@@ -543,6 +544,10 @@ def edit_submission(submission_id):
         # Store remarks separately
         if eval.remarks and eval.remarks.strip():
             employee_remarks_map[eval.employee_id] = eval.remarks.strip()
+
+        if eval.emp_status and eval.emp_status.strip():
+            employee_status_map[eval.employee_id] = eval.emp_status.strip()
+
     
     audit_logs = BonusAuditLog.query.filter_by(
         submission_id=submission.id
@@ -555,6 +560,7 @@ def edit_submission(submission_id):
         questions=questions,
         evaluation_matrix=evaluation_matrix,
         employee_remarks_map=employee_remarks_map,
+        employee_status_map=employee_status_map,
         audit_logs=audit_logs
     )
 
@@ -757,6 +763,29 @@ def save_single_evaluation():
     return redirect(request.referrer or url_for('bonus.edit_submission', submission_id=submission_id))
 
 
+@bp.route('/save-emp-status', methods=['POST'])
+def save_emp_status():
+    data = request.get_json()
+    emp_id = data.get('employee_id')
+    submission_id = data.get('submission_id')
+    new_status = data.get('emp_status')
+
+    if not emp_id or not submission_id:
+        return jsonify({'message': 'Missing employee_id or submission_id'}), 400
+
+    evaluation = BonusEvaluation.query.filter_by(
+        employee_id=emp_id,
+        submission_id=submission_id
+    ).first()
+
+
+    if evaluation:
+        evaluation.emp_status = new_status
+        db.session.commit()
+        return jsonify({'message': 'Status updated'}), 200
+    else:
+        return jsonify({'message': 'Evaluation not found'}), 404
+
 def save_evaluation_history(submission_id):
     evaluations = BonusEvaluation.query.filter_by(submission_id=submission_id).all()
 
@@ -768,6 +797,7 @@ def save_evaluation_history(submission_id):
             value=eval.value,
             notes=eval.notes,
             record_by=current_user.id,
+            remarks=eval.remarks
             # odoo_status=eval.odoo_status  # optional: copy status too
         )
         db.session.add(history)
@@ -777,72 +807,71 @@ def save_evaluation_history(submission_id):
 
 @bp.route('/get_evaluation_history')
 def get_evaluation_history():
+    from collections import defaultdict
+
     employee_id = request.args.get('employee_id')
     submission_id = request.args.get('submission_id')
-    print (" get_evaluation_history ")
-    print(employee_id, "employee_id -----")
 
-    # evaluations = BonusEvaluationHistory.query.filter_by(employee_id=employee_id,submission_id=submission_id).all()
-
-    # data = [{
-    #     'question_id': e.question.question_text if e.question else '-',
-    #     'value': e.value,
-    #     # 'value': e.value,
-    #     'record_by': e.creator.employee.name,
-    # } for e in evaluations]
-
-    # return jsonify({'data': data})
-
-    # evaluations = BonusEvaluationHistory.query.filter_by(employee_id=employee_id, submission_id=submission_id).all()
-
-    # grouped_data = defaultdict(list)
-    # for e in evaluations:
-    #     record_by = e.creator.employee.name if e.creator and e.creator.employee else 'Unknown'
-    #     grouped_data[record_by].append({
-    #         'question_id': e.question.question_text if e.question else '-',
-    #         'value': e.value,
-    #     })
-    
-    # Step 1: Get all evaluations
     evaluations = BonusEvaluationHistory.query.filter_by(
         employee_id=employee_id, submission_id=submission_id
     ).order_by(BonusEvaluationHistory.id.asc()).all()
 
-    # Step 2: Group by user, collect all records, and find the latest created_at for each user
-    user_data = defaultdict(lambda: {'records': [], 'latest': None})
+    user_data = defaultdict(lambda: {
+        'records': [],
+        'latest': None,
+        'remarks': None  
+    })
 
     for e in evaluations:
         record_by = e.creator.employee.name if e.creator and e.creator.employee else 'Unknown'
-        created_at = e.id
+        created_at = e.id  # Or use e.created_at if available
 
+        # Initialize user_data structure
+        if record_by not in user_data:
+            user_data[record_by] = {
+                'records': [],
+                'remarks': None,
+                'latest': None,
+            }
+
+        # Add question entry
         user_data[record_by]['records'].append({
             'question_id': e.question.question_text if e.question else '-',
             'value': e.value,
             'created_at': created_at
         })
 
-        # Keep track of the **latest evaluation time** per user
+        # Save remark separately
+        if not user_data[record_by]['remarks'] and e.remarks:
+            user_data[record_by]['remarks'] = {
+                'question_id': 'Remarks',
+                'value': e.remarks,
+                'created_at': created_at
+            }
+
+        # Track latest creation time
         if not user_data[record_by]['latest'] or created_at > user_data[record_by]['latest']:
             user_data[record_by]['latest'] = created_at
 
-    # Step 3: Sort the user groups by latest evaluation time DESC
+    # Sort groups by latest date
     sorted_user_data = dict(
         sorted(user_data.items(), key=lambda item: item[1]['latest'], reverse=True)
     )
 
-    print (sorted_user_data)
-
-    # final_data should be a list, not a dict
+    # Final formatting
     final_data = []
     for record_by, user_info in sorted_user_data.items():
+        records = user_info['records']
+
+        # Append remarks at the end of records
+        if user_info['remarks']:
+            records.append(user_info['remarks'])
+
         final_data.append({
             'record_by': record_by,
-            'records': user_info['records']
+            'records': records
         })
-
     return jsonify({'data': final_data})
-
-
 
 
 @bp.route('/submission/<int:submission_id>/submit', methods=['POST'])
@@ -950,6 +979,7 @@ def view_submission(submission_id):
     # Organize evaluations in a matrix for easy access
     evaluation_matrix = {}
     employee_remarks_map = {}
+    employee_status_map = {}
 
     for eval in evaluations:
         print(eval.remarks,"eval.remarks============")
@@ -963,6 +993,9 @@ def view_submission(submission_id):
         # Always update remarks separately
         if eval.remarks and eval.remarks.strip():
             employee_remarks_map[eval.employee_id] = eval.remarks.strip()
+        
+        if eval.emp_status and eval.emp_status.strip():
+            employee_status_map[eval.employee_id] = eval.emp_status.strip()
     
     # Calculate total points for each employee
     print(employee_remarks_map,"employee_remarks_map===============")
@@ -1012,6 +1045,7 @@ def view_submission(submission_id):
         employees=employees,
         questions=questions,
         evaluation_matrix=evaluation_matrix,
+        employee_status_map=employee_status_map,
         employee_points=employee_points,
         audit_logs=audit_logs,
         is_hr=is_hr,

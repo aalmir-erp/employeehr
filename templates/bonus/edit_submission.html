@@ -171,9 +171,31 @@
                                 <tr data-employee-id="{{ employee.id }}">
                                     <td>
                                         <input type="checkbox" class="form-check-input employee-checkbox" data-employee-id="{{ employee.id }}">
+                                        <br/>
+                                        
+
+                                    
                                     </td>
 
-                                    <td class="employee-name">{{ employee.name }}</td>
+                                    <td class="employee-name">
+<div class="d-flex flex-column">
+    <div class="d-flex justify-content-between align-items-center">
+        {{ employee.name }}
+        {% if current_user.has_role('hr') and (submission.status == 'submitted' or submission.status == 'in_review') %}
+            <button class="btn btn-sm btn-primary set-status-btn"
+                    data-employee-id="{{ employee.id }}"
+                    data-submission-id="{{ submission.id }}"
+                    title="Set Status">
+                <i class="bi bi-pencil-square"></i>
+            </button>
+        {% endif %}
+    </div>
+    <div style="color: #0d6efd; font-size: 0.875rem; font-weight: 600;">
+{{ employee_status_map.get(employee.id, '') }}</div>
+</div>
+
+                                    </td>
+
                                     {% for question in questions %}
                                     <td class="score-cell">
                                         <form method="post" action="{{ url_for('bonus.save_single_evaluation') }}" class="single-evaluation-form">
@@ -296,6 +318,30 @@
         </div>
     </div>
 </div>
+
+
+<!-- Modal emp status -->
+<!-- Status Modal -->
+<div class="modal fade" id="statusModal" tabindex="-1" aria-labelledby="statusModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="statusModalLabel">Set Employee Status</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="selectedEmployeeId">
+        <input type="hidden" id="selectedSubmissionId">
+        <textarea id="empStatusInput" class="form-control" placeholder="Enter status"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-success" id="saveStatusBtn">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 
 <!-- Submit Confirmation Modal -->
 <div class="modal fade" id="submitModal" tabindex="-1" aria-labelledby="submitModalLabel" aria-hidden="true">
@@ -462,6 +508,66 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+
+            function openStatusModal(employeeId, submissionId) {
+                $('#selectedEmployeeId').val(employeeId);
+                $('#selectedSubmissionId').val(submissionId);
+                $('#empStatusInput').val('');
+                $('#statusModal').modal('show');
+            }
+
+ const statusModalElement = document.getElementById('statusModal');
+    const statusModal = new bootstrap.Modal(statusModalElement);
+    const empStatusInput = document.getElementById('empStatusInput');
+    const saveStatusBtn = document.getElementById('saveStatusBtn');
+    const selectedEmployeeId = document.getElementById('selectedEmployeeId');
+    const selectedSubmissionId = document.getElementById('selectedSubmissionId');
+
+    // Attach click listeners to all "Set Status" buttons
+            document.querySelectorAll('.set-status-btn').forEach(button => {
+                button.addEventListener('click', function () {
+                    const empId = this.getAttribute('data-employee-id');
+                    const submissionId = this.getAttribute('data-submission-id');
+                    
+                    selectedEmployeeId.value = empId;
+                    selectedSubmissionId.value = submissionId;
+                    empStatusInput.value = '';
+                    
+                    statusModal.show();
+                });
+            });
+
+            // Save button AJAX logic
+            saveStatusBtn.addEventListener('click', function () {
+                const empId = selectedEmployeeId.value;
+                const submissionId = selectedSubmissionId.value;
+                const status = empStatusInput.value;
+
+                fetch('/bonus/save-emp-status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        employee_id: empId,
+                        submission_id: submissionId,
+                        emp_status: status
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not OK');
+                    return response.json();
+                })
+                .then(data => {
+                    alert(data.message || 'Status updated!');
+                    statusModal.hide();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to save status');
+                });
+            });
+        // });
 
         const inputs_remarks = document.querySelectorAll(".remarks-input");
 
