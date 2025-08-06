@@ -1236,13 +1236,19 @@ def hr_review_submission(submission_id):
                 },))
             thread.start()
 
+        if notes:
+
+            log_note = notes+' HR Approved (Awaiting management approval)'
+        else:
+            log_note = 'HR Approved (Awaiting management approval)'
+
         
         # Create audit log entry for this approval
         log = BonusAuditLog(
             submission_id=submission_id,
-            action=f'approval_level_{len(current_approvers)}',
+            action=f'Approved by',
             user_id=current_user.id,
-            notes=notes or f'Approval level {len(current_approvers)} of {required_approvals}'
+            notes=log_note
         )
 
 
@@ -1250,6 +1256,15 @@ def hr_review_submission(submission_id):
         
         # Check if all required approvals received
         if len(current_approvers) >= required_approvals:
+
+            if notes:
+
+                log_note = notes+' Final approved by management.'
+            else:
+                log_note = 'Final approved by management.'
+
+            
+
             # Final approval - update status and other fields
             submission.status = 'approved'
             submission.reviewed_by = current_user.id
@@ -1261,7 +1276,7 @@ def hr_review_submission(submission_id):
                 submission_id=submission_id,
                 action='approved',
                 user_id=current_user.id,
-                notes=notes or 'Final approval by HR'
+                notes=log_note
             )
             save_evaluation_history(submission_id)
 
