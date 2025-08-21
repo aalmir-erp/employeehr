@@ -222,7 +222,13 @@ def daily():
     except ValueError:
         selected_date = date.today()
     
-    department = request.args.get('department', 'all')
+    # department = request.args.get('department', 'all')
+    if current_user.has_role('supervisor') and not current_user.is_admin and not current_user.has_role('hr'):
+        user_department = current_user.department
+        
+        department = user_department
+    else:
+        department = request.args.get('department', 'all')
     
     # Query attendance records for the selected date
     query = AttendanceRecord.query.filter_by(date=selected_date)
@@ -240,8 +246,19 @@ def daily():
     late_count = sum(1 for r in records if r.status == 'late')
     
     # Get departments for filter
-    departments = db.session.query(Employee.department).distinct().all()
-    departments = [d[0] for d in departments if d[0]]
+    if current_user.has_role('supervisor') and not current_user.is_admin and not current_user.has_role('hr'):
+        user_department = current_user.department
+        # all_employees = [e for e in all_employees if e.department == user_department]
+        departments = [user_department]
+        # selected_department = user_department
+    else:
+        # departments = sorted(list({e.department for e in all_employees if e.department}))
+        # selected_department = request.args.get('department', '')
+        departments = db.session.query(Employee.department).distinct().all()
+        departments = [d[0] for d in departments if d[0]]
+
+    # departments = db.session.query(Employee.department).distinct().all()
+    # departments = [d[0] for d in departments if d[0]]
     
     return render_template('reports/daily.html',
                           date=selected_date,

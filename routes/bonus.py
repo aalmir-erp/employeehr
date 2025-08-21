@@ -83,6 +83,8 @@ def supervisor_dashboard():
     supervisor_department = None
     if hasattr(current_user, 'employee') and current_user.employee:
         supervisor_department = current_user.employee.department
+
+    print (supervisor_department, "supervisor_department")
     
     if not supervisor_department:
         flash('You are not assigned to a department.', 'warning')
@@ -96,7 +98,7 @@ def supervisor_dashboard():
     # Get this supervisor's submissions
     submissions = BonusSubmission.query.filter(
         BonusSubmission.department == supervisor_department,
-        BonusSubmission.submitted_by == current_user.id
+        # BonusSubmission.submitted_by == current_user.id
     ).order_by(BonusSubmission.created_at.desc()).all()
     
     # Get employees in supervisor's department
