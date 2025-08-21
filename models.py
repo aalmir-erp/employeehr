@@ -1088,6 +1088,7 @@ class BonusEvaluation(db.Model):
     question = db.relationship('BonusQuestion', back_populates='evaluations')
     odoo_status = db.Column(db.String(64), nullable=True)
     remarks = db.Column(db.String(255))
+    emp_status = db.Column(db.String(255))
     
     def __repr__(self):
         return f"<BonusEvaluation Employee={self.employee_id} Question={self.question_id} Value={self.value}>"
