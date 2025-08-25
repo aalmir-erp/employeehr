@@ -181,6 +181,17 @@
 <div class="d-flex flex-column">
     <div class="d-flex justify-content-between align-items-center">
         {{ employee.name }}
+
+        <button class="btn btn-sm btn-primary fetch_bonus-btn"
+                    data-employee-id="{{ employee.id }}"
+                    data-submission-id="{{ submission.id }}"
+                    {% if (employee.id, submission.id) in existing_pairs %}
+                        data-skip="true"
+                    {% endif %}
+                    title="fetch bonus">
+                <i class="bi"></i>
+            </button>
+
         {% if current_user.has_role('hr') and (submission.status == 'submitted' or submission.status == 'in_review') %}
             <button class="btn btn-sm btn-primary set-status-btn"
                     data-employee-id="{{ employee.id }}"
@@ -509,6 +520,60 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
 
+//////////////////////
+        // reusable function
+    function fetchBonus(empId, submissionId) {
+        fetch('/bonus/fetch_attendance_point', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                employee_id: empId,
+                submission_id: submissionId
+            })
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not OK');
+            return response.json();
+        })
+        .then(data => {
+            console.log("Fetched bonus:", data);
+            // alert(data.message || `Points: ${data.attendance_bonus_points}`);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to fetch bonus points');
+        });
+    }
+
+    // run for each button
+    document.querySelectorAll('.fetch_bonus-btn').forEach(button => {
+        const empId = button.getAttribute('data-employee-id');
+        const submissionId = button.getAttribute('data-submission-id');
+
+ const skip = button.getAttribute('data-skip') === "true";
+
+        if (!skip) {
+            fetchBonus(empId, submissionId, button);
+        }
+
+        button.addEventListener('click', function () {
+            if (!button.getAttribute('data-skip')) {
+                fetchBonus(empId, submissionId, button);
+            }
+        });
+
+        
+    });
+
+        ////////////////////////////////
+
+
+
+
+
+
             function openStatusModal(employeeId, submissionId) {
                 $('#selectedEmployeeId').val(employeeId);
                 $('#selectedSubmissionId').val(submissionId);
@@ -522,6 +587,45 @@
     const saveStatusBtn = document.getElementById('saveStatusBtn');
     const selectedEmployeeId = document.getElementById('selectedEmployeeId');
     const selectedSubmissionId = document.getElementById('selectedSubmissionId');
+
+
+    // Attach click listeners to all "Set Status" buttons
+            // document.querySelectorAll('.fetch_bonus-btn').forEach(button => {
+            //     button.addEventListener('click', function () {
+            //         const empId = this.getAttribute('data-employee-id');
+            //         const submissionId = this.getAttribute('data-submission-id');
+
+
+            //     //     const empId = selectedEmployeeId.value;
+            //     // const submissionId = selectedSubmissionId.value;
+            //     // const status = empStatusInput.value;
+
+            //     fetch('/bonus/fetch_attendance_point', {
+            //         method: 'POST',
+            //         headers: {
+            //             'Content-Type': 'application/json'
+            //         },
+            //         body: JSON.stringify({
+            //             employee_id: empId,
+            //             submission_id: submissionId,
+            //         })
+            //     })
+            //     .then(response => {
+            //         if (!response.ok) throw new Error('Network response was not OK');
+            //         return response.json();
+            //     })
+            //     .then(data => {
+            //         alert(data.message || 'Status updated!');
+            //         statusModal.hide();
+            //     })
+            //     .catch(error => {
+            //         console.error('Error:', error);
+            //         alert('Failed to save status');
+            //     });
+
+            //     });
+            // });
+
 
     // Attach click listeners to all "Set Status" buttons
             document.querySelectorAll('.set-status-btn').forEach(button => {
