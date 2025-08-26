@@ -8,6 +8,7 @@ from wtforms import StringField, PasswordField, BooleanField, IntegerField, Sele
 from wtforms.validators import DataRequired, IPAddress, Optional, Length, Regexp
 import re
 from utils.hikvision_connector import hikvision_connector
+from sqlalchemy import text
 
 # Custom validator for host address (accepts both IP and domain names)
 def validate_host(form, field):
@@ -69,6 +70,42 @@ def index():
     """List all attendance devices"""
     devices = AttendanceDevice.query.order_by(AttendanceDevice.name).all()
     return render_template('devices/index.html', devices=devices)
+
+
+@bp.route('/fetch', methods=['GET', 'POST'])
+@login_required
+def fetch():
+    """Add a new attendance device"""
+
+    # Fetch serial from device table
+    sql = text("SELECT serial_num FROM device")
+    serials = db.session.execute(sql).fetchall()
+
+    for serial_row in serials:
+        serial = serial_row[0]
+
+        # Check if device exists in AttendanceDevice
+        existing_device = AttendanceDevice.query.filter_by(device_id=serial).first()
+
+        if not existing_device:
+            # Create new device entry
+            new_device = AttendanceDevice(
+                name=f"Device {serial}",
+                device_id=serial,
+                device_type="biometric",  # adjust as needed
+                location="Main Office",   # adjust as needed
+                ip_address="192.168.1.100",  # adjust as needed
+                port=5000,
+                api_key="your_api_key_here",
+                status='offline'
+            )
+
+            db.session.add(new_device)
+
+    # Commit once after loop
+    db.session.commit()
+    return redirect(url_for('devices.index'))
+
 
 @bp.route('/add', methods=['GET', 'POST'])
 @login_required

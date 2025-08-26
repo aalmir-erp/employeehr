@@ -14,7 +14,8 @@ import requests
 
 from models import (
     db, User, Employee, Department, BonusQuestion, BonusEvaluationPeriod, 
-    BonusSubmission, BonusEvaluation, BonusAuditLog, SystemConfig, BonusEvaluationHistory
+    BonusSubmission, BonusEvaluation, BonusAuditLog, SystemConfig, BonusEvaluationHistory, AttendanceRecord,
+    BonusEvaluationAutomation
 )
 from utils.decorators import role_required
 from utils.wassenger import send_whatsapp_notifications
@@ -269,6 +270,7 @@ def edit_question(question_id):
     # GET request
     departments = db.session.query(Employee.department).distinct().all()
     department_list = [d[0] for d in departments if d[0]]
+
     
     return render_template(
         'bonus/edit_question.html',
@@ -326,7 +328,7 @@ def add_period():
             end_date=end_date,
             created_by=current_user.id
         )
-        
+
         db.session.add(period)
         db.session.commit()
         
@@ -386,6 +388,7 @@ def edit_period(period_id):
 @login_required
 @role_required('supervisor')
 def supervisor_submit(period_id):
+
     """Supervisor bonus submission form"""
     period = BonusEvaluationPeriod.query.get_or_404(period_id)
     
@@ -409,7 +412,7 @@ def supervisor_submit(period_id):
         department=supervisor_department,
         submitted_by=current_user.id
     ).first()
-    
+    print (existing_submission, "existing_submission ===")
     if existing_submission:
         if existing_submission.status == 'draft':
             # Continue editing draft
@@ -419,6 +422,19 @@ def supervisor_submit(period_id):
             return redirect(url_for('bonus.view_submission', submission_id=existing_submission.id))
     
     if request.method == 'POST':
+
+        # need to work here for autumate bonus point  
+        #TODO
+        # period = BonusEvaluationPeriod.query.get_or_404(period_id)
+        print (period.start_date)
+        print (period.end_date)
+
+    #     existing_submission = BonusSubmission.query.filter_by(
+    #     period_id=period_id,
+    #     department=supervisor_department,
+    #     submitted_by=current_user.id
+    # ).first()
+
         # Create new submission (draft)
         submission = BonusSubmission(
             period_id=period_id,
@@ -491,6 +507,7 @@ def save_single_score(submission_id):
                 question_id=question_id,
                 value=value
             )
+            print ("BonusSubmission added 508")
             db.session.add(evaluation)
         
         db.session.commit()
@@ -529,6 +546,12 @@ def edit_submission(submission_id):
     evaluations = BonusEvaluation.query.filter_by(
         submission_id=submission.id
     ).all()
+    existing_evaluations = BonusEvaluationAutomation.query.filter_by(
+    submission_id=submission_id ).all()
+    existing_pairs = {(e.employee_id, e.submission_id) for e in existing_evaluations}
+
+    
+
     
     # Organize evaluations in a matrix
     evaluation_matrix = {}
@@ -555,6 +578,39 @@ def edit_submission(submission_id):
         submission_id=submission.id
     ).order_by(BonusAuditLog.timestamp.desc()).all()
     
+    attendance_q = BonusQuestion.query.filter(
+    BonusQuestion.department == submission.department,
+    BonusQuestion.is_active.is_(True),
+    BonusQuestion.question_text.ilike('%attendance%')
+).first()
+    print (attendance_q)
+    print (" lllllllllllllllllllllllllllll -----------------------------")
+    if attendance_q:
+
+        # 2) map employee -> attendance points from automation table
+        automations = BonusEvaluationAutomation.query.filter_by(
+            submission_id=submission.id
+        ).all()
+        auto_points = {
+            a.employee_id: (a.attendance_bonus_points or 0)
+            for a in automations
+        }
+        print(auto_points, "auto_points")
+        # 3) override the evaluation value in the matrix for the attendance question
+        for emp_id, answers in evaluation_matrix.items():
+            # print (" under look 9999999999999999999999 ")
+            # print (auto_points.get(
+            #         emp_id,
+            #         answers[attendance_q.id].value - 2  # keep existing if no automation
+            #     ) , " Employee id ==",emp_id)
+
+            if attendance_q.id in answers:
+                # answers[attendance_q.id] is a BonusEvaluation row
+                answers[attendance_q.id].value = auto_points.get(
+                    emp_id,
+                    answers[attendance_q.id].value  # keep existing if no automation
+                ) 
+
     return render_template(
         'bonus/edit_submission.html',
         submission=submission,
@@ -563,7 +619,9 @@ def edit_submission(submission_id):
         evaluation_matrix=evaluation_matrix,
         employee_remarks_map=employee_remarks_map,
         employee_status_map=employee_status_map,
-        audit_logs=audit_logs
+        audit_logs=audit_logs,
+        existing_pairs=existing_pairs
+
     )
 
 
@@ -640,7 +698,7 @@ def save_evaluation():
                 question_id=question_id,
                 value=value
             )
-            
+            print ("BonusSubmission added 658")
             db.session.add(evaluation)
             
             # Create audit log entry
@@ -698,6 +756,7 @@ def save_employee_remarks():
             remarks=remarks,
             created_by=current_user.id
         )
+        print ("BonusSubmission added 716")
         db.session.add(evaluation)
 
     db.session.commit()
@@ -714,7 +773,7 @@ def save_single_evaluation():
     question_id = request.form.get('question_id')
     value = request.form.get('value')
     remarks = request.form.get('remarks')
-    print(remarks,employee_id,question_id,value,"==============================>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<=======")
+    # print(remarks,employee_id,question_id,value,"==============================>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<=======")
 
     if not all([submission_id, employee_id, question_id, value]):
         message = "Missing evaluation data."
@@ -738,15 +797,40 @@ def save_single_evaluation():
         question_id=question_id
     ).first()
 
+
+
     if evaluation:
         evaluation.value = value
     else:
+
+        # here to wee to work for attendacne #TODO 
+        # submission = BonusSubmission.query.get_or_404(submission_id)
+        # print(submission.period_id)
+        # period = BonusEvaluationPeriod.query.get_or_404(submission.period_id)
+        # print (period.start_date)
+        # print (period.end_date)
+        # print(employee_id, "-------------HHHHHHHH-------------")
+        # # exit();
+
+
+        # employee_id = 5
+        # date_from = period.start_date
+        # date_to = period.end_date
+
+        # weekend_days_worked = AttendanceRecord.count_weekend_workdays(employee_id, date_from, date_to)
+        # print (" obver emoliye ",weekend_days_worked)
+        # emp = Employee.query.get_or_404(employee_id)
+        # print("Weekend days worked:", weekend_days_worked, emp.name)
+
+
         evaluation = BonusEvaluation(
             submission_id=submission_id,
             employee_id=employee_id,
             question_id=question_id,
             value=value
         )
+        print ("BonusSubmission added 766")
+        # exit() ;
         
         db.session.add(evaluation)
 
@@ -764,6 +848,65 @@ def save_single_evaluation():
 
     return redirect(request.referrer or url_for('bonus.edit_submission', submission_id=submission_id))
 
+@bp.route('/fetch_attendance_point', methods=['POST'])
+def fetch_attendance_point():
+    data = request.get_json()
+    employee_id = data.get('employee_id')
+    print(employee_id, "employee_id ================================================")
+    submission_id = data.get('submission_id')
+
+    if not employee_id or not submission_id:
+        return jsonify({'error': 'Missing employee_id or submission_id'}), 400
+
+    # Get submission to fetch period_id automatically
+    submission = BonusSubmission.query.get(submission_id)
+    if not submission:
+        return jsonify({'error': 'Submission not found'}), 404
+
+    record = BonusEvaluationAutomation.query.filter_by(
+        employee_id=employee_id,
+        submission_id=submission_id
+    ).first()
+    print (submission_id)
+    print ("record ---------------fetch_attendance_point---------------------------------", record)
+    print("TYPE:", type(record))
+    print("IS NONE:", record is None)
+    print("BOOL(record):", bool(record))
+
+    if employee_id ==1691:
+        print (employee_id," ---------------fetch_attendance_point------------------------------------------------------------ HHHHHHH")
+
+
+    if not record:
+        print (" --------------------------------------------------------------------------- HHHHHHH")
+
+        period = BonusEvaluationPeriod.query.get_or_404(submission.period_id)
+        print (period.start_date)
+        print (period.end_date)
+        if employee_id ==1691:
+            print (" --------------------------------------------------------------------------- HHHHHHH")
+
+        weekend_days_worked = AttendanceRecord.count_weekend_workdays(employee_id, period.start_date, period.end_date)
+        print (weekend_days_worked)
+
+        # Create new record with default points = 0
+        record = BonusEvaluationAutomation(
+            employee_id=employee_id,
+            submission_id=submission_id,
+            period_id=submission.period_id,  # assume relation exists
+            attendance_bonus_points=weekend_days_worked -1
+        )
+        db.session.add(record)
+        db.session.commit()
+
+    return jsonify({
+        'id': record.id,
+        'employee_id': record.employee_id,
+        'submission_id': record.submission_id,
+        'period_id': record.period_id,
+        'attendance_bonus_points': record.attendance_bonus_points,
+        'message': 'Record fetched/created successfully'
+    })
 
 @bp.route('/save-emp-status', methods=['POST'])
 def save_emp_status():

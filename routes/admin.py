@@ -9,6 +9,8 @@ from itsdangerous import URLSafeSerializer, BadSignature
 import threading
 import requests
 import random
+from sqlalchemy import text
+    # from datetime import datetime
 import string
 
 
@@ -143,6 +145,63 @@ def login_as_user_odoo(employee_token):
     flash(f'Successfully logged in as {target_user.username}', 'success')
     return redirect(url_for('index.index'))
 
+
+@bp.route('/add_emplayee_to_machine/<int:employee_id>')
+def add_emplayee_to_machine(employee_id):
+    
+
+    employee = Employee.query.get(employee_id)
+
+    sql = text("SELECT serial_num FROM device WHERE id=1")
+    result = db.session.execute(sql,{}).fetchone()
+    print (result[0])
+    device_sn = result[0]
+    # return
+    current_time = datetime.now()
+
+    sql = text("""
+        INSERT INTO machine_command
+        (serial, name, content, status, send_status, err_count, gmt_crate, gmt_modified)
+        VALUES
+        (:serial, 'setuserinfo', :content, 0, 0, 0, :gmt_crate, :gmt_modified)
+    """)
+
+    db.session.execute(sql, {
+        "serial": device_sn,
+        "content": f'{{"cmd":"setuserinfo","enrollid":{employee.odoo_id},"name":"{employee.name}","backupnum":11,"admin":0,"record":123456}}',
+        "gmt_crate": current_time,
+        "gmt_modified": current_time
+    })
+    db.session.commit()
+
+    flash(f"{employee.name} User account has been Added into Machine" , "success")
+    return redirect(url_for('admin.employees'))
+
+
+
+    # machine_command.name = "setuserinfo"
+    # machine_command.status = 0
+    # machine_command.send_status = 0
+    # machine_command.err_count = 0
+    # machine_command.serial = device_sn
+    # machine_command.gmt_create = datetime.now()
+    # machine_command.gmt_modified = datetime.now()
+    # # if self.is_number(record):
+    # content = f'{{"cmd":"setuserinfo","enrollid":{employee.odoo_code},"name":"{employee.name}","backupnum":{11},"admin":0,"record":'123456'}}'
+    # # else:
+    # #     machine_command.content = f'{{"cmd":"setuserinfo","enrollid":{enroll_id},"name":"{name}","backupnum":{backupnum},"admin":{admin},"record":"{record}"}}'
+
+    # # if backupnum == 11 or backupnum == 10:
+
+    # #     if self.is_number(record):
+    # #         machine_command.content = f'{{"cmd":"setuserinfo","enrollid":{enroll_id},"name":"{name}","backupnum":{backupnum},"admin":{admin},"record":{record}}}'
+    # #     else:
+    # #         machine_command.content = f'{{"cmd":"setuserinfo","enrollid":{enroll_id},"name":"{name}","backupnum":{backupnum},"admin":{admin},"record":“{record}”}}'
+
+    # print("machine_command 00000000000000000000000000", machine_command)
+
+
+
 @bp.route('/switch-back-to-admin')
 @login_required
 def switch_back_to_admin():
@@ -268,6 +327,47 @@ def notify_odoo_user_skipped_employees(data):
 
 
 # ----- MAIN ROUTE -----
+@bp.route('/create_missing_users_device', methods=['GET', 'POST'])
+@login_required
+def create_missing_users_device():
+    # default_password = 'Default123'
+    # default_password = generate_random_password()
+    # employees = Employee.query.all()
+    employees = Employee.query.limit(10).all()
+
+
+    created_employees = []
+    skipped_employees = []
+    sql = text("SELECT serial_num FROM device WHERE id=1")
+    result = db.session.execute(sql,{}).fetchone()
+    print (result[0])
+    device_sn = result[0]
+    # return
+    current_time = datetime.now()
+
+    for employee in employees:
+
+        sql = text("""
+            INSERT INTO machine_command
+            (serial, name, content, status, send_status, err_count, gmt_crate, gmt_modified)
+            VALUES
+            (:serial, 'setuserinfo', :content, 0, 0, 0, :gmt_crate, :gmt_modified)
+        """)
+
+        db.session.execute(sql, {
+            "serial": device_sn,
+            "content": f'{{"cmd":"setuserinfo","enrollid":{employee.odoo_id},"name":"{employee.name}","backupnum":11,"admin":0,"record":123456}}',
+            "gmt_crate": current_time,
+            "gmt_modified": current_time
+        })
+        db.session.commit()
+        created_employees.append(employee.id)
+    flash(f"{len(created_employees)} User account created" , "success")
+    return redirect(url_for('admin.employees'))
+
+
+
+
 @bp.route('/create_missing_users_for_employees', methods=['GET', 'POST'])
 @login_required
 def create_missing_users_for_employees():
@@ -633,6 +733,26 @@ def employees():
                 flash('Employee not found or already inactive.', 'warning')
             db.session.commit()
     employees = Employee.query.all()
+    sql = text("""
+    SELECT e.id,
+       EXISTS (
+         SELECT 1
+         FROM machine_command mc
+         WHERE mc.name = 'setuserinfo'
+           AND mc.content LIKE '%' || '"enrollid":' || e.odoo_id::text || '%'
+       ) AS has_command
+FROM employee e
+WHERE e.odoo_id IS NOT NULL
+""")
+
+    results = db.session.execute(sql, {
+        "odoo_pattern": '%"enrollid":%'  # Match JSON pattern
+    }).fetchall()
+
+    # Convert to dictionary {EMP_ID: True/False}
+    employee_devide_status = {row.id: row.has_command for row in results}
+
+    print(employee_devide_status)
 
     
     # Get additional data needed for the template
@@ -670,6 +790,7 @@ def employees():
                            employees=employees, 
                            departments=departments,
                            shifts=shifts,
+                           employee_devide_status=employee_devide_status,
                            stats=stats,
                            selected_filters=selected_filters)
 

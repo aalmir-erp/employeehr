@@ -325,6 +325,27 @@ class AttendanceRecord(db.Model):
     
     def __repr__(self):
         return f'<AttendanceRecord {self.employee_id} {self.date}>'
+
+
+
+
+    @classmethod
+    def count_weekend_workdays(cls, employee_id, date_from, date_to):
+        """
+        Count how many days the employee worked on weekends
+        within a given date range.
+        """
+        return (
+            db.session.query(func.count(cls.id))
+            .filter(
+                cls.employee_id == employee_id,
+                cls.date >= date_from,
+                cls.date <= date_to,
+                cls.is_weekend == True,
+                cls.status.in_(["present", "half-day", "late"])  # worked statuses
+            )
+            .scalar()
+        )
     
     def calculate_work_hours(self):
         """Calculate basic work hours without overtime"""
@@ -1070,6 +1091,22 @@ class BonusEvaluationHistory(db.Model):
     def __repr__(self):
         return f"<BonusEvaluationHistory Employee={self.employee_id} Question={self.question_id} Value={self.value}>"
 
+
+class BonusEvaluationAutomation(db.Model):
+    """Individual bonus evaluation for an employee on a specific question"""
+    id = db.Column(db.Integer, primary_key=True)
+    submission_id = db.Column(db.Integer, db.ForeignKey('bonus_submission.id'), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
+    period_id = db.Column(db.Integer, db.ForeignKey('bonus_evaluation_period.id'), nullable=False)
+    attendance_bonus_points = db.Column(db.Integer)
+
+
+    submission = db.relationship('BonusSubmission')
+    employee = db.relationship('Employee')
+    period = db.relationship('BonusEvaluationPeriod')
+
+
+
 class BonusEvaluation(db.Model):
     """Individual bonus evaluation for an employee on a specific question"""
     id = db.Column(db.Integer, primary_key=True)
@@ -1089,6 +1126,7 @@ class BonusEvaluation(db.Model):
     odoo_status = db.Column(db.String(64), nullable=True)
     remarks = db.Column(db.String(255))
     emp_status = db.Column(db.String(255))
+
     
     def __repr__(self):
         return f"<BonusEvaluation Employee={self.employee_id} Question={self.question_id} Value={self.value}>"
