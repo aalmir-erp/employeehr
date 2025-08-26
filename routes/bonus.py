@@ -598,12 +598,17 @@ def edit_submission(submission_id):
         print(auto_points, "auto_points")
         # 3) override the evaluation value in the matrix for the attendance question
         for emp_id, answers in evaluation_matrix.items():
-            print (" under look")
+            # print (" under look 9999999999999999999999 ")
+            # print (auto_points.get(
+            #         emp_id,
+            #         answers[attendance_q.id].value - 2  # keep existing if no automation
+            #     ) , " Employee id ==",emp_id)
+
             if attendance_q.id in answers:
                 # answers[attendance_q.id] is a BonusEvaluation row
                 answers[attendance_q.id].value = auto_points.get(
                     emp_id,
-                    answers[attendance_q.id].value - 1  # keep existing if no automation
+                    answers[attendance_q.id].value  # keep existing if no automation
                 ) 
 
     return render_template(
@@ -847,6 +852,7 @@ def save_single_evaluation():
 def fetch_attendance_point():
     data = request.get_json()
     employee_id = data.get('employee_id')
+    print(employee_id, "employee_id ================================================")
     submission_id = data.get('submission_id')
 
     if not employee_id or not submission_id:
@@ -861,22 +867,34 @@ def fetch_attendance_point():
         employee_id=employee_id,
         submission_id=submission_id
     ).first()
+    print (submission_id)
+    print ("record ---------------fetch_attendance_point---------------------------------", record)
+    print("TYPE:", type(record))
+    print("IS NONE:", record is None)
+    print("BOOL(record):", bool(record))
 
+    if employee_id ==1691:
+        print (employee_id," ---------------fetch_attendance_point------------------------------------------------------------ HHHHHHH")
 
 
     if not record:
+        print (" --------------------------------------------------------------------------- HHHHHHH")
+
         period = BonusEvaluationPeriod.query.get_or_404(submission.period_id)
         print (period.start_date)
         print (period.end_date)
+        if employee_id ==1691:
+            print (" --------------------------------------------------------------------------- HHHHHHH")
 
         weekend_days_worked = AttendanceRecord.count_weekend_workdays(employee_id, period.start_date, period.end_date)
+        print (weekend_days_worked)
 
         # Create new record with default points = 0
         record = BonusEvaluationAutomation(
             employee_id=employee_id,
             submission_id=submission_id,
             period_id=submission.period_id,  # assume relation exists
-            attendance_bonus_points=weekend_days_worked
+            attendance_bonus_points=weekend_days_worked -1
         )
         db.session.add(record)
         db.session.commit()

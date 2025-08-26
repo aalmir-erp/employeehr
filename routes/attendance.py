@@ -314,6 +314,7 @@ def manual_entry():
             break_duration_str = request.form.get('break_duration', '1')
             status = request.form.get('status')
             notes = request.form.get('notes')
+            mark_weekend  = request.form.get('mark_weekend')
             
             # Convert break duration to float, default to 1 hour
             try:
@@ -388,6 +389,7 @@ def manual_entry():
                 record.break_duration = break_duration
                 record.break_start = break_start_time
                 record.break_end = break_end_time
+                record.is_weekend = True if mark_weekend else False
                 
                 # Calculate work hours if both check-in and check-out are provided
                 if check_in_time and check_out_time:
@@ -412,7 +414,8 @@ def manual_entry():
                     notes=notes,
                     break_duration=break_duration,
                     break_start=break_start_time,
-                    break_end=break_end_time
+                    break_end=break_end_time,
+                    is_weekend=True if mark_weekend else False
                 )
                 
                 # Get employee and set shift_id and shift_type
