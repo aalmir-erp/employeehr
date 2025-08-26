@@ -508,9 +508,9 @@ def edit_submission(submission_id):
     submission = BonusSubmission.query.get_or_404(submission_id)
     
     # Check permissions
-    if not current_user.has_role('hr') and (submission.submitted_by != current_user.id):
-        flash('You do not have permission to edit this submission.', 'danger')
-        return redirect(url_for('bonus.index'))
+    # if not current_user.has_role('hr') and (submission.submitted_by != current_user.id):
+    #     flash('You do not have permission to edit this submission.', 'danger')
+    #     return redirect(url_for('bonus.index'))
     
     # Get employees in department
     employees = Employee.query.filter_by(
@@ -884,9 +884,9 @@ def submit_evaluation(submission_id):
     print(submission,"ppppppppppppppppppppppppppppppppp")
     
     # Check permissions
-    if submission.submitted_by != current_user.id:
-        flash('You do not have permission to submit this evaluation.', 'danger')
-        return redirect(url_for('bonus.index'))
+    # if submission.submitted_by != current_user.id:
+    #     flash('You do not have permission to submit this evaluation.', 'danger')
+    #     return redirect(url_for('bonus.index'))
     
     # Check if submission is editable
     if submission.status not in ['draft', 'rejected']:
