@@ -1132,6 +1132,21 @@ class BonusEvaluation(db.Model):
         return f"<BonusEvaluation Employee={self.employee_id} Question={self.question_id} Value={self.value}>"
 
 
+    @classmethod
+    def get_by_employee_and_question(cls, employee_id, question_id):
+        return (
+            cls.query
+            .filter_by(employee_id=employee_id, question_id=question_id)
+            .join(BonusSubmission, cls.submission_id == BonusSubmission.id)  # join with Submission
+            .join(BonusEvaluationPeriod, BonusSubmission.period_id == BonusEvaluationPeriod.id)       # join with Period
+            .add_columns(
+                BonusSubmission.id.label('submission_id'),
+                BonusEvaluationPeriod.name.label('period_name'),
+                BonusEvaluationPeriod.start_date.label('period_date')  # or end_date depending on requirement
+            )
+            .all()
+        )
+
 class BonusAuditLog(db.Model):
     """Audit log for all changes to bonus evaluations"""
     id = db.Column(db.Integer, primary_key=True)

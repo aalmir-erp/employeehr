@@ -1127,6 +1127,7 @@ def view_submission(submission_id):
     employee_status_map = {}
 
     for eval in evaluations:
+
         print(eval.remarks,"eval.remarks============")
         if eval.employee_id not in evaluation_matrix:
             evaluation_matrix[eval.employee_id] = {}
@@ -1134,6 +1135,8 @@ def view_submission(submission_id):
         # Always add question-based answers
         if eval.question_id is not None:
             evaluation_matrix[eval.employee_id][eval.question_id] = eval
+
+        # records = BonusEvaluation.get_by_employee_and_question(employee_id=eval.employee_id, question_id=3)
 
         # Always update remarks separately
         if eval.remarks and eval.remarks.strip():
@@ -1151,6 +1154,9 @@ def view_submission(submission_id):
     audit_logs = BonusAuditLog.query.filter_by(
         submission_id=submission.id
     ).order_by(BonusAuditLog.timestamp.desc()).all()
+
+
+
     
     # Create a map of user IDs for approvers
     user_map = {}
@@ -1201,6 +1207,29 @@ def view_submission(submission_id):
         employee_remarks_map=employee_remarks_map
     )
 
+
+@bp.route('/evaluation/historyquestion/<int:employee_id>/<int:question_id>')
+def get_evaluation_history_question(employee_id, question_id):
+    evaluations = BonusEvaluation.get_by_employee_and_question(employee_id, question_id)
+
+    history = []
+    for ev, submission_id, period_name, period_date in evaluations:
+        history.append({
+            'id': ev.id,
+            'submission_id': submission_id,
+            'period_name': period_name,
+            'period_date': period_date.strftime('%Y-%m-%d %H:%M:%S') if period_date else None,
+            'value': ev.value,
+            'original_value': ev.original_value,
+            'notes': ev.notes,
+            'odoo_status': ev.odoo_status,
+            'remarks': ev.remarks,
+            'emp_status': ev.emp_status,
+            'created_at': ev.created_at.strftime('%Y-%m-%d') if ev.created_at else None,  # only date
+            'updated_at': ev.updated_at.strftime('%Y-%m-%d %H:%M:%S') if ev.updated_at else None,
+        })
+
+    return jsonify(history)
 
 # HR Review Routes
 @bp.route('/hr/review')
