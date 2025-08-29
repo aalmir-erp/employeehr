@@ -214,17 +214,28 @@
                                             <input type="hidden" name="submission_id" value="{{ submission.id }}"/>
                                             <input type="hidden" name="employee_id" value="{{ employee.id }}"/>
                                             <input type="hidden" name="question_id" value="{{ question.id }}"/>
-                                            <input type="number" 
-                                                class="form-control score-input"
-                                                name="value"
-                                                data-employee-id="{{ employee.id }}"
-                                                data-question-id="{{ question.id }}"
-                                                min="{{ question.min_value }}"
-                                                max="{{ question.max_value }}"
-                                                value="{% if employee.id in evaluation_matrix and question.id in evaluation_matrix[employee.id] %}{{ evaluation_matrix[employee.id][question.id].value }}{% else %}{{ question.default_value }}{% endif %}"
-                                                {% if question.only_hr and not current_user.has_role('hr') %}readonly{% endif %}>
+                                            <div class="d-flex align-items-center">
+        <input type="number" 
+            class="form-control score-input"
+            name="value"
+            data-employee-id="{{ employee.id }}"
+            data-question-id="{{ question.id }}"
+            min="{{ question.min_value }}"
+            max="{{ question.max_value }}"
+            value="{% if employee.id in evaluation_matrix and question.id in evaluation_matrix[employee.id] %}{{ evaluation_matrix[employee.id][question.id].value }}{% else %}{{ question.default_value }}{% endif %}"
+            {% if question.only_hr and not current_user.has_role('hr') %}readonly{% endif %}>
+
+        <button  type="button"  class="btn btn-sm btn-primary get_history-btn ms-2"
+            data-employee-id="{{ employee.id }}"
+            data-question-id="{{ question.id }}"
+            title="history"
+            style="width:30px; height:30px; display:flex; align-items:center; justify-content:center;">
+            <i class="bi bi-clock-history"></i>
+        </button>
+
                                                
                                             </form>
+
                                       
                                     </td>
                                     {% endfor %}
@@ -382,6 +393,7 @@
     </div>
 </div>
 
+
 <!-- Evaluation History Modal -->
     <div class="modal fade" id="evaluationModal" tabindex="-1" role="dialog" aria-labelledby="evaluationModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-lg" role="document">
@@ -398,6 +410,26 @@
         </div>
       </div>
     </div>
+
+
+<!-- Question history  -->
+<div class="modal fade" id="historyModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Evaluation History</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="historyModalBody">
+        <!-- history content will load here -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 <!-- HR Review Modals -->
 {% if current_user.has_role('hr') and (submission.status == 'submitted' or submission.status == 'in_review') %}
@@ -593,6 +625,35 @@
     });
 });
 
+          document.querySelectorAll(".get_history-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            var employeeId = this.dataset.employeeId;
+            var questionId = this.dataset.questionId;
+
+            fetch(`/bonus/evaluation/historyquestion/${employeeId}/${questionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    let html = "<h5>History</h5><ul>";
+                    if (data.length === 0) {
+                        html += "<li>No history found</li>";
+                    } else {
+                        data.forEach(function (ev) {
+                           html += `<li>
+                    <b>Period:</b> ${ev.period_name || '-'}, 
+                    <b>Value:</b> ${ev.value || '-'}, 
+                    <b>Period Date:</b> ${new Date(ev.period_date).toISOString().split("T")[0]}
+                </li>`;
+                        });
+                    }
+                    html += "</ul>";
+
+                    document.getElementById("historyModalBody").innerHTML = html;
+                    var modal = new bootstrap.Modal(document.getElementById("historyModal"));
+                    modal.show();
+                });
+        });
+    });
+
 
 //////////////////////
         // reusable function
@@ -622,11 +683,13 @@
     // }
 
     // run for each button
+
  //    document.querySelectorAll('.fetch_bonus-btn').forEach(button => {
  //        const empId = button.getAttribute('data-employee-id');
  //        const submissionId = button.getAttribute('data-submission-id');
 
  // const skip = button.getAttribute('data-skip') === "true";
+
 
  //        if (!skip) {
  //            fetchBonus(empId, submissionId, button);
@@ -640,6 +703,7 @@
 
         
  //    });
+
 
         ////////////////////////////////
 

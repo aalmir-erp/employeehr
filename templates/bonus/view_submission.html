@@ -259,6 +259,12 @@
                                                 {% if question.only_hr and not current_user.has_role('hr') %}readonly{% endif %}>
                                                
                                             </form>
+                                            <button class="btn btn-sm btn-primary get_history-btn"
+                                                data-employee-id="{{ employee.id }}"
+                                                data-question-id="{{ question.id }}"
+                                                                title="history">
+                                                             <i class="bi bi-clock-history"></i> 
+                                                        </button>
 
 
 
@@ -280,13 +286,26 @@
                                                 </div>
                                             {% else %}
                                                 <!-- Read-only view -->
-                                                <div class="score-value {% if evaluation.original_value is not none and evaluation.original_value != evaluation.value %}score-value-changed{% endif %}">
-                                                    {{ evaluation.value }} 
+                                                <div class="score-value d-flex align-items-center 
+    {% if evaluation.original_value is not none and evaluation.original_value != evaluation.value %}score-value-changed{% endif %}">
+    
+    <span>{{ evaluation.value }}</span>
+    
+    <button type="button" 
+            class="btn btn-sm btn-primary get_history-btn ms-2 p-0 d-flex align-items-center justify-content-center"
+            data-employee-id="{{ employee.id }}"
+            data-question-id="{{ question.id }}"
+            title="history"
+            style="width:24px; height:24px;">
+        <i class="bi bi-clock-history"></i>
+    </button>
                                                     
-                                                    {% if evaluation.original_value is not none and evaluation.original_value != evaluation.value %}
+<!--                                                     {% if evaluation.original_value is not none and evaluation.original_value != evaluation.value %}
                                                     <span class="hr-edit-indicator">Original: {{ evaluation.original_value }} </span>
-                                                    {% endif %}
+                                                    {% endif %} -->
+
                                                 </div>
+                                                
                                             {% endif %}
                                         {% else %}
                                             <span class="text-muted">-</span>
@@ -343,6 +362,24 @@
         </div>
       </div>
     </div>
+
+<!-- Question history  -->
+<div class="modal fade" id="historyModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Evaluation History</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="historyModalBody">
+        <!-- history content will load here -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 
     <div class="row mb-4">
@@ -578,6 +615,36 @@
 <script>
 
     document.addEventListener('DOMContentLoaded', function() {
+
+
+         document.querySelectorAll(".get_history-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            var employeeId = this.dataset.employeeId;
+            var questionId = this.dataset.questionId;
+
+            fetch(`/bonus/evaluation/historyquestion/${employeeId}/${questionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    let html = "<h5>History</h5><ul>";
+                    if (data.length === 0) {
+                        html += "<li>No history found</li>";
+                    } else {
+                        data.forEach(function (ev) {
+                           html += `<li>
+                    <b>Period:</b> ${ev.period_name || '-'}, 
+                    <b>Value:</b> ${ev.value || '-'}, 
+                    <b>Period Date:</b> ${new Date(ev.period_date).toISOString().split("T")[0]}
+                </li>`;
+                        });
+                    }
+                    html += "</ul>";
+
+                    document.getElementById("historyModalBody").innerHTML = html;
+                    var modal = new bootstrap.Modal(document.getElementById("historyModal"));
+                    modal.show();
+                });
+        });
+    });
 
        document.querySelectorAll('.view-evaluations-btn').forEach(button => {
     button.addEventListener('click', function () {
