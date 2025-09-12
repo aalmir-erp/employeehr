@@ -106,6 +106,7 @@
                             <th>Type</th>
                             <th>Location</th>
                             <th>IP Address</th>
+                            <th>Attendance Direction</th>
                             <th>Status</th>
                             <th>Last Ping</th>
                             <th>Actions</th>
@@ -119,6 +120,7 @@
                             <td>{{ device.device_type }}</td>
                             <td>{{ device.location or 'N/A' }}</td>
                             <td>{{ device.ip_address or 'N/A' }}</td>
+                            <td>{{ device.direction|upper or 'N/A' }}</td>
                             <td>
                                 <span class="badge device-status
                                     {% if device.status == 'online' %}bg-success

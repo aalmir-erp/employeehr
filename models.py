@@ -241,6 +241,8 @@ class AttendanceDevice(db.Model):
     status = db.Column(db.String(64), default='offline')  # 'online', 'offline', 'error'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    direction = db.Column(db.String(10), nullable=False, default="in")  # 'in' or 'out'
+
     
     # Relationships
     attendance_logs = db.relationship('AttendanceLog', backref='device', lazy='dynamic')
