@@ -1168,3 +1168,20 @@ class BonusAuditLog(db.Model):
     
     def __repr__(self):
         return f"<BonusAuditLog {self.action} by {self.user_id} at {self.timestamp}>"
+
+
+class EmployeeDevice(db.Model):
+    __tablename__ = "employee_device"
+
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False)
+    device_id = db.Column(db.Integer, db.ForeignKey("attendance_device.id"), nullable=False)
+    registered_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships (optional for easier access)
+    employee = db.relationship("Employee", backref="device_links")
+    device = db.relationship("AttendanceDevice", backref="employee_links")
+
+    __table_args__ = (
+        db.UniqueConstraint("employee_id", "device_id", name="uq_employee_device"),
+    )
