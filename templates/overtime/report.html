@@ -63,8 +63,8 @@
                     <i class="bi bi-file-earmark-spreadsheet"></i> Export CSV
                 </button>
                 <button id="sendToOdooBtn" class="btn btn-primary">Send to MIR</button>
-                <button id="sendToOdooBtn_model" onclick="showMirSendingOption()" class="btn btn-primary" >
-Send to MIR All</button>
+                <button id="sendToOdooBtn_model" onclick="showMirSendingOption()" class="btn btn-primary" >Send to MIR All Selected</button>
+                <button id="sendToOdooBtn_model" onclick="showMirSendingOption_all()" class="btn btn-primary" >Send to MIR All Employee</button>
                 <button id="fetch_pay_roll" class="btn btn-primary">Fetch Payroll</button>
 
 
@@ -186,7 +186,19 @@ Send to MIR All</button>
           <!-- </button> -->
         </div>
 
+
         <div class="modal-body">
+             <div class="form-group mb-3">
+                <label class="fw-bold">Send Data For:</label>
+                <div class="form-check">
+                  <input type="radio" class="form-check-input" id="radioAll" name="send_scope" value="all" checked>
+                  <label class="form-check-label" for="radioAll">All Employees</label>
+                </div>
+                <div class="form-check">
+                  <input type="radio" class="form-check-input" id="radioSelected" name="send_scope" value="selected">
+                  <label class="form-check-label" for="radioSelected">Selected Employees</label>
+                </div>
+              </div> 
           <div class="form-check">
             <input type="checkbox" class="form-check-input" id="checkbox1" name="is_overtime" value="1">
             <label class="form-check-label" for="checkbox1">Send Overtime Data</label>
@@ -200,6 +212,7 @@ Send to MIR All</button>
             <label class="form-check-label" for="checkbox3">Send Bonus Info</label>
           </div>
         </div>
+
 
         <div class="modal-footer">
           <!-- <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button> -->
@@ -215,6 +228,21 @@ Send to MIR All</button>
 
 {% block extra_js %}
 <script>
+
+    function showMirSendingOption_all()
+    {
+        // Show the modal
+    //         const checkedCount = $('.employeeCheckbox:checked').length;
+    // if (checkedCount === 0) {
+    //   alert("Please select at least one record to send.");
+    //   return;
+    // }
+
+        const modal = new bootstrap.Modal(document.getElementById('sendToOdooModal'));
+        modal.show();
+
+
+    }
 
         function showMirSendingOption() {
         // Show the modal
