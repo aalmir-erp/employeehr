@@ -174,6 +174,7 @@ def edit(device_id):
         device.location = request.form.get('location')
         device.ip_address = request.form.get('ip_address')
         device.port = request.form.get('port', type=int)
+        device.direction = request.form.get('direction')
         
         # Only update API key if a new one is provided
         new_api_key = request.form.get('api_key')

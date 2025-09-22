@@ -163,6 +163,7 @@
                                     </th>
                                     {% endfor %}
                                     <th class="score-cell">Remarks</th>
+                                    <th>History</th>
                                     <th class="score-cell">Total</th>
                                 </tr>
                             </thead>
@@ -182,7 +183,7 @@
     <div class="d-flex justify-content-between align-items-center">
         {{ employee.name }}
 
-        <button class="btn btn-sm btn-primary fetch_bonus-btn"
+<!--         <button class="btn btn-sm btn-primary fetch_bonus-btn"
                     data-employee-id="{{ employee.id }}"
                     data-submission-id="{{ submission.id }}"
                     {% if (employee.id, submission.id) in existing_pairs %}
@@ -191,7 +192,7 @@
                     title="fetch bonus">
                 <i class="bi"></i>
             </button>
-
+ -->
         {% if current_user.has_role('hr') and (submission.status == 'submitted' or submission.status == 'in_review') %}
             <button class="btn btn-sm btn-primary set-status-btn"
                     data-employee-id="{{ employee.id }}"
@@ -251,6 +252,10 @@
                                                     value="{{ employee_remarks_map.get(employee.id, '') }}">
                                             </div>
                                         </form>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-primary btn-sm view-evaluations-btn" 
+                                                data-employee-id="{{ employee.id }}">View</button>
                                     </td>
     
                                     <td class="score-cell">
@@ -387,6 +392,24 @@
         </div>
     </div>
 </div>
+
+
+<!-- Evaluation History Modal -->
+    <div class="modal fade" id="evaluationModal" tabindex="-1" role="dialog" aria-labelledby="evaluationModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Evaluation Details</h5>
+            <!-- <button type="button" class="close" data-dismiss="modal" aria-label="Close"> -->
+              <!-- <span>&times;</span> -->
+            <!-- </button> -->
+          </div>
+          <div class="modal-body" id="evaluation-modal-body">
+            <p class="text-muted">Loading evaluation data...</p>
+          </div>
+        </div>
+      </div>
+    </div>
 
 
 <!-- Question history  -->
@@ -549,6 +572,59 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
 
+               document.querySelectorAll('.view-evaluations-btn').forEach(button => {
+    button.addEventListener('click', function () {
+        const employeeId = this.getAttribute('data-employee-id');
+        const submission_id = {{ submission.id }};
+        const evaluationUrl = "{{ url_for('bonus.get_evaluation_history') }}";
+
+        const modal = new bootstrap.Modal(document.getElementById('evaluationModal'));
+        modal.show();
+
+        const modalBody = document.getElementById('evaluation-modal-body');
+        modalBody.innerHTML = '<p class="text-muted">Loading evaluation data...</p>';
+
+        fetch(`${evaluationUrl}?employee_id=${employeeId}&submission_id=${submission_id}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                let html = '<table class="table table-bordered">';
+                const groupedData = data.data;
+                console.log(groupedData, "groupedData")
+
+   groupedData.forEach((group, index) => {
+    const groupClass = `group-${index}`;
+
+    html += `<thead><tr><th colspan="2" style="background:#f0f0f0">${group.record_by}</th></tr></thead>`;
+    html += '<thead><tr><th>Question</th><th>Value</th></tr></thead>';
+    html += `<tbody class="${groupClass}">`;
+
+    group.records.forEach(item => {
+        html += `<tr class="${item.question_id.toLowerCase() === 'remarks' ? 'remarks' : 'question'}">
+                    <td>${item.question_id}</td>
+                    <td>${item.value}</td>
+                </tr>`;
+    });
+
+    html += `</tbody>`;
+});
+       html += `</tbody>`;
+
+
+                html += '</table>';
+                modalBody.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error fetching data:', error);
+                modalBody.innerHTML = '<p class="text-danger">Error loading data.</p>';
+            });
+    });
+});
+
           document.querySelectorAll(".get_history-btn").forEach(function (btn) {
         btn.addEventListener("click", function () {
             var employeeId = this.dataset.employeeId;
@@ -581,52 +657,53 @@
 
 //////////////////////
         // reusable function
-    function fetchBonus(empId, submissionId) {
-        fetch('/bonus/fetch_attendance_point', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                employee_id: empId,
-                submission_id: submissionId
-            })
-        })
-        .then(response => {
-            if (!response.ok) throw new Error('Network response was not OK');
-            return response.json();
-        })
-        .then(data => {
-            console.log("Fetched bonus:", data);
-            // alert(data.message || `Points: ${data.attendance_bonus_points}`);
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Failed to fetch bonus points');
-        });
-    }
+    // function fetchBonus(empId, submissionId) {
+    //     fetch('/bonus/fetch_attendance_point', {
+    //         method: 'POST',
+    //         headers: {
+    //             'Content-Type': 'application/json'
+    //         },
+    //         body: JSON.stringify({
+    //             employee_id: empId,
+    //             submission_id: submissionId
+    //         })
+    //     })
+    //     .then(response => {
+    //         if (!response.ok) throw new Error('Network response was not OK');
+    //         return response.json();
+    //     })
+    //     .then(data => {
+    //         console.log("Fetched bonus:", data);
+    //         // alert(data.message || `Points: ${data.attendance_bonus_points}`);
+    //     })
+    //     .catch(error => {
+    //         console.error('Error:', error);
+    //         alert('Failed to fetch bonus points');
+    //     });
+    // }
 
     // run for each button
-    document.querySelectorAll('.fetch_bonus-btn').forEach(button => {
-        const empId = button.getAttribute('data-employee-id');
-        console.log(" employee_id",empId)
-        const submissionId = button.getAttribute('data-submission-id');
 
- const skip = button.getAttribute('data-skip') === "true";
- console.log(skip, "skip ----")
+ //    document.querySelectorAll('.fetch_bonus-btn').forEach(button => {
+ //        const empId = button.getAttribute('data-employee-id');
+ //        const submissionId = button.getAttribute('data-submission-id');
 
-        if (!skip) {
-            fetchBonus(empId, submissionId, button);
-        }
-
-        button.addEventListener('click', function () {
-            if (!button.getAttribute('data-skip')) {
-                fetchBonus(empId, submissionId, button);
-            }
-        });
+ // const skip = button.getAttribute('data-skip') === "true";
 
 
-    });
+ //        if (!skip) {
+ //            fetchBonus(empId, submissionId, button);
+ //        }
+
+ //        button.addEventListener('click', function () {
+ //            if (!button.getAttribute('data-skip')) {
+ //                fetchBonus(empId, submissionId, button);
+ //            }
+ //        });
+
+        
+ //    });
+
 
         ////////////////////////////////
 

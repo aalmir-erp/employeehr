@@ -525,9 +525,9 @@ def edit_submission(submission_id):
     submission = BonusSubmission.query.get_or_404(submission_id)
     
     # Check permissions
-    if not current_user.has_role('hr') and (submission.submitted_by != current_user.id):
-        flash('You do not have permission to edit this submission.', 'danger')
-        return redirect(url_for('bonus.index'))
+    # if not current_user.has_role('hr') and (submission.submitted_by != current_user.id):
+    #     flash('You do not have permission to edit this submission.', 'danger')
+    #     return redirect(url_for('bonus.index'))
     
     # Get employees in department
     employees = Employee.query.filter_by(
@@ -585,31 +585,31 @@ def edit_submission(submission_id):
 ).first()
     print (attendance_q)
     print (" lllllllllllllllllllllllllllll -----------------------------")
-    if attendance_q:
+    # if attendance_q:
 
-        # 2) map employee -> attendance points from automation table
-        automations = BonusEvaluationAutomation.query.filter_by(
-            submission_id=submission.id
-        ).all()
-        auto_points = {
-            a.employee_id: (a.attendance_bonus_points or 0)
-            for a in automations
-        }
-        print(auto_points, "auto_points")
-        # 3) override the evaluation value in the matrix for the attendance question
-        for emp_id, answers in evaluation_matrix.items():
-            # print (" under look 9999999999999999999999 ")
-            # print (auto_points.get(
-            #         emp_id,
-            #         answers[attendance_q.id].value - 2  # keep existing if no automation
-            #     ) , " Employee id ==",emp_id)
+    #     # 2) map employee -> attendance points from automation table
+    #     automations = BonusEvaluationAutomation.query.filter_by(
+    #         submission_id=submission.id
+    #     ).all()
+    #     auto_points = {
+    #         a.employee_id: (a.attendance_bonus_points or 0)
+    #         for a in automations
+    #     }
+    #     print(auto_points, "auto_points")
+    #     # 3) override the evaluation value in the matrix for the attendance question
+    #     for emp_id, answers in evaluation_matrix.items():
+    #         # print (" under look 9999999999999999999999 ")
+    #         # print (auto_points.get(
+    #         #         emp_id,
+    #         #         answers[attendance_q.id].value - 2  # keep existing if no automation
+    #         #     ) , " Employee id ==",emp_id)
 
-            if attendance_q.id in answers:
-                # answers[attendance_q.id] is a BonusEvaluation row
-                answers[attendance_q.id].value = auto_points.get(
-                    emp_id,
-                    answers[attendance_q.id].value  # keep existing if no automation
-                ) 
+    #         if attendance_q.id in answers:
+    #             # answers[attendance_q.id] is a BonusEvaluation row
+    #             answers[attendance_q.id].value = auto_points.get(
+    #                 emp_id,
+    #                 answers[attendance_q.id].value  # keep existing if no automation
+    #             ) 
 
     return render_template(
         'bonus/edit_submission.html',
@@ -1027,9 +1027,9 @@ def submit_evaluation(submission_id):
     print(submission,"ppppppppppppppppppppppppppppppppp")
     
     # Check permissions
-    if submission.submitted_by != current_user.id:
-        flash('You do not have permission to submit this evaluation.', 'danger')
-        return redirect(url_for('bonus.index'))
+    # if submission.submitted_by != current_user.id:
+    #     flash('You do not have permission to submit this evaluation.', 'danger')
+    #     return redirect(url_for('bonus.index'))
     
     # Check if submission is editable
     if submission.status not in ['draft', 'rejected']:

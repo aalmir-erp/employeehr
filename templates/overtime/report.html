@@ -62,9 +62,11 @@
                 <button class="btn btn-sm btn-outline-primary" id="exportCSV">
                     <i class="bi bi-file-earmark-spreadsheet"></i> Export CSV
                 </button>
-                <button id="sendToOdooBtn" class="btn btn-primary">Send to MIR</button>
+
+                <!-- <button id="sendToOdooBtn" class="btn btn-primary">Send to MIR</button> -->
                 <button id="sendToOdooBtn_model" onclick="showMirSendingOption()" class="btn btn-primary" >Send to MIR All Selected</button>
                 <button id="sendToOdooBtn_model" onclick="showMirSendingOption_all()" class="btn btn-primary" >Send to MIR All Employee</button>
+
                 <button id="fetch_pay_roll" class="btn btn-primary">Fetch Payroll</button>
 
 
@@ -306,7 +308,7 @@ $(document).ready(function() {
     if ($('#overtimeTable').length > 0) {
         if (!$.fn.dataTable.isDataTable('#overtimeTable') && $('#overtimeTable tbody tr').length > 0) {
             overtimeTable = $('#overtimeTable').DataTable({
-                "pageLength": 25,
+                "pageLength": 200,
                 "order": [[3, "desc"]], // Sort by total hours (descending)
                 "dom": 'Bfrtip',
                 "buttons": [

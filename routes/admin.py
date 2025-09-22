@@ -4,7 +4,7 @@ from flask_login import login_required, current_user, logout_user, login_user
 from datetime import datetime, timedelta
 from app import db
 from utils.odoo_connector import odoo_connector
-from models import User, Employee, Shift, ShiftAssignment, AttendanceDevice, OdooConfig, OdooMapping, ERPConfig, SystemConfig
+from models import User, Employee, Shift, ShiftAssignment, AttendanceDevice, OdooConfig, OdooMapping, ERPConfig, SystemConfig, EmployeeDevice
 from itsdangerous import URLSafeSerializer, BadSignature
 import threading
 import requests
@@ -12,7 +12,7 @@ import random
 from sqlalchemy import text
     # from datetime import datetime
 import string
-
+import json
 
 
 
@@ -146,36 +146,279 @@ def login_as_user_odoo(employee_token):
     return redirect(url_for('index.index'))
 
 
+@bp.route("/device_sync/<int:from_device_id>/<int:to_device_id>", methods=["POST"])
+def device_sync(from_device_id, to_device_id):
+    if from_device_id == to_device_id:
+        return jsonify({"error": "From and To devices cannot be the same"}), 400
+    current_time = datetime.now()
+    from_device = AttendanceDevice.query.get_or_404(from_device_id)
+    to_device = AttendanceDevice.query.get_or_404(to_device_id)
+    print(from_device.device_id, "to_device_id")
+    print(to_device.device_id, 'to_deviced.device_id')
+
+
+    # Get all employee links from source device
+    employee_links = EmployeeDevice.query.filter_by(device_id=from_device_id).all()
+    # employee_links = EmployeeDevice.query.filter_by(employee_id=1722).all()
+
+
+    synced_count = 0
+    for link in employee_links:
+
+        # Check if this employee is already linked to the target device
+        exists = EmployeeDevice.query.filter_by(
+            employee_id=link.employee_id, device_id=to_device_id
+        ).first()
+
+        if not exists:
+            employee = Employee.query.get_or_404(link.employee_id)
+            print (employee.name, "employee.name ")
+            print("employee.odoo_id", employee.odoo_id)
+
+            enroll_records = db.session.execute(
+                text("""
+                    SELECT enroll_id, backupnum, signatures
+                    FROM enrollinfo
+                    WHERE enroll_id = :enroll_id
+                """),
+                {"enroll_id": employee.odoo_id}
+            ).fetchall()
+
+            for rec in enroll_records:
+                print (rec.enroll_id, "rec.enroll_id ----")
+                content = f'''{{
+                    "cmd":"setuserinfo",
+                    "enrollid":{rec.enroll_id},
+                    "name":"{employee.name}",
+                    "backupnum":{rec.backupnum},
+                    "admin":0,
+                    "record":"{rec.signatures or ''}"
+                }}'''
+
+                sql = text("""
+                    INSERT INTO machine_command
+                    (serial, name, content, status, send_status, err_count, gmt_crate, gmt_modified)
+                    VALUES
+                    (:serial, 'setuserinfo', :content, 0, 0, 0, :gmt_crate, :gmt_modified)
+                """)
+
+                db.session.execute(sql, {
+                    "serial": to_device.device_id,
+                    "content": content,
+                    "gmt_crate": current_time,
+                    "gmt_modified": current_time
+                })
+
+            db.session.commit()
+
+
+
+
+
+
+        #     sql = text("""
+        #     INSERT INTO machine_command
+        #     (serial, name, content, status, send_status, err_count, gmt_crate, gmt_modified)
+        #     VALUES
+        #     (:serial, 'setuserinfo', :content, 0, 0, 0, :gmt_crate, :gmt_modified)
+        # """)
+
+        #     db.session.execute(sql, {
+        #         "serial": to_device.device_id,
+        #         "content": f'{{"cmd":"setuserinfo","enrollid":{employee.odoo_id},"name":"{employee.name}","backupnum":11,"admin":0,"record":123456}}',
+        #         "gmt_crate": current_time,
+        #         "gmt_modified": current_time
+        #     })
+
+
+            new_link = EmployeeDevice(
+                employee_id=link.employee_id,
+                device_id=to_device_id,
+                registered_at=datetime.utcnow()
+            )
+            db.session.add(new_link)
+            synced_count += 1
+            db.session.commit()
+        # 9/0
+
+    
+    return jsonify({"message": f"{synced_count} employees synced successfully!"})
+
+
+# @bp.route('/sync_from_machine')
+# def sync_from_machine():
+
+#     devices = AttendanceDevice.query.filter_by(is_active=True).all()
+
+#     EmployeeDevice.query.filter_by(employee_id=employee.id).all()
+
+#             # Insert into machine_command (raw SQL)
+#         sql = text("""
+#             INSERT INTO machine_command
+#             (serial, name, content, status, send_status, err_count, gmt_crate, gmt_modified)
+#             VALUES
+#             (:serial, 'setuserinfo', :content, 0, 0, 0, :gmt_crate, :gmt_modified)
+#         """)
+
+#         db.session.execute(sql, {
+#             "serial": device.device_id,
+#             "content": f'{{"cmd":"setuserinfo","enrollid":{employee.odoo_id},"name":"{employee.name}","backupnum":11,"admin":0,"record":123456}}',
+#             "gmt_crate": current_time,
+#             "gmt_modified": current_time
+#         })
+
+#         # Insert into EmployeeDevice mapping table
+#         link = EmployeeDevice(employee_id=employee.id, device_id=device.id)
+#         db.session.add(link)
+
+#         new_registrations.append(device.name or device.serial_number)
+
+#     db.session.commit()
+
+
+
 @bp.route('/add_emplayee_to_machine/<int:employee_id>')
 def add_emplayee_to_machine(employee_id):
+    print (employee_id, "employee_id")
     
 
-    employee = Employee.query.get(employee_id)
+    employee = Employee.query.get_or_404(employee_id)
+    print (employee, "employee")
 
-    sql = text("SELECT serial_num FROM device WHERE id=1")
-    result = db.session.execute(sql,{}).fetchone()
-    print (result[0])
-    device_sn = result[0]
-    # return
+    # ✅ Get all active devices
+    devices = AttendanceDevice.query.filter_by(is_active=True).all()
+
+    # ✅ Find devices where employee is already registered
+    existing_device_ids = {
+        link.device_id for link in EmployeeDevice.query.filter_by(employee_id=employee.id).all()
+    }
+
     current_time = datetime.now()
+    new_registrations = []
 
-    sql = text("""
-        INSERT INTO machine_command
-        (serial, name, content, status, send_status, err_count, gmt_crate, gmt_modified)
-        VALUES
-        (:serial, 'setuserinfo', :content, 0, 0, 0, :gmt_crate, :gmt_modified)
-    """)
+    if 1:
 
-    db.session.execute(sql, {
-        "serial": device_sn,
-        "content": f'{{"cmd":"setuserinfo","enrollid":{employee.odoo_id},"name":"{employee.name}","backupnum":11,"admin":0,"record":123456}}',
-        "gmt_crate": current_time,
-        "gmt_modified": current_time
-    })
+        # url = "http://127.0.0.1:7792/addPerson"   # change if running elsewhere
+
+        # # form fields (same as your HTML form names)
+        # data = {
+        #     "userId": "10111",
+        #     "name": "John Doe",
+        #     "privilege": "0",      # 0 = USER
+        #     "password": "123456",
+        #     "cardNum": "123456"
+        # }
+        # response = requests.post(url, data=data, files={})
+        # print (response)
+
+        sql_check = text("SELECT 1 FROM person WHERE id = :id")
+        exists = db.session.execute(sql_check, {"id": employee.odoo_id}).fetchone()
+
+        if  exists:
+            print (" already there  ----------------")
+            flash(f"{employee.name} is already registered on all devices.", "info")
+
+            return redirect(url_for('admin.employees'))
+            # return
+
+
+
+        sql = text("""
+            INSERT INTO person (id, name)
+            VALUES (:id, :name)
+        """)
+
+        db.session.execute(sql, {
+            "id": employee.odoo_id,
+            "name": employee.name
+        })
+        db.session.commit()
+
+        sql = text("""
+            INSERT INTO enrollinfo (backupnum, enroll_id,signatures)
+            VALUES (:backupnum, :enroll_id,:signatures)
+        """)
+
+        db.session.execute(sql, { 
+            "backupnum":10,
+            "signatures":123456,
+            "enroll_id": employee.odoo_id
+        })
+        db.session.commit()
+        # return redirect(url_for('admin.employees'))
+
+        #         enroll_info_temp2 = {
+        #     'backupnum': 10,
+        #     'enroll_id': person_temp.get('userId'),
+        #     'signatures': person_temp.get('password')
+        # }
+        # insert_enroll_info(**enroll_info_temp2)
+
+    for device in devices:  
+        if device.id in existing_device_ids:
+            print (" existing_device_ids")
+            continue  # already registered, skip
+
+        # Insert into machine_command (raw SQL)
+        sql = text("""
+            INSERT INTO machine_command
+            (serial, name, content, status, send_status, err_count, gmt_crate, gmt_modified)
+            VALUES
+            (:serial, 'setuserinfo', :content, 0, 0, 0, :gmt_crate, :gmt_modified)
+        """)
+
+        db.session.execute(sql, {
+            "serial": device.device_id,
+            "content": f'{{"cmd":"setuserinfo","enrollid":{employee.odoo_id},"name":"{employee.name}","backupnum":11,"admin":0,"record":123456}}',
+            "gmt_crate": current_time,
+            "gmt_modified": current_time
+        })
+
+        # Insert into EmployeeDevice mapping table
+        link = EmployeeDevice(employee_id=employee.id, device_id=device.id)
+        db.session.add(link)
+
+        new_registrations.append(device.name or device.serial_number)
+
     db.session.commit()
 
-    flash(f"{employee.name} User account has been Added into Machine" , "success")
+    if new_registrations:
+        flash(f"{employee.name} has been registered on: {', '.join(new_registrations)}", "success")
+    else:
+        flash(f"{employee.name} is already registered on all devices.", "info")
+
     return redirect(url_for('admin.employees'))
+
+# @bp.route('/add_emplayee_to_machine/<int:employee_id>')
+# def add_emplayee_to_machine(employee_id):
+    
+
+#     employee = Employee.query.get(employee_id)
+
+#     sql = text("SELECT serial_num FROM device WHERE id=1")
+#     result = db.session.execute(sql,{}).fetchone()
+#     print (result[0])
+#     device_sn = result[0]
+#     # return
+#     current_time = datetime.now()
+
+#     sql = text("""
+#         INSERT INTO machine_command
+#         (serial, name, content, status, send_status, err_count, gmt_crate, gmt_modified)
+#         VALUES
+#         (:serial, 'setuserinfo', :content, 0, 0, 0, :gmt_crate, :gmt_modified)
+#     """)
+
+#     db.session.execute(sql, {
+#         "serial": device_sn,
+#         "content": f'{{"cmd":"setuserinfo","enrollid":{employee.odoo_id},"name":"{employee.name}","backupnum":11,"admin":0,"record":123456}}',
+#         "gmt_crate": current_time,
+#         "gmt_modified": current_time
+#     })
+#     db.session.commit()
+
+#     flash(f"{employee.name} User account has been Added into Machine" , "success")
+#     return redirect(url_for('admin.employees'))
 
 
 
@@ -326,44 +569,142 @@ def notify_odoo_user_skipped_employees(data):
     #     print("❌ Failed to notify Odoo (skipped):", e)
 
 
-# ----- MAIN ROUTE -----
 @bp.route('/create_missing_users_device', methods=['GET', 'POST'])
 @login_required
 def create_missing_users_device():
-    # default_password = 'Default123'
-    # default_password = generate_random_password()
-    # employees = Employee.query.all()
-    employees = Employee.query.limit(10).all()
+    # limit for testing; change/remove as needed
+    employees = Employee.query.filter(Employee.is_active == True).all()
 
 
-    created_employees = []
-    skipped_employees = []
-    sql = text("SELECT serial_num FROM device WHERE id=1")
-    result = db.session.execute(sql,{}).fetchone()
-    print (result[0])
-    device_sn = result[0]
-    # return
+
+    # All active devices we should push to
+    devices = AttendanceDevice.query.filter_by(is_active=True).all()
+    print (devices, " devices ==")
+
+    if not devices:
+        flash("No active devices found.", "warning")
+        return redirect(url_for('admin.employees'))
+
+    created_pairs = []   # (employee_id, device_id)
+    skipped_pairs = []   # (employee_id, device_id)
     current_time = datetime.now()
 
     for employee in employees:
 
-        sql = text("""
-            INSERT INTO machine_command
-            (serial, name, content, status, send_status, err_count, gmt_crate, gmt_modified)
-            VALUES
-            (:serial, 'setuserinfo', :content, 0, 0, 0, :gmt_crate, :gmt_modified)
-        """)
 
-        db.session.execute(sql, {
-            "serial": device_sn,
-            "content": f'{{"cmd":"setuserinfo","enrollid":{employee.odoo_id},"name":"{employee.name}","backupnum":11,"admin":0,"record":123456}}',
-            "gmt_crate": current_time,
-            "gmt_modified": current_time
-        })
-        db.session.commit()
-        created_employees.append(employee.id)
-    flash(f"{len(created_employees)} User account created" , "success")
+    # for x in range(0):
+    #     pass
+        # if odoo_id is missing, we can't enroll this user on devices
+        if employee.odoo_id is None:
+            print ("employee.id ==== here ")
+            skipped_pairs.append((employee.id, None))
+            continue
+
+        # Already-registered device ids for this employee
+        existing_links = EmployeeDevice.query.filter_by(employee_id=employee.id).all()
+        already_device_ids = {link.device_id for link in existing_links}
+
+        for device in devices:
+            # need a serial to address the device
+            # if not device.serial_number:
+            #     skipped_pairs.append((employee.id, device.id))
+            #     print(" ehere in already")
+            #     continue
+
+            # skip if mapping already exists
+            if device.id in already_device_ids:
+                skipped_pairs.append((employee.id, device.id))
+                print(" ehere in already")
+                continue
+            add_emplayee_to_machine(employee.id)
+            created_pairs.append((employee.id, device.id))
+
+    #         # Build content JSON safely (names may have quotes etc.)
+    #         content_json = {
+    #             "cmd": "setuserinfo",
+    #             "enrollid": employee.odoo_id,
+    #             "name": employee.name,
+    #             "backupnum": 11,
+    #             "admin": 0,
+    #             "record": 123456,
+    #         }
+    #         content_str = json.dumps(content_json, ensure_ascii=False)
+
+    #         # Insert the machine_command (raw SQL)
+    #         insert_cmd_sql = text("""
+    #             INSERT INTO machine_command
+    #                 (serial, name, content, status, send_status, err_count, gmt_crate, gmt_modified)
+    #             VALUES
+    #                 (:serial, 'setuserinfo', :content, 0, 0, 0, :gmt_crate, :gmt_modified)
+    #         """)
+    #         db.session.execute(insert_cmd_sql, {
+    #             "serial": device.device_id,
+    #             "content": content_str,
+    #             "gmt_crate": current_time,     # keep your existing column name gmt_crate
+    #             "gmt_modified": current_time
+    #         })
+
+    #         # Insert mapping into EmployeeDevice (idempotent)
+    #         # Requires a unique constraint on (employee_id, device_id)
+    #         # __table_args__ = (db.UniqueConstraint("employee_id","device_id", name="uq_employee_device"),)
+    #         db.session.execute(text("""
+    #             INSERT INTO employee_device (employee_id, device_id, registered_at)
+    #             VALUES (:employee_id, :device_id, :registered_at)
+    #             ON CONFLICT (employee_id, device_id) DO NOTHING
+    #         """), {
+    #             "employee_id": employee.id,
+    #             "device_id": device.id,
+    #             "registered_at": current_time
+    #         })
+
+    #         created_pairs.append((employee.id, device.id))
+
+    # db.session.commit()
+
+    created_count = len(created_pairs)
+    skipped_count = len(skipped_pairs)
+    flash(f"Created {created_count} machine commands and mappings; skipped {skipped_count} (already registered/missing data).", "success")
     return redirect(url_for('admin.employees'))
+
+
+# ----- MAIN ROUTE -----
+# @bp.route('/create_missing_users_device', methods=['GET', 'POST'])
+# @login_required
+# def create_missing_users_device():
+#     # default_password = 'Default123'
+#     # default_password = generate_random_password()
+#     # employees = Employee.query.all()
+#     employees = Employee.query.limit(10).all()
+
+
+#     created_employees = []
+#     skipped_employees = []
+#     sql = text("SELECT serial_num FROM device WHERE id=1")
+#     result = db.session.execute(sql,{}).fetchone()
+#     print (result[0])
+#     device_sn = result[0]
+#     # return
+#     current_time = datetime.now()
+
+#     for employee in employees:
+
+#         sql = text("""
+#             INSERT INTO machine_command
+#             (serial, name, content, status, send_status, err_count, gmt_crate, gmt_modified)
+#             VALUES
+#             (:serial, 'setuserinfo', :content, 0, 0, 0, :gmt_crate, :gmt_modified)
+#         """)
+
+#         db.session.execute(sql, {
+#             "serial": device_sn,
+#             "content": f'{{"cmd":"setuserinfo","enrollid":{employee.odoo_id},"name":"{employee.name}","backupnum":11,"admin":0,"record":123456}}',
+#             "gmt_crate": current_time,
+#             "gmt_modified": current_time
+#         })
+#         db.session.commit()
+#         created_employees.append(employee.id)
+#     flash(f"{len(created_employees)} User account created" , "success")
+#     return redirect(url_for('admin.employees'))
 
 
 
@@ -752,7 +1093,7 @@ WHERE e.odoo_id IS NOT NULL
     # Convert to dictionary {EMP_ID: True/False}
     employee_devide_status = {row.id: row.has_command for row in results}
 
-    print(employee_devide_status)
+    # print(employee_devide_status,"_devide_status = {row.id: row.has_command for row in re")
 
     
     # Get additional data needed for the template
