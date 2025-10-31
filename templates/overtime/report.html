@@ -64,9 +64,11 @@
                 </button>
 
                 <!-- <button id="sendToOdooBtn" class="btn btn-primary">Send to MIR</button> -->
-                <button id="sendToOdooBtn_model" onclick="showMirSendingOption()" class="btn btn-primary" >Send to MIR All Selected</button>
+                <button id="selectBonusEmployees" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-gift"></i> Select Employees with Bonus
+                </button>
+                <!-- <button id="sendToOdooBtn_model" onclick="showMirSendingOption()" class="btn btn-primary" >Send to MIR All Selected</button> -->
                 <button id="sendToOdooBtn_model" onclick="showMirSendingOption_all()" class="btn btn-primary" >Send to MIR All Employee</button>
-
                 <button id="fetch_pay_roll" class="btn btn-primary">Fetch Payroll</button>
 
 
@@ -230,6 +232,22 @@
 
 {% block extra_js %}
 <script>
+
+document.getElementById("selectBonusEmployees").addEventListener("click", function() {
+    // Uncheck all first (optional)
+    document.querySelectorAll(".employeeCheckbox").forEach(cb => cb.checked = false);
+
+    // Loop through each row and check those with bonus > 0
+    document.querySelectorAll("#overtimeTable tbody tr").forEach(row => {
+        const bonus = parseFloat(row.getAttribute("data-bonus")) || 0;
+        const checkbox = row.querySelector(".employeeCheckbox");
+
+        if (bonus > 0) {
+            checkbox.checked = true;
+        }
+    });
+});
+
 
     function showMirSendingOption_all()
     {
