@@ -8,7 +8,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 import xmlrpc.client
 
 from flask_login import login_required, current_user
-from sqlalchemy import func, desc,case
+from sqlalchemy import func, desc,case, and_
 from models import db, OvertimeRule, AttendanceRecord, Employee, BonusEvaluation, BonusSubmission
 from utils.overtime_engine import process_attendance_records, calculate_monthly_overtime, calculate_weekly_overtime
 import requests
@@ -542,45 +542,61 @@ def fetch_pay_roll_from_odoo():
     'from_date': from_date,
     'to_date': to_date
     }
-
+    print(overtime_data, "overtime_data  =======")
     # Send POST request to Odoo controller (adjust URL accordingly)
-    try:
+    # try:
+    if 1:
 
-        response = requests.post('http://erp.mir.ae:8069/payroll/fetch_payroll_id', json=payload)
+        response = requests.post('https://erp.mir.ae/payroll/fetch_payroll_id', json=payload)
+        # print(response, "response --")
+
 
         odoo_response = response.json()
+        print("---------------------------------------------------------")
+        # print(odoo_response)
 
         response.raise_for_status()
-    except Exception as e:
-        return {'error': str(e)}, 500
+    # except Exception as e:
+    #     return {'error': str(e)}, 500
 
     payroll_data = odoo_response.get('result', [])
 
     # print
 
     for item in payroll_data:
-        odoo_id = item['employee_id']
-        payroll_number = item['payroll_number']
-        payroll_id = item['payroll_id']
-        payroll_date = datetime.strptime(item['payroll_date'], '%Y-%m-%d').date()
-        state = item['state']
+        try:
+            odoo_id = item['employee_id']
+            payroll_number = item['payroll_number']
+            payroll_id = item['payroll_id']
+            payroll_date = datetime.strptime(item['payroll_date'], '%Y-%m-%d').date()
+            state = item['state']
 
-        # Optional: prevent duplicates (e.g., same emp, same payroll_id)
-        employee = Employee.query.filter_by(odoo_id=odoo_id).first()
+            # Optional: prevent duplicates (e.g., same emp, same payroll_id)
+            print("odoo_id", odoo_id)
+            employee = Employee.query.filter_by(odoo_id=odoo_id).first()
+            print(employee, "payroll_id", payroll_id)
+            print(payroll_number, "payroll_number ==")
+            existing = PayrollStatus.query.filter_by(employee_id=employee.id, payroll_id_odoo=payroll_id).first()
+            # if existing:
+            #     continue  # Skip existing record
 
-        existing = PayrollStatus.query.filter_by(employee_id=employee.id, payroll_id_odoo=payroll_id).first()
-        # if existing:
-        #     continue  # Skip existing record
-
-        new_status = PayrollStatus(
-            employee_id=employee.id,
-            payroll_id_odoo=payroll_id,
-            payroll_name=payroll_number,
-            payroll_date=payroll_date,
-            odoo_status='pending',
-            status='created'
-        )
-        db.session.add(new_status)
+            new_status = PayrollStatus(
+                employee_id=employee.id,
+                payroll_id_odoo=payroll_id,
+                payroll_name=payroll_number,
+                payroll_date=payroll_date,
+                odoo_status='pending',
+                status='created'
+            )
+            db.session.add(new_status)
+        except Exception as e:
+            print("❌ Error processing item:", item)
+            print("Error:", e)
+        #     print(" error  here  =========")
+        #     print (odoo_id, "odoo_id")
+        #     print("payroll_number", payroll_number)
+        #     print(payroll_id, "payroll_id")
+        #     continue
 
     db.session.commit()
 
@@ -760,10 +776,13 @@ def send_overtime_to_odoo():
         ot = float(item.get('weighted_ot', 0))
         bonus = [item.get('bonus_point'), 1]
         payslip = item.get('payslip_id')
+        if not payslip:
+            flash('Not all selected record having payslip. Please Fetch Payroll ', 'danger')
+            return redirect(url_for('overtime.report'))
 
     print(selected_employees, "selected_employees")
 
-    # res = requests.post("http://erp.mir.ae:8069/update_overtime_from_ams", json={'payroll': selected_employees,'absent':absent,'action_dict':action_dict}, timeout=50)
+    res = requests.post("https://erp.mir.ae/update_overtime_from_ams", json={'payroll': selected_employees,'absent':absent,'action_dict':action_dict}, timeout=300)
 
     
 
@@ -1038,6 +1057,62 @@ def report():
     ).order_by(
         desc('total_overtime')
     ).all()
+
+    # from sqlalchemy import and_, func, case,
+
+    total_overtime = func.coalesce(func.sum(AttendanceRecord.overtime_hours), 0).label('total_overtime')
+
+    query = db.session.query(
+        Employee.id,
+        Employee.name,
+        Employee.employee_code,
+        Employee.odoo_id,
+        Employee.department,
+        Employee.eligible_for_weekday_overtime,
+        Employee.eligible_for_weekend_overtime,
+        Employee.eligible_for_holiday_overtime,
+        total_overtime,
+        func.coalesce(func.sum(AttendanceRecord.regular_overtime_hours), 0).label('weekday_overtime'),
+        func.coalesce(func.sum(AttendanceRecord.weekend_overtime_hours), 0).label('weekend_overtime'),
+        func.coalesce(func.sum(AttendanceRecord.overt_time_weighted), 0).label('overt_time_weighted'),
+        func.coalesce(func.sum(
+    case(
+        (AttendanceRecord.status == 'absent', 1),
+        else_=0
+    )
+), 0).label('absent_days'),
+        func.coalesce(func.sum(AttendanceRecord.holiday_overtime_hours), 0).label('holiday_overtime'),
+        func.coalesce(func.avg(AttendanceRecord.overtime_rate), 0).label('avg_rate')
+    ).outerjoin(
+        AttendanceRecord,
+        and_(
+            Employee.id == AttendanceRecord.employee_id,
+            AttendanceRecord.date >= from_date,
+            AttendanceRecord.date <= to_date
+        )
+    ).filter(
+        Employee.is_active == True
+    )
+
+    if department:
+        query = query.filter(Employee.department == department)
+
+    results = query.group_by(
+        Employee.id,
+        Employee.name,
+        Employee.employee_code,
+        Employee.odoo_id,
+        Employee.department,
+        Employee.eligible_for_weekday_overtime,
+        Employee.eligible_for_weekend_overtime,
+        Employee.eligible_for_holiday_overtime
+    ).order_by(
+        total_overtime.desc()
+    ).all()
+
+
+
+
 
     # print(results)
     
