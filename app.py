@@ -35,7 +35,7 @@ logger.info("Using SQLite database for this session")
 app.config['WTF_CSRF_ENABLED'] = False
 
 
-app.config["SQLALCHEMY_DATABASE_URI"] = 'postgresql://attendance_app:attendance_app@localhost/ams_mir_12'
+app.config["SQLALCHEMY_DATABASE_URI"] = 'postgresql://attendance_app:attendance_app@localhost/attendance_live'
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,

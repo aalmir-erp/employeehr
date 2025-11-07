@@ -538,7 +538,7 @@ def notify_odoo_user_created(data):
     try:
         print(" odoo hit methdo ")
         print (data)
-        res = requests.post("http://erp.mir.ae:8069/attendance_user_created", data=data, timeout=3)
+        res = requests.post("https://erp.mir.ae/attendance_user_created", data=data, timeout=3)
         print(res, " restune ")
         print(res.text)  # Gets the raw text response
     except requests.exceptions.RequestException as e:
@@ -549,7 +549,7 @@ def notify_odoo_user_created_list(data):
     # try:
         print("✅ notifying Odoo with created user list")
         print (data, "data")
-        requests.post("http://sib.mir.ae:8050/notify_odoo_user_created_list", json={'users': data}, timeout=3)
+        requests.post("https://erp.mir.ae/notify_odoo_user_created_list", json={'users': data}, timeout=3)
 
         # requests.post("http://erp.mir.ae:8050/attendance_user_created_list", json={'users': data}, timeout=3)
 
@@ -562,7 +562,7 @@ def notify_odoo_user_skipped_employees(data):
     # try:
         print("✅ notifying Odoo with skipped employee")
         # print (data, "data")
-        requests.post("http://erp.mir.ae:8050/notify_odoo_user_skipped_employees", json={'employees': data}, timeout=3)
+        requests.post("https://erp.mir.ae/notify_odoo_user_skipped_employees", json={'employees': data}, timeout=3)
 
         # requests.post("http://erp.mir.ae:8050/attendance_skipped_employee", json={'users': data}, timeout=3)
     # except requests.exceptions.RequestException as e:
@@ -713,13 +713,20 @@ def create_missing_users_device():
 @login_required
 def create_missing_users_for_employees():
     # default_password = 'Default123'
-    default_password = generate_random_password()
+    # default_password = generate_random_password()
     employees = Employee.query.all()
+    employee = Employee.query.get(2254)
+    employees = [employee] if employee else []
+
+
 
     created_employees = []
     skipped_employees = []
 
     for employee in employees:
+        print("employees", employee)
+        # continue
+        default_password = generate_random_password()
         # Skip if email or phone is missing
         if not employee.email or not employee.phone:
             skipped_employees.append({
@@ -747,22 +754,22 @@ def create_missing_users_for_employees():
             })
             continue
 
-        # new_user = User(
-        #     email=employee.email,
-        #     username=employee.employee_code or f"user{employee.id}",
-        #     role='employee',
-        #     employee_id=employee.id,
-        #     department=employee.department,
-        #     is_admin=False,
-        #     created_at=datetime.utcnow(),
-        #     last_login=None,
-        #     force_password_change=False
-        # )
-        # new_user.set_password(default_password)
-        # db.session.add(new_user)
-        # db.session.flush()  
+        new_user = User(
+            email=employee.email,
+            username=employee.employee_code or f"user{employee.id}",
+            role='employee',
+            employee_id=employee.id,
+            department=employee.department,
+            is_admin=False,
+            created_at=datetime.utcnow(),
+            last_login=None,
+            force_password_change=False
+        )
+        new_user.set_password(default_password)
+        db.session.add(new_user)
+        db.session.flush()  
 
-        # employee.user_id = new_user.id
+        employee.user_id = new_user.id
 
         # Notify Odoo (if odoo_id exists)
         if employee.odoo_id:

@@ -217,13 +217,23 @@
         });
         
         // Delete user modal setup
-        $('.delete-user').on('click', function() {
-            var userId = $(this).data('user-id');
-            var username = $(this).data('username');
+        // $('.delete-user').on('click', function() {
+        //     var userId = $(this).data('user-id');
+        //     var username = $(this).data('username');
             
-            $('#deleteUserId').val(userId);
-            $('#deleteUsername').text(username);
-        });
+        //     $('#deleteUserId').val(userId);
+        //     $('#deleteUsername').text(username);
+        // });
     });
+    $(document).on('click', '.delete-user', function() {
+    var userId = $(this).data('user-id');
+    var username = $(this).data('username');
+                console.log(userId , "userId  ---------")
+
+
+    $('#deleteUserId').val(userId);
+    $('#deleteUsername').text(username);
+});
+
 </script>
 {% endblock %}
