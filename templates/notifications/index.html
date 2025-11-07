@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}Attendance Notifications{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h3 mb-0">Attendance Notifications</h1>
+            <p class="text-muted mb-0">Latest attendance events that require HR attention.</p>
+        </div>
+        <form method="post" action="{{ url_for('notifications.mark_all_read') }}" class="ms-3">
+            <input type="hidden" name="next" value="{{ request.full_path }}">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-check2-all"></i> Mark all as read
+            </button>
+        </form>
+    </div>
+
+    {% if notifications %}
+    <div class="list-group shadow-sm">
+        {% for notification in notifications %}
+        <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-start {% if not notification.is_read %}list-group-item-warning{% endif %}">
+            <div class="me-3">
+                <div class="fw-semibold {% if notification.is_read %}text-muted{% endif %}">
+                    {{ notification.message }}
+                </div>
+                <small class="text-muted">{{ notification.created_at.strftime('%d %b %Y %H:%M') }}</small>
+            </div>
+            {% if not notification.is_read %}
+            <form method="post" action="{{ url_for('notifications.mark_read', notification_id=notification.id) }}">
+                <input type="hidden" name="next" value="{{ request.full_path }}">
+                <button type="submit" class="btn btn-sm btn-outline-primary">
+                    Mark as read
+                </button>
+            </form>
+            {% else %}
+            <span class="badge bg-light text-muted">Read</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> You're all caught up—no notifications to show.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -4,7 +4,7 @@ import logging
 from flask import Flask
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_migrate import Migrate
-from flask_login import LoginManager
+from flask_login import LoginManager, current_user
 from flask_wtf.csrf import CSRFProtect
 
 # Import the db instance from db.py to fix circular imports
@@ -68,7 +68,7 @@ with app.app_context():
 
 # Import User model after models are imported
 # Fixes the circular import
-from models import User
+from models import User, AttendanceNotification
 
 # Setup login manager
 @login_manager.user_loader
@@ -88,6 +88,7 @@ from routes.admin_debug import bp as admin_debug_bp
 from routes.bonus import bp as bonus_bp
 from routes.supervisor_management import bp as supervisor_bp
 from routes.employees import bp as employees_bp  # Import the Blueprint
+from routes.notifications import bp as notifications_bp
 
 
 app.register_blueprint(index_bp)
@@ -102,6 +103,7 @@ app.register_blueprint(admin_debug_bp, url_prefix='/admin/debug')
 app.register_blueprint(bonus_bp, url_prefix='/bonus')
 app.register_blueprint(supervisor_bp, url_prefix='/supervisor')
 app.register_blueprint(employees_bp, url_prefix='/employees')
+app.register_blueprint(notifications_bp, url_prefix='/notifications')
 
 # Add template context processors
 from datetime import datetime
@@ -110,6 +112,38 @@ import calendar
 @app.context_processor
 def inject_now():
     return {'now': datetime.utcnow()}
+
+
+@app.context_processor
+def inject_notification_preview():
+    """Provide notification summary data for templates."""
+
+    if not current_user.is_authenticated:
+        return {
+            'unread_notifications_count': 0,
+            'latest_notifications': []
+        }
+
+    role_filter = 'hr'
+    if not current_user.is_admin:
+        role_filter = current_user.role
+
+    role_notifications = AttendanceNotification.query.filter(
+        AttendanceNotification.role == role_filter
+    )
+
+    unread_count = role_notifications.filter(
+        AttendanceNotification.is_read.is_(False)
+    ).count()
+
+    latest_notifications = role_notifications.order_by(
+        AttendanceNotification.created_at.desc()
+    ).limit(5).all()
+
+    return {
+        'unread_notifications_count': unread_count,
+        'latest_notifications': latest_notifications
+    }
 
 # Add custom template filters
 @app.template_filter('month_name')
