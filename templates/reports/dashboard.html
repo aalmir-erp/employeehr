@@ -25,6 +25,11 @@
             </div>
         </div>
     </div>
+    <style>.attendance-row {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr); /* EXACT 7 */
+    gap: 10px;
+}</style>
 
     <!-- Filters panel -->
     <div class="card shadow-sm mb-4">
@@ -112,7 +117,47 @@
         </div>
     </div>
     
-    <!-- Stats overview -->
+<div class="attendance-row mb-4">
+    {% for day, logs in attendance_logs.items() %}
+    <div class="attendance-day">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-dark  text-center p-2">
+                <strong>{{ day.strftime('%d %b') }}</strong>
+            </div>
+
+            <div class="card-body p-2 small">
+
+                <div class="mb-1">
+                    <span class="badge bg-success">IN</span>
+                    {% if logs['IN'] %}
+                        {% for t in logs['IN'] %}
+                            <div>{{ t.strftime('%H:%M') }}</div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-muted">—</div>
+                    {% endif %}
+                </div>
+
+                <hr class="my-1">
+
+                <div>
+                    <span class="badge bg-danger">OUT</span>
+                    {% if logs['OUT'] %}
+                        {% for t in logs['OUT'] %}
+                            <div>{{ t.strftime('%H:%M') }}</div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-muted">—</div>
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+
     <div class="row mb-4">
         <div class="col-md-3">
             
