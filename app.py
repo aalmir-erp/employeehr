@@ -6,6 +6,10 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_migrate import Migrate
 from flask_login import LoginManager, current_user
 from flask_wtf.csrf import CSRFProtect
+# from scheduler import scheduler
+from scheduler import init_scheduler_custom
+
+
 
 # Import the db instance from db.py to fix circular imports
 from db import db
@@ -20,6 +24,12 @@ csrf = CSRFProtect()
 
 # Create the app
 app = Flask(__name__)
+app.config['SCHEDULER_API_ENABLED'] = True
+
+init_scheduler_custom(app)
+# scheduler.start()
+
+
 app.secret_key = os.environ.get("SESSION_SECRET", "fallback_secret_key_for_development")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)  # needed for url_for to generate with https
 

@@ -239,6 +239,11 @@ def process_attendance_records(date_from=None, date_to=None, employee_id=None, r
             func.date(AttendanceRecord.check_in) >= date_from,
             func.date(AttendanceRecord.check_in) <= date_to
         )
+    elif date_from:
+        print(f"DEBUG - Filtering logs for date {date_from}")
+        query = query.filter(
+            func.date(AttendanceRecord.check_in) == date_from
+        )
 
     # Filter by employee ID if provided
     if employee_id:
