@@ -888,7 +888,11 @@
                 statusBadge = '<span class="badge bg-info">Holiday</span>';
             } else if (record.is_weekend) {
                 statusBadge = '<span class="badge bg-secondary">Weekend</span>';
-            } else if (record.status === 'present') {
+            }
+            else if (record.status === 'in_progress') {
+                statusBadge = '<span class="badge bg-success">IN Process</span>';
+            }
+            else if (record.status === 'present') {
                 statusBadge = '<span class="badge bg-success">Present</span>';
             } else if (record.status === 'absent') {
                 statusBadge = '<span class="badge bg-danger">Absent</span>';
@@ -1153,7 +1157,11 @@
             return '<span class="badge bg-danger">Absent</span>';
         } else if (status === 'late') {
             return '<span class="badge bg-warning text-dark">Late</span>';
-        } else if (status === 'early-out') {
+        }
+         else if (status === 'in_progress') {
+            return '<span class="badge bg-success text-dark">IN Process</span>';
+        }
+        else if (status === 'early-out') {
             return '<span class="badge bg-info text-dark">Early Out</span>';
         } else if (status === 'missing') {
             return '<span class="badge bg-secondary">Missing</span>';
