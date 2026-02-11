@@ -228,6 +228,30 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
             print(f"DEBUG - IN only, record created/exists for employee {emp_id} on {record_date}")
             continue
 
+        if not in_stack and not sessions and logs:
+            first_log = logs[0]
+
+            if first_log.log_type in ['OUT', 'check_out']:
+                record_date = first_log.timestamp.date()
+
+                record = AttendanceRecord.query.filter_by(
+                    employee_id=emp_id,
+                    date=record_date
+                ).first()
+
+                if not record:
+                    record = AttendanceRecord(
+                        employee_id=emp_id,
+                        date=record_date,
+                        check_out=first_log.timestamp,
+                        status='missing_in'
+                    )
+                    db.session.add(record)
+                    db.session.flush()
+
+                print(f"DEBUG - OUT only (missing IN) for employee {emp_id} on {record_date}")
+                continue
+
         if not sessions:
             print(f"DEBUG - No valid sessions found for employee {emp_id} on {log_date}")
             continue
