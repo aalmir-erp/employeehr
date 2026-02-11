@@ -12,6 +12,7 @@ import random
 from sqlalchemy import text
     # from datetime import datetime
 import string
+import re
 import json
 
 
@@ -964,6 +965,106 @@ def add_user():
     # For GET request: load employee options
     employees = Employee.query.filter_by(is_active=True).all()
     return render_template('admin/add_user.html', employees=employees)
+
+
+@bp.route('/loginuser/<token>', methods=['GET', 'POST'])
+def loginuser_from_qr(token):
+    if request.method != 'POST':
+
+        try:
+            res = requests.post(
+                "https://erp.mir.ae/get_employee_by_token",
+                data={'token': token},
+                timeout=5
+            )
+            data = res.json()
+        except Exception as e:
+            return f"Odoo connection failed: {str(e)}", 500
+        if not data.get('success'):
+            flash('Invalid or expired QR code', 'danger')
+            return render_template('qr_invalid.html')
+
+        employee_id = data['employee_id']
+        name = data.get('name')
+        dob = data.get('dob')
+        email = data.get('email')
+        phone = data.get('phone')
+        print(dob)
+        dob_clean = dob.replace('-', '')
+        print(dob_clean)
+        employee = Employee.query.filter_by(odoo_id=employee_id).first()
+        print(employee)
+
+        if not employee:
+            flash('Invalid or expired QR code', 'danger')
+            return render_template('qr_invalid.html')
+
+        # 🔹 If user already exists → redirect login
+        existing_user = User.query.filter_by(employee_id=employee.id).first()
+        if existing_user:
+            login_user(existing_user)
+            return redirect('http://localhost:5001/reports/dashboard')
+
+            return redirect(url_for('index.index'))
+
+    if request.method == 'POST':
+        username = request.form.get('employee_code')
+        email = request.form.get('email')
+        phone = request.form.get('phone')
+        password = request.form.get('password')
+        id = request.form.get('id')
+        employee = Employee.query.get(id)
+        # Skip if user already exists with same employee_id or email
+        existing_user = User.query.filter(
+            (User.employee_id == employee.id)
+        ).first()
+
+        if existing_user:
+            login_user(existing_user)
+            return redirect('http://localhost:5001/reports/dashboard')
+
+            # return redirect(url_for('index.index'))
+            # need to make login here
+
+        new_user = User(
+            email=email,
+            username=employee.employee_code or f"user{employee.id}",
+            role='employee',
+            employee_id=employee.id,
+            department=employee.department,
+            is_admin=False,
+            created_at=datetime.utcnow(),
+            last_login=None,
+            force_password_change=False
+        )
+        new_user.set_password(password)
+
+        employee.email = email
+        employee.phone = phone
+        db.session.add(new_user)
+
+        employee.user_id = new_user.id
+        db.session.flush()
+        db.session.commit()
+        login_user(new_user)
+        return redirect('http://localhost:5001/reports/dashboard')
+
+        # return redirect(url_for('index.index'))
+
+
+
+        #
+        if not username or not password:
+            flash('Username and password are required', 'danger')
+            return redirect(request.url)
+
+        return redirect(url_for('auth.login'))
+
+    # 🔹 GET → show form (prefilled)
+    return render_template(
+        'admin/qr_register.html',
+        employee=employee, password_str=dob_clean
+    )
 
 
 
