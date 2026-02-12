@@ -130,6 +130,8 @@ def estimate_break_duration(logs):
     best_break = sorted(detected_breaks, key=lambda x: (x['total_score'], x['duration']), reverse=True)[0]
     return round(total_break_time, 2), best_break['start'], best_break['end']
 
+
+
 def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
     from utils.overtime_engine import calculate_overtime
     from datetime import datetime, timedelta, time
@@ -137,6 +139,21 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
     employee_ids = []
 
     print(f"DEBUG - Starting process_unprocessed_logs with limit={limit}, date_from={date_from}, date_to={date_to}")
+
+    today = datetime.utcnow().date()
+
+    stale_records = AttendanceRecord.query.filter(
+        AttendanceRecord.status == 'in_progress',
+        AttendanceRecord.date < today
+    ).all()
+
+    for record in stale_records:
+        record.status = 'missing'
+        record.check_out = None  # explicitly ensure no checkout
+        record.work_hours = record.work_hours or 0
+        record.break_duration = record.break_duration or 0
+
+    db.session.commit()
 
     query = db.session.query(
         AttendanceLog.employee_id,
