@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import Text, TypeDecorator
+from sqlalchemy import Text, TypeDecorator, event, select
 import json
 from sqlalchemy import and_, func, or_
 
@@ -261,12 +261,57 @@ class AttendanceLog(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     location = db.Column(db.String(255), nullable=True)  # Add this line
 
-    
+
     # Add relationship to Employee
     employee = db.relationship('Employee', backref=db.backref('attendance_logs', lazy='dynamic'))
-    
+
     def __repr__(self):
         return f'<AttendanceLog {self.employee_id} {self.log_type} {self.timestamp}>'
+
+
+class AttendanceNotification(db.Model):
+    __tablename__ = 'attendance_notification'
+
+    id = db.Column(db.Integer, primary_key=True)
+    attendance_log_id = db.Column(db.Integer, db.ForeignKey('attendance_log.id'), nullable=False)
+    employee_id = db.Column(db.Integer, nullable=False)
+    role = db.Column(db.String(20), nullable=False, default='hr')
+    message = db.Column(db.Text, nullable=False)
+    is_read = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    attendance_log = db.relationship('AttendanceLog', backref=db.backref('notifications', lazy='dynamic'))
+
+    def __repr__(self):
+        return f'<AttendanceNotification {self.role} {self.message[:20]}>'
+
+
+@event.listens_for(AttendanceLog, 'after_insert')
+def create_attendance_notification(mapper, connection, target):
+    """Automatically create an HR notification when a new attendance log is saved."""
+
+    employee_name_stmt = select(Employee.name).where(Employee.id == target.employee_id)
+    employee_name = connection.execute(employee_name_stmt).scalar()
+
+    if not employee_name:
+        employee_name = f'Employee ID {target.employee_id}'
+
+    log_timestamp = target.timestamp or datetime.utcnow()
+    message = (
+        f"Attendance {target.log_type} recorded for {employee_name} "
+        f"at {log_timestamp.strftime('%Y-%m-%d %H:%M')}"
+    )
+
+    notification_insert = AttendanceNotification.__table__.insert().values(
+        attendance_log_id=target.id,
+        employee_id=target.employee_id,
+        role='hr',
+        message=message,
+        is_read=False,
+        created_at=datetime.utcnow()
+    )
+
+    connection.execute(notification_insert)
 
 class MissingAttendance(db.Model):
     __tablename__ = 'missing_attendance'

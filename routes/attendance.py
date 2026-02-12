@@ -1024,16 +1024,130 @@ def raw_logs():
                           devices=devices,
                           filtered_args=filtered_args)
 
+# @bp.route('/process_all_logs', methods=['GET', 'POST'])
+# @login_required
+# def process_all_logs():
+#     """Process all unprocessed attendance logs with enhanced analysis"""
+#     if not current_user.is_admin and  not current_user.has_role('hr'):
+#         flash('You do not have permission to access this page', 'danger')
+#         return redirect(url_for('attendance.index'))
+    
+#     # Get processing statistics
+#     stats = get_processing_stats()
+    
+#     # Default no results
+#     results = None
+    
+#     # Handle POST request (process logs)
+#     if request.method == 'POST':
+#         try:
+#             # Get date range parameters if provided
+#             date_from_str = request.form.get('date_from')
+#             date_to_str = request.form.get('date_to')
+#             employee_id = request.form.get('employee_id')
+#             print(employee_id, "employee_id")
+
+           
+            
+#             # Convert date strings to date objects if provided
+#             date_from = None
+#             date_to = None
+            
+#             # If BOTH dates are missing → yesterday → today
+#             if not date_from_str and not date_to_str:
+#                 date_to = date.today()
+#                 date_from = date_to - timedelta(days=1)
+
+#             else:
+#                 # Convert date_from if provided
+#                 if date_from_str:
+#                     try:
+#                         date_from = datetime.strptime(date_from_str, '%Y-%m-%d').date()
+#                     except ValueError:
+#                         flash('Invalid start date format', 'warning')
+
+#                 # Convert date_to if provided
+#                 if date_to_str:
+#                     try:
+#                         date_to = datetime.strptime(date_to_str, '%Y-%m-%d').date()
+#                     except ValueError:
+#                         flash('Invalid end date format', 'warning')
+            
+#             # Process logs with enhanced logic and date filtering
+#             records_created, logs_processed = process_unprocessed_logs(
+#                 date_from=date_from, 
+#                 date_to=date_to
+#             )
+            
+#             # Process any overtime that might have been missed (records without overtime)
+#             from utils.overtime_engine import process_attendance_records
+#             overtime_processed = process_attendance_records(
+#                 date_from=date_from, 
+#                 date_to=date_to, 
+#                 employee_id=employee_id,
+#                 recalculate=True
+#             )
+            
+#             # Build success message with date range info if provided
+#             message = f'Successfully processed {logs_processed} logs, created {records_created} new attendance records, and calculated overtime for {overtime_processed} records'
+            
+#             if date_from or date_to:
+#                 date_range_msg = " for "
+#                 if date_from:
+#                     date_range_msg += f"dates from {date_from.strftime('%Y-%m-%d')}"
+#                 if date_from and date_to:
+#                     date_range_msg += " to "
+#                 if date_to:
+#                     date_range_msg += f"{date_to.strftime('%Y-%m-%d')}"
+#                 message += date_range_msg
+            
+#             flash(message, 'success')
+            
+#             # Update statistics after processing
+#             stats = get_processing_stats()
+            
+#             # Set results for template
+#             results = {
+#                 'records_created': records_created,
+#                 'logs_processed': logs_processed,
+#                 'overtime_processed': overtime_processed,
+#                 'date_from': date_from.strftime('%Y-%m-%d') if date_from else None,
+#                 'date_to': date_to.strftime('%Y-%m-%d') if date_to else None
+#             }
+#         except Exception as e:
+#             db.session.rollback()
+#             current_app.logger.error(f"Error processing logs: {str(e)}")
+#             flash(f'Error processing logs: {str(e)}', 'danger')
+    
+#     return render_template('attendance/process_logs.html', stats=stats, results=results)
+
 @bp.route('/process_all_logs', methods=['GET', 'POST'])
 @login_required
 def process_all_logs():
+    if not current_user.is_admin and not current_user.has_role('hr'):
+        flash('You do not have permission', 'danger')
+        return redirect(url_for('attendance.index'))
+
+    stats = get_processing_stats()
+    results = None
+
+    if request.method == 'POST':
+        try:
+            process_logs()
+            flash('Logs processed successfully', 'success')
+        except Exception as e:
+            flash(str(e), 'danger')
+
+    return render_template('attendance/process_logs.html', stats=stats)
+
+def process_logs(date_from=None, date_to=None, employee_id=None):
     """Process all unprocessed attendance logs with enhanced analysis"""
     if not current_user.is_admin and  not current_user.has_role('hr'):
         flash('You do not have permission to access this page', 'danger')
         return redirect(url_for('attendance.index'))
     
     # Get processing statistics
-    stats = get_processing_stats()
+    # stats = get_processing_stats()
     
     # Default no results
     results = None
@@ -1053,17 +1167,25 @@ def process_all_logs():
             date_from = None
             date_to = None
             
-            if date_from_str:
-                try:
-                    date_from = datetime.strptime(date_from_str, '%Y-%m-%d').date()
-                except ValueError:
-                    flash('Invalid start date format', 'warning')
-            
-            if date_to_str:
-                try:
-                    date_to = datetime.strptime(date_to_str, '%Y-%m-%d').date()
-                except ValueError:
-                    flash('Invalid end date format', 'warning')
+            # If BOTH dates are missing → yesterday → today
+            if not date_from_str and not date_to_str:
+                date_to = date.today()
+                date_from = date_to - timedelta(days=1)
+
+            else:
+                # Convert date_from if provided
+                if date_from_str:
+                    try:
+                        date_from = datetime.strptime(date_from_str, '%Y-%m-%d').date()
+                    except ValueError:
+                        flash('Invalid start date format', 'warning')
+
+                # Convert date_to if provided
+                if date_to_str:
+                    try:
+                        date_to = datetime.strptime(date_to_str, '%Y-%m-%d').date()
+                    except ValueError:
+                        flash('Invalid end date format', 'warning')
             
             # Process logs with enhanced logic and date filtering
             records_created, logs_processed = process_unprocessed_logs(
@@ -1111,7 +1233,8 @@ def process_all_logs():
             current_app.logger.error(f"Error processing logs: {str(e)}")
             flash(f'Error processing logs: {str(e)}', 'danger')
     
-    return render_template('attendance/process_logs.html', stats=stats, results=results)
+    return  True #render_template('attendance/process_logs.html', stats=stats, results=results)
+
 
 @bp.route('/process-logs', methods=['POST'])
 @login_required
@@ -2693,3 +2816,13 @@ def api_punch():
 #         current_app.logger.error(f"Error in break detection test: {str(e)}")
 #         flash(f"Error in test: {str(e)}", "danger")
 #         return redirect(url_for('attendance.index'))
+
+
+import click
+from flask.cli import with_appcontext
+
+@click.command('process-attendance-logs')
+@with_appcontext
+def process_attendance_logs():
+    process_logs()
+    print("Attendance logs processed successfully")

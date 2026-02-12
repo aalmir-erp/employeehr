@@ -577,8 +577,9 @@ def fetch_pay_roll_from_odoo():
             print(employee, "payroll_id", payroll_id)
             print(payroll_number, "payroll_number ==")
             existing = PayrollStatus.query.filter_by(employee_id=employee.id, payroll_id_odoo=payroll_id).first()
-            # if existing:
-            #     continue  # Skip existing record
+            if existing:
+                print(" already existing reacird for payrol for this EMP")
+                continue  # Skip existing record
 
             new_status = PayrollStatus(
                 employee_id=employee.id,
@@ -776,6 +777,9 @@ def send_overtime_to_odoo():
         ot = float(item.get('weighted_ot', 0))
         bonus = [item.get('bonus_point'), 1]
         payslip = item.get('payslip_id')
+        print("======selected employee===")
+        print(item)
+        # flash(f'Not all selected record having payslip. Please Fetch Payroll for {item}', 'danger')
         if not payslip:
             flash('Not all selected record having payslip. Please Fetch Payroll ', 'danger')
             return redirect(url_for('overtime.report'))

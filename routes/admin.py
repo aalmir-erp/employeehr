@@ -716,8 +716,10 @@ def create_missing_users_for_employees():
     # default_password = 'Default123'
     # default_password = generate_random_password()
     employees = Employee.query.all()
-    employee = Employee.query.get(2254)
-    employees = [employee] if employee else []
+    # employee = Employee.query.get(2254)
+    employees = Employee.query.filter(Employee.id.in_([2254])).all()
+
+    # employees = [employee] if employee else []
 
 
 
