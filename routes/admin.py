@@ -4,7 +4,7 @@ from flask_login import login_required, current_user, logout_user, login_user
 from datetime import datetime, timedelta
 from app import db
 from utils.odoo_connector import odoo_connector
-from models import User, Employee, Shift, ShiftAssignment, AttendanceDevice, OdooConfig, OdooMapping, ERPConfig, SystemConfig, EmployeeDevice
+from models import User, Employee, Shift, ShiftAssignment, AttendanceDevice, OdooConfig, OdooMapping, ERPConfig, SystemConfig, EmployeeDevice,UserLoginHistory
 from itsdangerous import URLSafeSerializer, BadSignature
 import threading
 import requests
@@ -90,6 +90,23 @@ def index():
         last_sync=last_sync
     )
 
+@bp.route('/login_history')
+@login_required
+def login_history():
+    employees = User.query.join(UserLoginHistory, User.id == UserLoginHistory.user_id)\
+                  .order_by(User.username).all()
+
+    login_records = db.session.query(UserLoginHistory, User)\
+                        .join(User, User.id == UserLoginHistory.user_id)\
+                        .order_by(UserLoginHistory.login_time.desc())\
+                        .all()
+
+    return render_template(
+        'admin/login_history.html',
+        login_records=login_records,
+        employees=employees
+    ) 
+
 @bp.route('/login-as/<int:user_id>')
 @login_required
 def login_as_user(user_id):
@@ -125,14 +142,14 @@ def login_as_user(user_id):
 
 #     flash(f'Successfully logged in as {target_user.username}', 'success')
 #     return redirect(url_for('index.index'))
-
 @bp.route('/loginodoo/<string:employee_token>')
 def login_as_user_odoo(employee_token):
     s = URLSafeSerializer(SECRET_KEY)
-    print (employee_token)
-    odoo_employee_id = s.loads(employee_token)
-    print(odoo_employee_id)
-    print(" k kkkk")
+    try:
+        odoo_employee_id = s.loads(employee_token)
+    except Exception:
+        flash('Invalid or expired login link', 'danger')
+        return redirect(url_for('auth.login'))
 
     # Step 1: Get employee record where odoo_id matches
     employee = Employee.query.filter_by(odoo_id=odoo_employee_id).first_or_404()
@@ -140,8 +157,19 @@ def login_as_user_odoo(employee_token):
     # Step 2: Now get user using the employee.id
     target_user = User.query.filter_by(employee_id=employee.id).first_or_404()
 
+    # Step 3: Logout any current user & login target user
     logout_user()
     login_user(target_user)
+
+    # Step 4: Add login history record
+    history = UserLoginHistory(
+        user_id=target_user.id,
+        username=target_user.username,
+        login_type='url',
+        login_time=datetime.now() 
+    )
+    db.session.add(history)
+    db.session.commit()
 
     flash(f'Successfully logged in as {target_user.username}', 'success')
     return redirect(url_for('index.index'))
@@ -971,8 +999,10 @@ def add_user():
 
 @bp.route('/loginuser/<token>', methods=['GET', 'POST'])
 def loginuser_from_qr(token):
-    if request.method != 'POST':
+    employee = None
+    dob_clean = None
 
+    if request.method != 'POST':
         try:
             res = requests.post(
                 "https://erp.mir.ae/get_employee_by_token",
@@ -982,6 +1012,7 @@ def loginuser_from_qr(token):
             data = res.json()
         except Exception as e:
             return f"Odoo connection failed: {str(e)}", 500
+
         if not data.get('success'):
             flash('Invalid or expired QR code', 'danger')
             return render_template('qr_invalid.html')
@@ -991,23 +1022,30 @@ def loginuser_from_qr(token):
         dob = data.get('dob')
         email = data.get('email')
         phone = data.get('phone')
-        print(dob)
-        dob_clean = dob.replace('-', '')
-        print(dob_clean)
-        employee = Employee.query.filter_by(odoo_id=employee_id).first()
-        print(employee)
 
+        dob_clean = dob.replace('-', '') if dob else None
+
+        employee = Employee.query.filter_by(odoo_id=employee_id).first()
         if not employee:
             flash('Invalid or expired QR code', 'danger')
             return render_template('qr_invalid.html')
 
-        # 🔹 If user already exists → redirect login
+        # 🔹 If user already exists → login
         existing_user = User.query.filter_by(employee_id=employee.id).first()
         if existing_user:
             login_user(existing_user)
-            return redirect('http://localhost:5001/reports/dashboard')
 
-            return redirect(url_for('index.index'))
+            # Add login history
+            history = UserLoginHistory(
+                user_id=existing_user.id,
+                username=existing_user.username,
+                login_type='nfc_card',
+                login_time=datetime.now() 
+            )
+            db.session.add(history)
+            db.session.commit()
+
+            return redirect('http://localhost:5001/reports/dashboard')
 
     if request.method == 'POST':
         username = request.form.get('employee_code')
@@ -1016,18 +1054,25 @@ def loginuser_from_qr(token):
         password = request.form.get('password')
         id = request.form.get('id')
         employee = Employee.query.get(id)
-        # Skip if user already exists with same employee_id or email
-        existing_user = User.query.filter(
-            (User.employee_id == employee.id)
-        ).first()
 
+        # Check existing user
+        existing_user = User.query.filter_by(employee_id=employee.id).first()
         if existing_user:
             login_user(existing_user)
+
+            # Add login history
+            history = UserLoginHistory(
+                user_id=existing_user.id,
+                username=existing_user.username,
+                login_type='nfc_card',
+                login_time=datetime.utcnow()
+            )
+            db.session.add(history)
+            db.session.commit()
+
             return redirect('http://localhost:5001/reports/dashboard')
 
-            # return redirect(url_for('index.index'))
-            # need to make login here
-
+        # Create new user
         new_user = User(
             email=email,
             username=employee.employee_code or f"user{employee.id}",
@@ -1044,29 +1089,32 @@ def loginuser_from_qr(token):
         employee.email = email
         employee.phone = phone
         db.session.add(new_user)
+        db.session.flush()
 
         employee.user_id = new_user.id
-        db.session.flush()
         db.session.commit()
+
         login_user(new_user)
+
+        # Add login history for new user
+        history = UserLoginHistory(
+            user_id=new_user.id,
+            username=new_user.username,
+            login_type='nfc_card',
+            login_time=datetime.utcnow()
+        )
+        db.session.add(history)
+        db.session.commit()
+
         return redirect('http://localhost:5001/reports/dashboard')
-
-        # return redirect(url_for('index.index'))
-
-
-
-        #
-        if not username or not password:
-            flash('Username and password are required', 'danger')
-            return redirect(request.url)
-
-        return redirect(url_for('auth.login'))
 
     # 🔹 GET → show form (prefilled)
     return render_template(
         'admin/qr_register.html',
-        employee=employee, password_str=dob_clean
+        employee=employee,
+        password_str=dob_clean
     )
+
 
 
 

@@ -2,8 +2,9 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime
 from app import db
-from models import User, Employee
+from models import User, Employee,UserLoginHistory
 from utils.whatsapp_sender import send_otp, verify_otp, find_employee_by_phone
+from sqlalchemy import func
 
 # Create blueprint
 bp = Blueprint('auth', __name__)
@@ -19,7 +20,10 @@ def login():
         password = request.form.get('password')
         remember = 'remember' in request.form
         
-        user = User.query.filter_by(username=username).first()
+        # Match username (numeric only logic, as before)
+        user = User.query.filter(
+            func.right(func.regexp_replace(User.username, r'\D', '', 'g'), len(username)) == username
+        ).first()
         
         if user and user.check_password(password):
             login_user(user, remember=remember)
@@ -28,18 +32,33 @@ def login():
             user.last_login = datetime.utcnow()
             db.session.commit()
             
-            # Check if user needs to change password
+            # ----- ADD LOGIN HISTORY RECORD -----
+            try:
+                login_record = UserLoginHistory(
+                    user_id=user.id,
+                    username=user.username,
+                    login_type='password',  # mark it as password login
+                    login_time=datetime.now() 
+                )
+                db.session.add(login_record)
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                print("Error logging login history:", e)
+            # -----------------------------------
+
+            # Force password change if needed
             if user.force_password_change:
                 flash('You must change your password before continuing', 'warning')
                 return redirect(url_for('auth.change_password'))
             
+            # Redirect logic
             next_page = request.args.get('next')
             if not next_page or not next_page.startswith('/'):
                 if current_user.role == 'employee' and not current_user.is_admin:
                     next_page = url_for('reports.dashboard')
                 else:    
                     next_page = url_for('reports.dashboard')
-                   # next_page = url_for('attendance.index')
             
             flash(f'Welcome back, {user.username}!', 'success')
             return redirect(next_page)
