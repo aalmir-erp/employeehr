@@ -124,19 +124,15 @@
                             <td>{{ record.username }}</td>
                             <td>{{ user.employee.name if user.employee else 'N/A' }}</td>
                             <td>
-                                {% set login_type_cap = record.login_type.capitalize() %}
-                                <span class="badge 
-                                    {% if record.login_type == 'password' %}
-                                        bg-success
-                                    {% elif record.login_type == 'nfc_card' %}
-                                        bg-warning text-dark
-                                    {% elif record.login_type == 'url' %}
-                                        bg-info
-                                    {% else %}
-                                        bg-secondary
-                                    {% endif %}">
-                                    {{ login_type_cap }}
-                                </span>
+                                {% if record.login_type == 'password' %}
+                                    <span class="badge bg-success">Password</span>
+                                {% elif record.login_type == 'nfc_card' %}
+                                    <span class="badge bg-warning text-dark">NFC</span>
+                                {% elif record.login_type == 'url' %}
+                                    <span class="badge bg-info">ERP</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ record.login_type.capitalize() }}</span>
+                                {% endif %}
                             </td>
                             <td>{{ record.login_time.strftime('%Y-%m-%d') }}</td>
                             <td>{{ record.login_time.strftime('%H:%M:%S') }}</td>
