@@ -56,6 +56,26 @@
                     <label class="form-check-label" for="is_active">Active</label>
                     <div class="form-text">Inactive devices won't be checked or used for attendance</div>
                 </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Attendance( mark as IN or OUT)*</label><br>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="direction" id="in_radio" value="in" 
+                               {% if device.direction == 'in' %}checked{% endif %}>
+                        <label class="form-check-label" for="in_radio">IN</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="direction" id="out_radio" value="out" 
+                               {% if device.direction == 'out' %}checked{% endif %}>
+                        <label class="form-check-label" for="out_radio">OUT</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="direction" id="default" value="default" 
+                               {% if device.direction == 'default' %}checked{% endif %}>
+                        <label class="form-check-label" for="out_radio">Default</label>
+                    </div>
+
+                </div>
                 
                 <div class="card bg-light mb-4">
                     <div class="card-header">

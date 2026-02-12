@@ -79,11 +79,10 @@ class OdooConnector:
             logger.info(f"Attempting connection to Odoo PostgreSQL at {host}:{port}...")
 
 
-            print(db_host,db_port,db_name,db_user,db_password,"=====================================><><<><<mubeen")
             conn_string = f"host={db_host} port={db_port} dbname={db_name} user={db_user} password={db_password} sslmode={db_sslmode}"
 
             self.connection = psycopg2.connect(conn_string)
-         
+            
             self.cursor = self.connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
             logger.info("Successfully connected to Odoo database")
             

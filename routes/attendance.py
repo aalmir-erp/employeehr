@@ -116,7 +116,17 @@ def daily():
     except ValueError:
         selected_date = date.today()
     
-    department = request.args.get('department', 'all')
+
+    if current_user.has_role('supervisor') and not current_user.is_admin and not current_user.has_role('hr'):
+        user_department = current_user.department
+        
+        department = user_department
+    else:
+        department = request.args.get('department', 'all')
+
+        # Supervisor: restrict employees & departments
+
+
     
     # Get attendance records for the selected date
     query = AttendanceRecord.query.filter_by(date=selected_date)
@@ -144,8 +154,16 @@ def daily():
     records = query.all()
     
     # Get unique departments for filter
-    departments = db.session.query(Employee.department).distinct().all()
-    departments = [d[0] for d in departments if d[0]]
+    if current_user.has_role('supervisor') and not current_user.is_admin and not current_user.has_role('hr'):
+        user_department = current_user.department
+        # all_employees = [e for e in all_employees if e.department == user_department]
+        departments = [user_department]
+        # selected_department = user_department
+    else:
+        # departments = sorted(list({e.department for e in all_employees if e.department}))
+        # selected_department = request.args.get('department', '')
+        departments = db.session.query(Employee.department).distinct().all()
+        departments = [d[0] for d in departments if d[0]]
     
     # Define day_delta for template's previous/next day buttons
     day_delta = timedelta(days=1)
@@ -296,6 +314,7 @@ def manual_entry():
             break_duration_str = request.form.get('break_duration', '1')
             status = request.form.get('status')
             notes = request.form.get('notes')
+            mark_weekend  = request.form.get('mark_weekend')
             
             # Convert break duration to float, default to 1 hour
             try:
@@ -370,6 +389,7 @@ def manual_entry():
                 record.break_duration = break_duration
                 record.break_start = break_start_time
                 record.break_end = break_end_time
+                record.is_weekend = True if mark_weekend else False
                 
                 # Calculate work hours if both check-in and check-out are provided
                 if check_in_time and check_out_time:
@@ -394,7 +414,8 @@ def manual_entry():
                     notes=notes,
                     break_duration=break_duration,
                     break_start=break_start_time,
-                    break_end=break_end_time
+                    break_end=break_end_time,
+                    is_weekend=True if mark_weekend else False
                 )
                 
                 # Get employee and set shift_id and shift_type

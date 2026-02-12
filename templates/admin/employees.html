@@ -12,12 +12,21 @@
             </h5>
             <div>
                 {% if current_user.is_admin or current_user.role == 'hr' %}
+                <form action="{{ url_for('admin.create_missing_users_device') }}" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-light btn-sm">
+                        <i class="bi bi-person-check"></i> Create User In Device
+                    </button>
+                </form>
+                {% endif %}
+
+                {% if current_user.is_admin or current_user.role == 'hr' %}
                 <form action="{{ url_for('admin.create_missing_users_for_employees') }}" method="POST" class="d-inline">
                     <button type="submit" class="btn btn-light btn-sm">
                         <i class="bi bi-person-check"></i> Create User
                     </button>
                 </form>
                 {% endif %}
+
                 <button type="button" class="btn btn-light btn-sm me-2" data-bs-toggle="modal" data-bs-target="#filterModal">
                     <i class="bi bi-funnel"></i> Filter
                 </button>
@@ -121,12 +130,22 @@
                             </td>
                             <td>
                                 <div class="btn-group" role="group">
+                                    {% if not employee_devide_status[employee.id] %}
+                                    
+                                    
+<a href="{{ url_for('admin.add_emplayee_to_machine', employee_id=employee.id) }}" class="btn btn-sm btn-outline-primary" title="Add to Device">
+                                        <i class="bi bi-pc"></i>
+                                    </a>
+                                    {% endif %}
+
+
                                     <a href="{{ url_for('attendance.employee_attendance', employee_id=employee.id) }}" class="btn btn-sm btn-outline-primary" title="View Attendance">
                                         <i class="bi bi-calendar-check"></i>
                                     </a>
                                     <a href="{{ url_for('shifts.assign_shift') }}?employee_id={{ employee.id }}" class="btn btn-sm btn-outline-success" title="Assign Shift">
                                         <i class="bi bi-clock"></i>
                                     </a>
+
                                     <button type="button"
                                             class="btn btn-sm btn-outline-success open-user-modal"
                                             data-bs-toggle="modal"
@@ -138,6 +157,17 @@
                                             title="Create User">
                                         <i class="bi bi-person-plus"></i>
                                     </button>
+                                    <!-- <button type="button"
+                                            class="btn btn-sm btn-outline-success open-user-modal"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#createUserModal"
+                                            data-employee-id="{{ employee.id }}"
+                                            data-employee-name="{{ employee.name }}"
+                                            data-employee-phone="{{ employee.phone or '' }}"
+                                            data-employee-email="{{ employee.email or '' }}"
+                                            title="Add User to Device">
+                                        <i class="bi bi-person-plus"></i>
+                                    </button> -->
                                     <button type="button" class="btn btn-sm btn-outline-secondary toggle-status"
                                             data-bs-toggle="modal" data-bs-target="#toggleStatusModal"
                                             data-employee-id="{{ employee.id }}"

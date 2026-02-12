@@ -206,6 +206,52 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
                 if out_log.timestamp > in_log.timestamp:
                     sessions.append((in_log, out_log))
 
+        if in_stack and not sessions:
+            check_in = in_stack[0].timestamp
+            record_date = check_in.date()
+
+            record = AttendanceRecord.query.filter_by(
+                employee_id=emp_id,
+                date=record_date
+            ).first()
+
+            if not record:
+                record = AttendanceRecord(
+                    employee_id=emp_id,
+                    date=record_date,
+                    check_in=check_in,
+                    status='in_progress'
+                )
+                db.session.add(record)
+                db.session.flush()
+
+            print(f"DEBUG - IN only, record created/exists for employee {emp_id} on {record_date}")
+            continue
+
+        if not in_stack and not sessions and logs:
+            first_log = logs[0]
+
+            if first_log.log_type in ['OUT', 'check_out']:
+                record_date = first_log.timestamp.date()
+
+                record = AttendanceRecord.query.filter_by(
+                    employee_id=emp_id,
+                    date=record_date
+                ).first()
+
+                if not record:
+                    record = AttendanceRecord(
+                        employee_id=emp_id,
+                        date=record_date,
+                        check_out=first_log.timestamp,
+                        status='missing_in'
+                    )
+                    db.session.add(record)
+                    db.session.flush()
+
+                print(f"DEBUG - OUT only (missing IN) for employee {emp_id} on {record_date}")
+                continue
+
         if not sessions:
             print(f"DEBUG - No valid sessions found for employee {emp_id} on {log_date}")
             continue
@@ -304,7 +350,11 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
                     date=current_date
                 ).first()
                 is_holiday, is_weekend = check_holiday_and_weekend(emp.id, current_date)
-                if not record_exists and not is_holiday and not is_weekend:
+                has_any_log = AttendanceLog.query.filter(
+                    AttendanceLog.employee_id == emp.id,
+                    func.date(AttendanceLog.timestamp) == current_date
+                ).first()
+                if not record_exists and not has_any_log and not is_holiday and not is_weekend:
                     db.session.add(AttendanceRecord(
                         employee_id=emp.id,
                         date=current_date,

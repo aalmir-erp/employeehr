@@ -7,8 +7,10 @@ import io
 import xlsxwriter
 import json
 from app import db
-from models import Employee, AttendanceRecord, Shift
+from models import Employee, AttendanceRecord, Shift, AttendanceLog
 from utils.helpers import get_date_range, get_attendance_stats
+from collections import defaultdict
+
 
 # Create blueprint
 bp = Blueprint('reports', __name__, url_prefix='/reports')
@@ -31,6 +33,8 @@ def dashboard():
     end_date = request.args.get('end_date')
     
     today = date.today()
+    start_date_log = '2026-01-25'
+    start_date_log = datetime.strptime(start_date_log, '%Y-%m-%d').date()
     try:
         start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
         end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
@@ -38,6 +42,29 @@ def dashboard():
         # Default to current month if dates are invalid
         start_date = date(today.year, today.month, 1)
         end_date = date(today.year, today.month, calendar.monthrange(today.year, today.month)[1])
+
+    start_date_log = datetime.utcnow() - timedelta(days=12)
+    employee_id = current_user.employee.id
+
+    logs = (
+        AttendanceLog.query
+        .filter(
+            AttendanceLog.employee_id == employee_id,
+            AttendanceLog.timestamp >= start_date_log
+        )
+        .order_by(AttendanceLog.timestamp.desc())
+        .all()
+    )
+
+    attendance_logs = defaultdict(lambda: {'IN': [], 'OUT': []})
+
+    for log in logs:
+        day = log.timestamp.date()
+        attendance_logs[day][log.log_type].append(log.timestamp)
+
+    # Sort days (latest first)
+    attendance_logs = dict(sorted(attendance_logs.items(), reverse=True))
+
     
     # Get filter parameters
     department = request.args.get('department', 'all')
@@ -210,19 +237,28 @@ def dashboard():
                           trend_dates=trend_dates,
                           trend_present=trend_present,
                           trend_absent=trend_absent,
+                          attendance_logs=attendance_logs,
                           trend_late=trend_late)
 
 @bp.route('/daily')
 @login_required
 def daily():
     """Daily attendance report"""
-    selected_date = request.args.get('date', date.today().isoformat())
+    today_date = selected_date = request.args.get('date', date.today().isoformat())
     try:
         selected_date = datetime.strptime(selected_date, '%Y-%m-%d').date()
     except ValueError:
         selected_date = date.today()
+
+
     
-    department = request.args.get('department', 'all')
+    # department = request.args.get('department', 'all')
+    if current_user.has_role('supervisor') and not current_user.is_admin and not current_user.has_role('hr'):
+        user_department = current_user.department
+        
+        department = user_department
+    else:
+        department = request.args.get('department', 'all')
     
     # Query attendance records for the selected date
     query = AttendanceRecord.query.filter_by(date=selected_date)
@@ -240,8 +276,19 @@ def daily():
     late_count = sum(1 for r in records if r.status == 'late')
     
     # Get departments for filter
-    departments = db.session.query(Employee.department).distinct().all()
-    departments = [d[0] for d in departments if d[0]]
+    if current_user.has_role('supervisor') and not current_user.is_admin and not current_user.has_role('hr'):
+        user_department = current_user.department
+        # all_employees = [e for e in all_employees if e.department == user_department]
+        departments = [user_department]
+        # selected_department = user_department
+    else:
+        # departments = sorted(list({e.department for e in all_employees if e.department}))
+        # selected_department = request.args.get('department', '')
+        departments = db.session.query(Employee.department).distinct().all()
+        departments = [d[0] for d in departments if d[0]]
+
+    # departments = db.session.query(Employee.department).distinct().all()
+    # departments = [d[0] for d in departments if d[0]]
     
     return render_template('reports/daily.html',
                           date=selected_date,

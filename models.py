@@ -241,6 +241,8 @@ class AttendanceDevice(db.Model):
     status = db.Column(db.String(64), default='offline')  # 'online', 'offline', 'error'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    direction = db.Column(db.String(10), nullable=False, default="in")  # 'in' or 'out'
+
     
     # Relationships
     attendance_logs = db.relationship('AttendanceLog', backref='device', lazy='dynamic')
@@ -325,6 +327,27 @@ class AttendanceRecord(db.Model):
     
     def __repr__(self):
         return f'<AttendanceRecord {self.employee_id} {self.date}>'
+
+
+
+
+    @classmethod
+    def count_weekend_workdays(cls, employee_id, date_from, date_to):
+        """
+        Count how many days the employee worked on weekends
+        within a given date range.
+        """
+        return (
+            db.session.query(func.count(cls.id))
+            .filter(
+                cls.employee_id == employee_id,
+                cls.date >= date_from,
+                cls.date <= date_to,
+                cls.is_weekend == True,
+                cls.status.in_(["present", "half-day", "late"])  # worked statuses
+            )
+            .scalar()
+        )
     
     def calculate_work_hours(self):
         """Calculate basic work hours without overtime"""
@@ -1070,6 +1093,22 @@ class BonusEvaluationHistory(db.Model):
     def __repr__(self):
         return f"<BonusEvaluationHistory Employee={self.employee_id} Question={self.question_id} Value={self.value}>"
 
+
+class BonusEvaluationAutomation(db.Model):
+    """Individual bonus evaluation for an employee on a specific question"""
+    id = db.Column(db.Integer, primary_key=True)
+    submission_id = db.Column(db.Integer, db.ForeignKey('bonus_submission.id'), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
+    period_id = db.Column(db.Integer, db.ForeignKey('bonus_evaluation_period.id'), nullable=False)
+    attendance_bonus_points = db.Column(db.Integer)
+
+
+    submission = db.relationship('BonusSubmission')
+    employee = db.relationship('Employee')
+    period = db.relationship('BonusEvaluationPeriod')
+
+
+
 class BonusEvaluation(db.Model):
     """Individual bonus evaluation for an employee on a specific question"""
     id = db.Column(db.Integer, primary_key=True)
@@ -1088,10 +1127,27 @@ class BonusEvaluation(db.Model):
     question = db.relationship('BonusQuestion', back_populates='evaluations')
     odoo_status = db.Column(db.String(64), nullable=True)
     remarks = db.Column(db.String(255))
+    emp_status = db.Column(db.String(255))
+
     
     def __repr__(self):
         return f"<BonusEvaluation Employee={self.employee_id} Question={self.question_id} Value={self.value}>"
 
+
+    @classmethod
+    def get_by_employee_and_question(cls, employee_id, question_id):
+        return (
+            cls.query
+            .filter_by(employee_id=employee_id, question_id=question_id)
+            .join(BonusSubmission, cls.submission_id == BonusSubmission.id)  # join with Submission
+            .join(BonusEvaluationPeriod, BonusSubmission.period_id == BonusEvaluationPeriod.id)       # join with Period
+            .add_columns(
+                BonusSubmission.id.label('submission_id'),
+                BonusEvaluationPeriod.name.label('period_name'),
+                BonusEvaluationPeriod.start_date.label('period_date')  # or end_date depending on requirement
+            )
+            .all()
+        )
 
 class BonusAuditLog(db.Model):
     """Audit log for all changes to bonus evaluations"""
@@ -1114,3 +1170,20 @@ class BonusAuditLog(db.Model):
     
     def __repr__(self):
         return f"<BonusAuditLog {self.action} by {self.user_id} at {self.timestamp}>"
+
+
+class EmployeeDevice(db.Model):
+    __tablename__ = "employee_device"
+
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey("employee.id"), nullable=False)
+    device_id = db.Column(db.Integer, db.ForeignKey("attendance_device.id"), nullable=False)
+    registered_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships (optional for easier access)
+    employee = db.relationship("Employee", backref="device_links")
+    device = db.relationship("AttendanceDevice", backref="employee_links")
+
+    __table_args__ = (
+        db.UniqueConstraint("employee_id", "device_id", name="uq_employee_device"),
+    )

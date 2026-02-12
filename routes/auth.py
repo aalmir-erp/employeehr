@@ -12,7 +12,7 @@ bp = Blueprint('auth', __name__)
 def login():
     """Handle user login"""
     if current_user.is_authenticated:
-        return redirect(url_for('attendance.index'))
+        return redirect(url_for('reports.dashboard'))
     
     if request.method == 'POST':
         username = request.form.get('username')
@@ -38,7 +38,8 @@ def login():
                 if current_user.role == 'employee' and not current_user.is_admin:
                     next_page = url_for('reports.dashboard')
                 else:    
-                   next_page = url_for('attendance.index')
+                    next_page = url_for('reports.dashboard')
+                   # next_page = url_for('attendance.index')
             
             flash(f'Welcome back, {user.username}!', 'success')
             return redirect(next_page)

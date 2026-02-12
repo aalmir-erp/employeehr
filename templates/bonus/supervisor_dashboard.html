@@ -31,7 +31,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for period in active_periods %}
+<!--                                 {% for period in active_periods %}
                                 <tr>
                                     <td>{{ period.name }}</td>
                                     <td>{{ period.start_date|format_date }} - {{ period.end_date|format_date }}</td>
@@ -41,11 +41,11 @@
                                         </span>
                                     </td>
                                     <td>
-                                        {% set has_submission = false %}
+                                       {% set has_submission = false %}
                                         {% for submission in submissions %}
                                             {% if submission.period_id == period.id %}
                                                 {% set has_submission = true %}
-                                                {% if submission.status == 'draft' %}
+                                                {% if submission.status == 'draft' and period.status != 'open' %}
                                                     <a href="{{ url_for('bonus.edit_submission', submission_id=submission.id) }}" class="btn btn-sm btn-warning">
                                                         Continue Draft 
                                                     </a>
@@ -55,16 +55,54 @@
                                                     </a>
                                                 {% endif %}
                                             {% endif %}
-                                        {% endfor %}
-                                        
-                                        {% if not has_submission and period.status == 'open' %}
+                                            {% if not has_submission and period.status == 'open' %}
                                             <a href="{{ url_for('bonus.supervisor_submit', period_id=period.id) }}" class="btn btn-sm btn-primary">
                                                 Start New Submission
                                             </a>
                                         {% endif %}
+                                        {% endfor %}
+
+
+                                        
+                                       
                                     </td>
                                 </tr>
-                                {% endfor %}
+                                {% endfor %} -->
+
+
+                                {% for period in active_periods %}
+    <tr>
+        <td>{{ period.name }} </td>
+                                            <td>{{ period.start_date|format_date }} - {{ period.end_date|format_date }}</td>
+                                            <td>
+                                        <span class="badge {% if period.status == 'open' %}bg-success{% else %}bg-info{% endif %}">
+                                            {{ period.status }}
+                                        </span>
+                                    </td>
+                                    <td>
+
+        <td>
+            {% set period_submissions = submissions | selectattr("period_id", "equalto", period.id) | list %}
+            
+            {% if period_submissions %}
+                {% set submission = period_submissions[0] %}  {# Adjust if you expect multiple #}
+                {% if submission.status == 'draft'  %}
+                    <a href="{{ url_for('bonus.edit_submission', submission_id=submission.id) }}" class="btn btn-sm btn-warning">
+                        Continue Draft
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('bonus.view_submission', submission_id=submission.id) }}" class="btn btn-sm btn-info">
+                        View Submission {{ submission.status }}
+                    </a>
+                {% endif %}
+            {% elif period.status == 'open' %}
+                <a href="{{ url_for('bonus.supervisor_submit', period_id=period.id) }}" class="btn btn-sm btn-primary">
+                    Start New Submission
+                </a>
+            {% endif %}
+        </td>
+    </tr>
+{% endfor %}
                             </tbody>
                         </table>
                     </div>

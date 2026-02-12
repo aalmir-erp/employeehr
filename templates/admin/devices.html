@@ -66,6 +66,8 @@
                     <div class="progress-bar bg-warning" role="progressbar" 
                          style="width: {{ (device_stats.error / device_stats.total * 100) if device_stats.total else 0 }}%"></div>
                 </div>
+                
+
             </div>
         </div>
     </div>
@@ -74,9 +76,13 @@
 <div class="col-md-9">
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <h5><i class="bi bi-upc-scan"></i> Attendance Devices</h5>
+            <h5><i class="bi bi-upc-scan"></i> Attendance Devices rrrrr</h5>
             <a href="{{ url_for('devices.add') }}" class="btn btn-primary btn-sm">
-                <i class="bi bi-plus-circle"></i> Add Device
+                <i class="bi bi-plus-circle"></i> Add Devicesdsdsd  
+            </a>
+
+            <a href="{{ url_for('devices.fetch') }}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-circle"></i> Fetch Device
             </a>
         </div>
         <div class="card-body">

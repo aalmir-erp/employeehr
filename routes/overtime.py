@@ -8,7 +8,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 import xmlrpc.client
 
 from flask_login import login_required, current_user
-from sqlalchemy import func, desc,case
+from sqlalchemy import func, desc,case, and_
 from models import db, OvertimeRule, AttendanceRecord, Employee, BonusEvaluation, BonusSubmission
 from utils.overtime_engine import process_attendance_records, calculate_monthly_overtime, calculate_weekly_overtime
 import requests
@@ -542,40 +542,61 @@ def fetch_pay_roll_from_odoo():
     'from_date': from_date,
     'to_date': to_date
     }
-
+    print(overtime_data, "overtime_data  =======")
     # Send POST request to Odoo controller (adjust URL accordingly)
-    try:
-        response = requests.post('http://erp.mir.ae:8050/payroll/fetch_payroll_id', json=payload)
-        print(response.text)
+    # try:
+    if 1:
+
+        response = requests.post('https://erp.mir.ae/payroll/fetch_payroll_id', json=payload)
+        # print(response, "response --")
+
+
         odoo_response = response.json()
+        print("---------------------------------------------------------")
+        # print(odoo_response)
 
         response.raise_for_status()
-    except Exception as e:
-        return {'error': str(e)}, 500
+    # except Exception as e:
+    #     return {'error': str(e)}, 500
 
     payroll_data = odoo_response.get('result', [])
 
+    # print
+
     for item in payroll_data:
-        employee_id = item['employee_id']
-        payroll_number = item['payroll_number']
-        payroll_id = item['payroll_id']
-        payroll_date = datetime.strptime(item['payroll_date'], '%Y-%m-%d').date()
-        state = item['state']
+        try:
+            odoo_id = item['employee_id']
+            payroll_number = item['payroll_number']
+            payroll_id = item['payroll_id']
+            payroll_date = datetime.strptime(item['payroll_date'], '%Y-%m-%d').date()
+            state = item['state']
 
-        # Optional: prevent duplicates (e.g., same emp, same payroll_id)
-        existing = PayrollStatus.query.filter_by(employee_id=employee_id, payroll_id_odoo=payroll_id).first()
-        if existing:
-            continue  # Skip existing record
+            # Optional: prevent duplicates (e.g., same emp, same payroll_id)
+            print("odoo_id", odoo_id)
+            employee = Employee.query.filter_by(odoo_id=odoo_id).first()
+            print(employee, "payroll_id", payroll_id)
+            print(payroll_number, "payroll_number ==")
+            existing = PayrollStatus.query.filter_by(employee_id=employee.id, payroll_id_odoo=payroll_id).first()
+            # if existing:
+            #     continue  # Skip existing record
 
-        new_status = PayrollStatus(
-            employee_id=employee_id,
-            payroll_id_odoo=payroll_id,
-            payroll_name=payroll_number,
-            payroll_date=payroll_date,
-            odoo_status='pending',
-            status='created'
-        )
-        db.session.add(new_status)
+            new_status = PayrollStatus(
+                employee_id=employee.id,
+                payroll_id_odoo=payroll_id,
+                payroll_name=payroll_number,
+                payroll_date=payroll_date,
+                odoo_status='pending',
+                status='created'
+            )
+            db.session.add(new_status)
+        except Exception as e:
+            print("❌ Error processing item:", item)
+            print("Error:", e)
+        #     print(" error  here  =========")
+        #     print (odoo_id, "odoo_id")
+        #     print("payroll_number", payroll_number)
+        #     print(payroll_id, "payroll_id")
+        #     continue
 
     db.session.commit()
 
@@ -587,15 +608,138 @@ def fetch_pay_roll_from_odoo():
 def send_overtime_to_odoo():
     # if 1:
 
-    raw_data = request.form.get('selected_data')
+    send_scope = request.form.get('send_scope')
+
     from_date = request.form.get('from_date')
     to_date = request.form.get('to_date')
     is_overtime = request.form.get('is_overtime')
     # is_payroll = request.form.get('is_payroll')
     is_bonus = request.form.get('is_bonus')
     is_leave = request.form.get('is_leave')
-    selected_employees = json.loads(raw_data) if raw_data else []
-    print(selected_employees)
+    
+    if send_scope =='selected':
+        raw_data = request.form.get('selected_data')
+        selected_employees = json.loads(raw_data) if raw_data else []
+        print(selected_employees)
+        # 9/0
+    else:
+        approved_evals = db.session.query(BonusEvaluation).join(BonusSubmission).filter(
+        BonusSubmission.status == 'approved'
+        ).order_by(
+            BonusEvaluation.employee_id,
+            desc(BonusSubmission.submitted_at)  # latest first
+        ).all()
+
+        # Step 1: Get the latest approved submission
+        latest_submission = db.session.query(BonusSubmission).filter(
+            BonusSubmission.status == 'approved'
+        ).order_by(BonusSubmission.submitted_at.desc()).first()
+
+        # Step 2: Group evaluation values by employee
+        grouped_scores = []
+        if latest_submission:
+            grouped_scores = db.session.query(
+                BonusEvaluation.employee_id,
+                func.sum(BonusEvaluation.value).label('total_score')
+            ).filter(
+                BonusEvaluation.submission_id == latest_submission.id
+            ).group_by(BonusEvaluation.employee_id).all()
+
+            # Optional: Convert to dicts for JSON/API
+            grouped_scores = [
+                {'employee_id': emp_id, 'total_score': score}
+                for emp_id, score in grouped_scores
+            ]
+
+     
+            ranked_subq = db.session.query(
+            BonusSubmission.id.label('submission_id'),
+            BonusSubmission.department,
+            BonusSubmission.submitted_at,
+            func.rank().over(
+                partition_by=BonusSubmission.department,
+                order_by=BonusSubmission.submitted_at.desc()
+            ).label('rnk')
+            ).filter(
+                BonusSubmission.status == 'approved'
+            ).subquery()
+
+            # Filter only the latest (rank = 1) for each department
+            latest_submissions = db.session.query(ranked_subq.c.submission_id, ranked_subq.c.department).filter(
+                ranked_subq.c.rnk == 1
+            ).all()
+
+            submission_ids = [row.submission_id for row in latest_submissions]
+            bonus_point_map = {
+            emp_id: score for emp_id, score in db.session.query(
+                BonusEvaluation.employee_id,
+                func.sum(BonusEvaluation.value)
+            ).filter(
+                BonusEvaluation.submission_id.in_(submission_ids)
+            ).group_by(BonusEvaluation.employee_id).all()
+        }
+
+            # Step 2: Keep only the latest per employee
+            latest_eval_map = {}
+            status_eval_map = {}
+
+
+
+            for bonus in approved_evals:
+                emp_id = bonus.employee_id
+                if emp_id not in latest_eval_map:
+                    latest_eval_map[emp_id] = [bonus.value, bonus.id] # keep first (latest due to ordering)
+                    status_eval_map [emp_id] = bonus.odoo_status
+
+            # Result: {employee_id: latest approved value}
+            print(bonus_point_map)
+
+            bonus_point_subq = db.session.query(
+            BonusEvaluation.employee_id.label("employee_id"),
+            func.sum(BonusEvaluation.value).label("total_score")
+        ).filter(
+            BonusEvaluation.submission_id.in_(submission_ids)
+        ).group_by(
+            BonusEvaluation.employee_id
+        ).subquery()
+
+            # Subquery: latest payslip id per employee
+            latest_payslip_subq = (
+                db.session.query(
+                    PayrollStatus.employee_id,
+                    func.max(PayrollStatus.id).label("latest_payslip_id")
+                )
+                .group_by(PayrollStatus.employee_id)
+                .subquery()
+            )
+
+            # Main query
+            results = (
+                db.session.query(
+                    Employee.id.label("emp_id"),
+                    Employee.employee_code,
+                    Employee.odoo_id,
+                    func.coalesce(bonus_point_subq.c.total_score, 0).label("bonus_point"),
+                    func.coalesce(latest_payslip_subq.c.latest_payslip_id, 0).label("payslip_id"),
+                )
+                .outerjoin(bonus_point_subq, Employee.id == bonus_point_subq.c.employee_id)
+                .outerjoin(latest_payslip_subq, Employee.id == latest_payslip_subq.c.employee_id)
+                .all()
+            )
+
+            selected_employees = [
+                {
+                    "emp_id": r.emp_id,
+                    "employee_code": r.employee_code,
+                    "odoo_id": r.odoo_id,
+                    "bonus_point": r.bonus_point,
+                    "payslip_id": r.payslip_id,
+                }
+                for r in results
+            ]
+
+            print(selected_employees)
+
     absent = []
     action_dict = {'is_bonus':is_bonus,'is_overtime':is_overtime, 'is_leave':is_leave}
 
@@ -630,14 +774,16 @@ def send_overtime_to_odoo():
 
         
         ot = float(item.get('weighted_ot', 0))
-        bonus = item.get('bonus_point')
+        bonus = [item.get('bonus_point'), 1]
         payslip = item.get('payslip_id')
+        if not payslip:
+            flash('Not all selected record having payslip. Please Fetch Payroll ', 'danger')
+            return redirect(url_for('overtime.report'))
 
-        print("selected_employees")
+    print(selected_employees, "selected_employees")
 
-    res = requests.post("http://erp.mir.ae:8050/update_overtime_from_ams", json={'payroll': selected_employees,'absent':absent,'action_dict':action_dict}, timeout=10)
-    print ("-00-----------------------------------------------------------------------------------")
-    print (res.text)
+    res = requests.post("https://erp.mir.ae/update_overtime_from_ams", json={'payroll': selected_employees,'absent':absent,'action_dict':action_dict}, timeout=300)
+
     
 
     response = json.loads(res.text)
@@ -732,13 +878,13 @@ def update_odoo_status_from_response(response):
                         status_record.status = "updated"
                         db.session.add(status_record)  # optional, but safe
 
-                if len(result_list) >= 3 and result_list[1] is True:
-                    bonus_id = result_list[2]
-                    print ( "bouns id ---------------", bonus_id)
-                    bonus_record = BonusEvaluation.query.get(bonus_id)
-                    if bonus_record:
-                        bonus_record.odoo_status = "updated"
-                        db.session.add(bonus_record)
+                # if len(result_list) >= 3 and result_list[1] is True:
+                #     bonus_id = result_list[2]
+                #     print ( "bouns id ---------------", bonus_id)
+                #     bonus_record = BonusEvaluation.query.get(bonus_id)
+                #     if bonus_record:
+                #         bonus_record.odoo_status = "updated"
+                #         db.session.add(bonus_record)
 
         db.session.commit()
 
@@ -799,32 +945,51 @@ def report():
     ).all()
 
     # Step 1: Get the latest approved submission
-    latest_submission = db.session.query(BonusSubmission).filter(
-        BonusSubmission.status == 'approved'
-    ).order_by(BonusSubmission.submitted_at.desc()).first()
+    # latest_submission = db.session.query(BonusSubmission).filter(
+    #     BonusSubmission.status == 'approved'
+    # ).order_by(BonusSubmission.submitted_at.desc()).first()
 
     # Step 2: Group evaluation values by employee
-    grouped_scores = []
-    if latest_submission:
-        grouped_scores = db.session.query(
-            BonusEvaluation.employee_id,
-            func.sum(BonusEvaluation.value).label('total_score')
-        ).filter(
-            BonusEvaluation.submission_id == latest_submission.id
-        ).group_by(BonusEvaluation.employee_id).all()
+    # grouped_scores = []
+    # if latest_submission:
+    #     grouped_scores = db.session.query(
+    #         BonusEvaluation.employee_id,
+    #         func.sum(BonusEvaluation.value).label('total_score')
+    #     ).filter(
+    #         BonusEvaluation.submission_id == latest_submission.id
+    #     ).group_by(BonusEvaluation.employee_id).all()
 
-        # Optional: Convert to dicts for JSON/API
-        grouped_scores = [
-            {'employee_id': emp_id, 'total_score': score}
-            for emp_id, score in grouped_scores
-        ]
+    #     # Optional: Convert to dicts for JSON/API
+    #     grouped_scores = [
+    #         {'employee_id': emp_id, 'total_score': score}
+    #         for emp_id, score in grouped_scores
+    #     ]
 
+ 
+    ranked_subq = db.session.query(
+    BonusSubmission.id.label('submission_id'),
+    BonusSubmission.department,
+    BonusSubmission.submitted_at,
+    func.rank().over(
+        partition_by=BonusSubmission.department,
+        order_by=BonusSubmission.submitted_at.desc()
+    ).label('rnk')
+    ).filter(
+        BonusSubmission.status == 'approved'
+    ).subquery()
+
+#     # Filter only the latest (rank = 1) for each department
+    latest_submissions = db.session.query(ranked_subq.c.submission_id, ranked_subq.c.department).filter(
+        ranked_subq.c.rnk == 1
+    ).all()
+
+    submission_ids = [row.submission_id for row in latest_submissions]
     bonus_point_map = {
     emp_id: score for emp_id, score in db.session.query(
         BonusEvaluation.employee_id,
         func.sum(BonusEvaluation.value)
     ).filter(
-        BonusEvaluation.submission_id == latest_submission.id
+        BonusEvaluation.submission_id.in_(submission_ids)
     ).group_by(BonusEvaluation.employee_id).all()
 }
 
@@ -839,7 +1004,7 @@ def report():
             status_eval_map [emp_id] = bonus.odoo_status
 
     # Result: {employee_id: latest approved value}
-    print(bonus_point_map)
+    # print(bonus_point_map)
     print("ooooooooooooooooooooooooooooooooooooooooooooooooooooo")
 
 
@@ -892,6 +1057,62 @@ def report():
     ).order_by(
         desc('total_overtime')
     ).all()
+
+    # from sqlalchemy import and_, func, case,
+
+    total_overtime = func.coalesce(func.sum(AttendanceRecord.overtime_hours), 0).label('total_overtime')
+
+    query = db.session.query(
+        Employee.id,
+        Employee.name,
+        Employee.employee_code,
+        Employee.odoo_id,
+        Employee.department,
+        Employee.eligible_for_weekday_overtime,
+        Employee.eligible_for_weekend_overtime,
+        Employee.eligible_for_holiday_overtime,
+        total_overtime,
+        func.coalesce(func.sum(AttendanceRecord.regular_overtime_hours), 0).label('weekday_overtime'),
+        func.coalesce(func.sum(AttendanceRecord.weekend_overtime_hours), 0).label('weekend_overtime'),
+        func.coalesce(func.sum(AttendanceRecord.overt_time_weighted), 0).label('overt_time_weighted'),
+        func.coalesce(func.sum(
+    case(
+        (AttendanceRecord.status == 'absent', 1),
+        else_=0
+    )
+), 0).label('absent_days'),
+        func.coalesce(func.sum(AttendanceRecord.holiday_overtime_hours), 0).label('holiday_overtime'),
+        func.coalesce(func.avg(AttendanceRecord.overtime_rate), 0).label('avg_rate')
+    ).outerjoin(
+        AttendanceRecord,
+        and_(
+            Employee.id == AttendanceRecord.employee_id,
+            AttendanceRecord.date >= from_date,
+            AttendanceRecord.date <= to_date
+        )
+    ).filter(
+        Employee.is_active == True
+    )
+
+    if department:
+        query = query.filter(Employee.department == department)
+
+    results = query.group_by(
+        Employee.id,
+        Employee.name,
+        Employee.employee_code,
+        Employee.odoo_id,
+        Employee.department,
+        Employee.eligible_for_weekday_overtime,
+        Employee.eligible_for_weekend_overtime,
+        Employee.eligible_for_holiday_overtime
+    ).order_by(
+        total_overtime.desc()
+    ).all()
+
+
+
+
 
     # print(results)
     

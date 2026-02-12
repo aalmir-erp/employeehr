@@ -163,6 +163,7 @@
                                     </th>
                                     {% endfor %}
                                     <th class="score-cell">Remarks</th>
+                                    <th>History</th>
                                     <th class="score-cell">Total</th>
                                 </tr>
                             </thead>
@@ -171,44 +172,92 @@
                                 <tr data-employee-id="{{ employee.id }}">
                                     <td>
                                         <input type="checkbox" class="form-check-input employee-checkbox" data-employee-id="{{ employee.id }}">
+                                        <br/>
+                                        
+
+                                    
                                     </td>
 
-                                    <td class="employee-name">{{ employee.name }}</td>
+                                    <td class="employee-name">
+<div class="d-flex flex-column">
+    <div class="d-flex justify-content-between align-items-center">
+        {{ employee.name }}
+
+<!--         <button class="btn btn-sm btn-primary fetch_bonus-btn"
+                    data-employee-id="{{ employee.id }}"
+                    data-submission-id="{{ submission.id }}"
+                    {% if (employee.id, submission.id) in existing_pairs %}
+                        data-skip="true"
+                    {% endif %}
+                    title="fetch bonus">
+                <i class="bi"></i>
+            </button>
+ -->
+        {% if current_user.has_role('hr') and (submission.status == 'submitted' or submission.status == 'in_review') %}
+            <button class="btn btn-sm btn-primary set-status-btn"
+                    data-employee-id="{{ employee.id }}"
+                    data-submission-id="{{ submission.id }}"
+                    title="Set Status">
+                <i class="bi bi-pencil-square"></i>
+            </button>
+        {% endif %}
+    </div>
+    <div style="color: #0d6efd; font-size: 0.875rem; font-weight: 600;">
+{{ employee_status_map.get(employee.id, '') }}</div>
+</div>
+
+                                    </td>
+
                                     {% for question in questions %}
                                     <td class="score-cell">
                                         <form method="post" action="{{ url_for('bonus.save_single_evaluation') }}" class="single-evaluation-form">
                                             <input type="hidden" name="submission_id" value="{{ submission.id }}"/>
                                             <input type="hidden" name="employee_id" value="{{ employee.id }}"/>
                                             <input type="hidden" name="question_id" value="{{ question.id }}"/>
-                                            <input type="number" 
-                                                class="form-control score-input"
-                                                name="value"
-                                                data-employee-id="{{ employee.id }}"
-                                                data-question-id="{{ question.id }}"
-                                                min="{{ question.min_value }}"
-                                                max="{{ question.max_value }}"
-                                                value="{% if employee.id in evaluation_matrix and question.id in evaluation_matrix[employee.id] %}{{ evaluation_matrix[employee.id][question.id].value }}{% else %}{{ question.default_value }}{% endif %}"
-                                                {% if question.only_hr and not current_user.has_role('hr') %}readonly{% endif %}>
+                                            <div class="d-flex align-items-center">
+        <input type="number" 
+            class="form-control score-input"
+            name="value"
+            data-employee-id="{{ employee.id }}"
+            data-question-id="{{ question.id }}"
+            min="{{ question.min_value }}"
+            max="{{ question.max_value }}"
+            value="{% if employee.id in evaluation_matrix and question.id in evaluation_matrix[employee.id] %}{{ evaluation_matrix[employee.id][question.id].value }}{% else %}{{ question.default_value }}{% endif %}"
+            {% if question.only_hr and not current_user.has_role('hr') %}readonly{% endif %}>
+
+        <button  type="button"  class="btn btn-sm btn-primary get_history-btn ms-2"
+            data-employee-id="{{ employee.id }}"
+            data-question-id="{{ question.id }}"
+            title="history"
+            style="width:30px; height:30px; display:flex; align-items:center; justify-content:center;">
+            <i class="bi bi-clock-history"></i>
+        </button>
+
                                                
                                             </form>
+
                                       
                                     </td>
                                     {% endfor %}
-                                    <td>
+                                   <td>
                                         <form method="post" action="{{ url_for('bonus.save_employee_remarks') }}" class="remarks-form">
                                             <input type="hidden" name="submission_id" value="{{ submission.id }}">
                                             <input type="hidden" name="employee_id" value="{{ employee.id }}">
                                             
                                             <div class="input-group">
                                                 <input type="text"
-                                                       name="remarks"
-                                                       class="form-control remarks-input"
-                                                       placeholder="Remarks"
-                                                       value="{% if employee.id in evaluation_matrix and evaluation_matrix[ employee.id]['remarks'] %}{{ evaluation_matrix[employee.id]['remarks'] }}{% endif %}">
-                                                <button type="submit" class="btn btn-sm btn-primary">Submit</button>
+                                                    name="remarks"
+                                                    class="form-control remarks-input"
+                                                    placeholder="Remarks"
+                                                    value="{{ employee_remarks_map.get(employee.id, '') }}">
                                             </div>
                                         </form>
-                                    </td>     
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-primary btn-sm view-evaluations-btn" 
+                                                data-employee-id="{{ employee.id }}">View</button>
+                                    </td>
+    
                                     <td class="score-cell">
                                         <span class="total-points" id="total-{{ employee.id }}">0.0</span>
                                     </td>
@@ -297,6 +346,30 @@
     </div>
 </div>
 
+
+<!-- Modal emp status -->
+<!-- Status Modal -->
+<div class="modal fade" id="statusModal" tabindex="-1" aria-labelledby="statusModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="statusModalLabel">Set Employee Status</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="selectedEmployeeId">
+        <input type="hidden" id="selectedSubmissionId">
+        <textarea id="empStatusInput" class="form-control" placeholder="Enter status"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-success" id="saveStatusBtn">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
 <!-- Submit Confirmation Modal -->
 <div class="modal fade" id="submitModal" tabindex="-1" aria-labelledby="submitModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -320,6 +393,42 @@
     </div>
 </div>
 
+
+<!-- Evaluation History Modal -->
+    <div class="modal fade" id="evaluationModal" tabindex="-1" role="dialog" aria-labelledby="evaluationModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Evaluation Details</h5>
+            <!-- <button type="button" class="close" data-dismiss="modal" aria-label="Close"> -->
+              <!-- <span>&times;</span> -->
+            <!-- </button> -->
+          </div>
+          <div class="modal-body" id="evaluation-modal-body">
+            <p class="text-muted">Loading evaluation data...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+<!-- Question history  -->
+<div class="modal fade" id="historyModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Evaluation History</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="historyModalBody">
+        <!-- history content will load here -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 
 <!-- HR Review Modals -->
@@ -462,6 +571,245 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+
+               document.querySelectorAll('.view-evaluations-btn').forEach(button => {
+    button.addEventListener('click', function () {
+        const employeeId = this.getAttribute('data-employee-id');
+        const submission_id = {{ submission.id }};
+        const evaluationUrl = "{{ url_for('bonus.get_evaluation_history') }}";
+
+        const modal = new bootstrap.Modal(document.getElementById('evaluationModal'));
+        modal.show();
+
+        const modalBody = document.getElementById('evaluation-modal-body');
+        modalBody.innerHTML = '<p class="text-muted">Loading evaluation data...</p>';
+
+        fetch(`${evaluationUrl}?employee_id=${employeeId}&submission_id=${submission_id}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                let html = '<table class="table table-bordered">';
+                const groupedData = data.data;
+                console.log(groupedData, "groupedData")
+
+   groupedData.forEach((group, index) => {
+    const groupClass = `group-${index}`;
+
+    html += `<thead><tr><th colspan="2" style="background:#f0f0f0">${group.record_by}</th></tr></thead>`;
+    html += '<thead><tr><th>Question</th><th>Value</th></tr></thead>';
+    html += `<tbody class="${groupClass}">`;
+
+    group.records.forEach(item => {
+        html += `<tr class="${item.question_id.toLowerCase() === 'remarks' ? 'remarks' : 'question'}">
+                    <td>${item.question_id}</td>
+                    <td>${item.value}</td>
+                </tr>`;
+    });
+
+    html += `</tbody>`;
+});
+       html += `</tbody>`;
+
+
+                html += '</table>';
+                modalBody.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error fetching data:', error);
+                modalBody.innerHTML = '<p class="text-danger">Error loading data.</p>';
+            });
+    });
+});
+
+          document.querySelectorAll(".get_history-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            var employeeId = this.dataset.employeeId;
+            var questionId = this.dataset.questionId;
+
+            fetch(`/bonus/evaluation/historyquestion/${employeeId}/${questionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    let html = "<h5>History</h5><ul>";
+                    if (data.length === 0) {
+                        html += "<li>No history found</li>";
+                    } else {
+                        data.forEach(function (ev) {
+                           html += `<li>
+                    <b>Period:</b> ${ev.period_name || '-'}, 
+                    <b>Value:</b> ${ev.value || '-'}, 
+                    <b>Period Date:</b> ${new Date(ev.period_date).toISOString().split("T")[0]}
+                </li>`;
+                        });
+                    }
+                    html += "</ul>";
+
+                    document.getElementById("historyModalBody").innerHTML = html;
+                    var modal = new bootstrap.Modal(document.getElementById("historyModal"));
+                    modal.show();
+                });
+        });
+    });
+
+
+//////////////////////
+        // reusable function
+    // function fetchBonus(empId, submissionId) {
+    //     fetch('/bonus/fetch_attendance_point', {
+    //         method: 'POST',
+    //         headers: {
+    //             'Content-Type': 'application/json'
+    //         },
+    //         body: JSON.stringify({
+    //             employee_id: empId,
+    //             submission_id: submissionId
+    //         })
+    //     })
+    //     .then(response => {
+    //         if (!response.ok) throw new Error('Network response was not OK');
+    //         return response.json();
+    //     })
+    //     .then(data => {
+    //         console.log("Fetched bonus:", data);
+    //         // alert(data.message || `Points: ${data.attendance_bonus_points}`);
+    //     })
+    //     .catch(error => {
+    //         console.error('Error:', error);
+    //         alert('Failed to fetch bonus points');
+    //     });
+    // }
+
+    // run for each button
+
+ //    document.querySelectorAll('.fetch_bonus-btn').forEach(button => {
+ //        const empId = button.getAttribute('data-employee-id');
+ //        const submissionId = button.getAttribute('data-submission-id');
+
+ // const skip = button.getAttribute('data-skip') === "true";
+
+
+ //        if (!skip) {
+ //            fetchBonus(empId, submissionId, button);
+ //        }
+
+ //        button.addEventListener('click', function () {
+ //            if (!button.getAttribute('data-skip')) {
+ //                fetchBonus(empId, submissionId, button);
+ //            }
+ //        });
+
+        
+ //    });
+
+
+        ////////////////////////////////
+
+
+
+
+
+
+            function openStatusModal(employeeId, submissionId) {
+                $('#selectedEmployeeId').val(employeeId);
+                $('#selectedSubmissionId').val(submissionId);
+                $('#empStatusInput').val('');
+                $('#statusModal').modal('show');
+            }
+
+ const statusModalElement = document.getElementById('statusModal');
+    const statusModal = new bootstrap.Modal(statusModalElement);
+    const empStatusInput = document.getElementById('empStatusInput');
+    const saveStatusBtn = document.getElementById('saveStatusBtn');
+    const selectedEmployeeId = document.getElementById('selectedEmployeeId');
+    const selectedSubmissionId = document.getElementById('selectedSubmissionId');
+
+
+    // Attach click listeners to all "Set Status" buttons
+            // document.querySelectorAll('.fetch_bonus-btn').forEach(button => {
+            //     button.addEventListener('click', function () {
+            //         const empId = this.getAttribute('data-employee-id');
+            //         const submissionId = this.getAttribute('data-submission-id');
+
+
+            //     //     const empId = selectedEmployeeId.value;
+            //     // const submissionId = selectedSubmissionId.value;
+            //     // const status = empStatusInput.value;
+
+            //     fetch('/bonus/fetch_attendance_point', {
+            //         method: 'POST',
+            //         headers: {
+            //             'Content-Type': 'application/json'
+            //         },
+            //         body: JSON.stringify({
+            //             employee_id: empId,
+            //             submission_id: submissionId,
+            //         })
+            //     })
+            //     .then(response => {
+            //         if (!response.ok) throw new Error('Network response was not OK');
+            //         return response.json();
+            //     })
+            //     .then(data => {
+            //         alert(data.message || 'Status updated!');
+            //         statusModal.hide();
+            //     })
+            //     .catch(error => {
+            //         console.error('Error:', error);
+            //         alert('Failed to save status');
+            //     });
+
+            //     });
+            // });
+
+
+    // Attach click listeners to all "Set Status" buttons
+            document.querySelectorAll('.set-status-btn').forEach(button => {
+                button.addEventListener('click', function () {
+                    const empId = this.getAttribute('data-employee-id');
+                    const submissionId = this.getAttribute('data-submission-id');
+                    
+                    selectedEmployeeId.value = empId;
+                    selectedSubmissionId.value = submissionId;
+                    empStatusInput.value = '';
+                    
+                    statusModal.show();
+                });
+            });
+
+            // Save button AJAX logic
+            saveStatusBtn.addEventListener('click', function () {
+                const empId = selectedEmployeeId.value;
+                const submissionId = selectedSubmissionId.value;
+                const status = empStatusInput.value;
+
+                fetch('/bonus/save-emp-status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        employee_id: empId,
+                        submission_id: submissionId,
+                        emp_status: status
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not OK');
+                    return response.json();
+                })
+                .then(data => {
+                    alert(data.message || 'Status updated!');
+                    statusModal.hide();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to save status');
+                });
+            });
+        // });
 
         const inputs_remarks = document.querySelectorAll(".remarks-input");
 
