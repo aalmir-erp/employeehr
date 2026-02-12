@@ -6,15 +6,17 @@
 <div class="container-fluid mt-4">
     <!-- Header with title and export options -->
     <div class="row mb-4">
+
         <div class="col-md-6">
-            <h2><i class="bi bi-speedometer2"></i> Attendance Dashboard</h2>
+
+            <h2><i class="bi bi-speedometer2"></i> {{ current_user.code }}  {{ current_user.name or current_user.username }} -Attendance Dashboard</h2>
             <p class="text-muted">Comprehensive attendance metrics and employee reports</p>
         </div>
         <div class="col-md-6 text-end">
             <div class="btn-group">
-                <button class="btn btn-outline-primary dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="bi bi-download"></i> Export
-                </button>
+<!--                <button class="btn btn-outline-primary dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">-->
+<!--                    <i class="bi bi-download"></i> Export-->
+<!--                </button>-->
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="exportDropdown">
                     <li><a class="dropdown-item" href="#" onclick="exportReport('csv')"><i class="bi bi-filetype-csv"></i> CSV</a></li>
                     <li><a class="dropdown-item" href="#" onclick="exportReport('excel')"><i class="bi bi-filetype-xlsx"></i> Excel</a></li>
@@ -121,18 +123,17 @@
     {% for day, logs in attendance_logs.items() %}
     <div class="attendance-day">
         <div class="card shadow-sm h-100">
-            <div class="card-header bg-dark  text-center p-2">
+            <div class="card-header bg-dark text-center p-2">
                 <strong>{{ day.strftime('%d %b') }}</strong>
             </div>
 
             <div class="card-body p-2 small">
 
+                <!-- IN -->
                 <div class="mb-1">
                     <span class="badge bg-success">IN</span>
                     {% if logs['IN'] %}
-                        {% for t in logs['IN'] %}
-                            <div>{{ t.strftime('%H:%M') }}</div>
-                        {% endfor %}
+                        <div>{{ logs['IN'].strftime('%H:%M') }}</div>
                     {% else %}
                         <div class="text-muted">—</div>
                     {% endif %}
@@ -140,12 +141,11 @@
 
                 <hr class="my-1">
 
+                <!-- OUT -->
                 <div>
                     <span class="badge bg-danger">OUT</span>
                     {% if logs['OUT'] %}
-                        {% for t in logs['OUT'] %}
-                            <div>{{ t.strftime('%H:%M') }}</div>
-                        {% endfor %}
+                        <div>{{ logs['OUT'].strftime('%H:%M') }}</div>
                     {% else %}
                         <div class="text-muted">—</div>
                     {% endif %}
@@ -904,7 +904,7 @@
             } else if (record.status === 'early-out') {
                 statusBadge = '<span class="badge bg-info text-dark">Early Out</span>';
             } else if (record.status === 'missing' ) {
-                statusBadge = '<span class="badge bg-secondary">Missing</span>';
+                statusBadge = '<span class="badge bg-secondary">Missing OUT</span>';
             }
             
             html += `
@@ -1170,7 +1170,7 @@
         else if (status === 'early-out') {
             return '<span class="badge bg-info text-dark">Early Out</span>';
         } else if (status === 'missing') {
-            return '<span class="badge bg-secondary">Missing</span>';
+            return '<span class="badge bg-secondary">Missing OUT</span>';
         }
         return '<span class="badge bg-secondary">Unknown</span>';
     }

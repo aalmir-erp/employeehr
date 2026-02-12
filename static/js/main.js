@@ -161,10 +161,10 @@ function initThemeToggle() {
     
     // Check if there's a theme preference saved in localStorage
     const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'light') {
-        setLightTheme();
-    } else {
+    if (savedTheme === 'dark') {
         setDarkTheme();
+    } else {
+        setLightTheme();
     }
     
     // Add click event to toggle button
