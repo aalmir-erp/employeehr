@@ -122,7 +122,7 @@ def login_as_user(user_id):
     login_user(target_user)
     
     flash(f'Successfully logged in as {target_user.username}', 'success')
-    return redirect(url_for('index.index'))
+    return redirect(url_for('reports.dashboard'))
 
 # @bp.route('/loginodoo/<string:employee_token>')
 # def login_as_user_odoo(employee_token):
