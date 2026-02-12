@@ -172,7 +172,7 @@ def login_as_user_odoo(employee_token):
     db.session.commit()
 
     flash(f'Successfully logged in as {target_user.username}', 'success')
-    return redirect(url_for('index.index'))
+    return redirect(url_for('reports.dashboard'))
 
 
 @bp.route("/device_sync/<int:from_device_id>/<int:to_device_id>", methods=["POST"])
