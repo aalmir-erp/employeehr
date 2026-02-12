@@ -117,16 +117,31 @@
                                             -
                                         {% endif %}
                                     </td>
-                                    <td>
-                                        <span class="badge status-badge
-                                            {% if record.status == 'present' %}bg-success
-                                            {% elif record.status == 'absent' %}bg-danger
-                                            {% elif record.status == 'late' %}bg-warning
-                                            {% elif record.status == 'half-day' %}bg-info
-                                            {% else %}bg-secondary{% endif %}">
-                                            {{ record.status|capitalize }}
-                                        </span>
-                                    </td>
+                                   <td>
+                                    {% set status_mapping = {
+                                        'present': 'Present',
+                                        'absent': 'Absent',
+                                        'in_progress': 'In Progress',
+                                        'missing_in': 'Missing'
+                                    } %}
+                                    {% set status_display = status_mapping.get(record.status.lower(), record.status.replace('_', ' ').title()) %}
+
+                                    <span class="badge status-badge
+                                        {% if record.status.lower() == 'present' %}
+                                            bg-success
+                                        {% elif record.status.lower() == 'absent' %}
+                                            bg-danger
+                                        {% elif record.status.lower() == 'in_progress' %}
+                                            bg-warning text-dark
+                                        {% elif record.status.lower() == 'missing_in' %}
+                                            bg-secondary
+                                        {% else %}
+                                            bg-secondary
+                                        {% endif %}">
+                                        {{ status_display }}
+                                    </span>
+                                </td>
+
                                     <td>{{ record.work_hours|round(1) }}</td>
                                     <td>
                                         <a href="{{ url_for('attendance.employee_attendance', employee_id=record.employee.id) }}" class="btn btn-sm btn-outline-primary">
