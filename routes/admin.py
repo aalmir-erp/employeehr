@@ -1005,7 +1005,7 @@ def loginuser_from_qr(token):
         existing_user = User.query.filter_by(employee_id=employee.id).first()
         if existing_user:
             login_user(existing_user)
-            return redirect('http://localhost:5001/reports/dashboard')
+            return redirect('https://att.mir.ae/reports/dashboard')
 
             return redirect(url_for('index.index'))
 
@@ -1023,7 +1023,7 @@ def loginuser_from_qr(token):
 
         if existing_user:
             login_user(existing_user)
-            return redirect('http://localhost:5001/reports/dashboard')
+            return redirect('https://att.mir.ae/reports/dashboard')
 
             # return redirect(url_for('index.index'))
             # need to make login here
@@ -1049,7 +1049,7 @@ def loginuser_from_qr(token):
         db.session.flush()
         db.session.commit()
         login_user(new_user)
-        return redirect('http://localhost:5001/reports/dashboard')
+        return redirect('https://att.mir.ae/reports/dashboard')
 
         # return redirect(url_for('index.index'))
 
