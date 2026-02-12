@@ -29,6 +29,14 @@ class JSONB(TypeDecorator):
             return json.loads(value)
         return value
 
+class UserLoginHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    username = db.Column(db.String(64), nullable=False)
+    login_time = db.Column(db.DateTime, default=datetime.utcnow)
+    login_type = db.Column(db.String(20), nullable=False)
+    user = db.relationship('User', backref='login_history', foreign_keys=[user_id])        
+
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False)

@@ -65,6 +65,23 @@ def dashboard():
     # Sort days (latest first)
     attendance_logs = dict(sorted(attendance_logs.items(), reverse=True))
 
+    for log in logs:
+        day = log.timestamp.date()
+        if log.log_type in ['IN', 'check_in']:
+            attendance_logs[day]['IN'].append(log.timestamp)
+        elif log.log_type in ['OUT', 'check_out']:
+            attendance_logs[day]['OUT'].append(log.timestamp)
+
+    daily_summary = {}
+
+    for day, logs in attendance_logs.items():
+        daily_summary[day] = {
+            'IN': min(logs['IN']) if logs['IN'] else None,
+            'OUT': max(logs['OUT']) if logs['OUT'] else None
+        }
+
+    # Latest day first
+    daily_summary = dict(sorted(daily_summary.items(), reverse=True))
     
     # Get filter parameters
     department = request.args.get('department', 'all')
@@ -237,7 +254,7 @@ def dashboard():
                           trend_dates=trend_dates,
                           trend_present=trend_present,
                           trend_absent=trend_absent,
-                          attendance_logs=attendance_logs,
+                          attendance_logs=daily_summary,
                           trend_late=trend_late)
 
 @bp.route('/daily')

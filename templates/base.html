@@ -189,7 +189,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
                     {% if current_user.is_authenticated %}
-                    {% if current_user.role != 'employee' %}
+                    {% if current_user.has_role('hr') %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle {% if request.path.startswith('/attendance') %}active{% endif %}" href="#" id="attendanceDropdown" role="button" data-bs-toggle="dropdown">
                             <i class="bi bi-calendar-check"></i> Attendance 
@@ -440,6 +440,11 @@
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('bonus.hr_dashboard') }}">
                                     <i class="bi bi-award"></i> Bonus Management
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('admin.login_history') }}">
+                                    <i class="bi bi-clock-history"></i> Login User History
                                 </a>
                             </li>
                         </ul>

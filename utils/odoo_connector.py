@@ -34,7 +34,6 @@ class OdooConnector:
     def connect(self):
         """Establish connection to Odoo PostgreSQL database"""
         try:
-            # Try to get connection settings from OdooConfig first
             config = OdooConfig.query.first()
             
             if config:

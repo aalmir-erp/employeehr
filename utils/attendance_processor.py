@@ -130,6 +130,8 @@ def estimate_break_duration(logs):
     best_break = sorted(detected_breaks, key=lambda x: (x['total_score'], x['duration']), reverse=True)[0]
     return round(total_break_time, 2), best_break['start'], best_break['end']
 
+
+
 def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
     from utils.overtime_engine import calculate_overtime
     from datetime import datetime, timedelta, time
