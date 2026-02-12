@@ -43,7 +43,7 @@ def dashboard():
         start_date = date(today.year, today.month, 1)
         end_date = date(today.year, today.month, calendar.monthrange(today.year, today.month)[1])
 
-    start_date_log = datetime.utcnow() - timedelta(days=12)
+    start_date_log = datetime.utcnow() - timedelta(days=7)
     employee_id = current_user.employee.id
 
     logs = (

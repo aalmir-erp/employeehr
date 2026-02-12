@@ -119,43 +119,66 @@
         </div>
     </div>
     
-<div class="attendance-row mb-4">
-    {% for day, logs in attendance_logs.items() %}
-    <div class="attendance-day">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-dark text-center p-2">
-                <strong>{{ day.strftime('%d %b') }}</strong>
-            </div>
-
-            <div class="card-body p-2 small">
-
-                <!-- IN -->
-                <div class="mb-1">
-                    <span class="badge bg-success">IN</span>
-                    {% if logs['IN'] %}
-                        <div>{{ logs['IN'].strftime('%H:%M') }}</div>
-                    {% else %}
-                        <div class="text-muted">—</div>
-                    {% endif %}
+   <div class="row g-3">
+        {% for day, logs in attendance_logs.items() %}
+        <div class="col-12 col-sm-6 col-md-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-dark text-center p-2">
+                    <strong>{{ day.strftime('%d %b') }}</strong>
                 </div>
-
-                <hr class="my-1">
-
-                <!-- OUT -->
-                <div>
-                    <span class="badge bg-danger">OUT</span>
-                    {% if logs['OUT'] %}
-                        <div>{{ logs['OUT'].strftime('%H:%M') }}</div>
-                    {% else %}
-                        <div class="text-muted">—</div>
-                    {% endif %}
+    
+                <div class="card-body p-2 small">
+    
+                    <!-- IN -->
+                    <div class="mb-1">
+                        <span class="badge bg-success">IN</span>
+                        {% if logs['IN'] %}
+                            <div>{{ logs['IN'].strftime('%H:%M') }}</div>
+                        {% else %}
+                            <div class="text-muted">—</div>
+                        {% endif %}
+                    </div>
+    
+                    <hr class="my-1">
+    
+                    <!-- OUT -->
+                    <div>
+                        <span class="badge bg-danger">OUT</span>
+                        {% if logs['OUT'] %}
+                            <div>{{ logs['OUT'].strftime('%H:%M') }}</div>
+                        {% else %}
+                            <div class="text-muted">—</div>
+                        {% endif %}
+                    </div>
+    
                 </div>
-
             </div>
         </div>
+    
+        {% endfor %}
     </div>
-    {% endfor %}
-</div>
+    
+<!-- CSS for responsive layout -->
+<style>
+/* Desktop: maintain old style (cards stacked or row as before) */
+.attendance-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+/* Each card takes full width by default (desktop/tablet) */
+.attendance-card {
+    flex: 1 1 100%;
+}
+
+/* Mobile: 4 cards per row */
+@media (max-width: 767px) {
+    .attendance-card {
+        flex: 0 0 25%; /* 4 per row */
+    }
+}
+</style>
 
 
     <div class="row mb-4">
