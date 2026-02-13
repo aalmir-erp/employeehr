@@ -292,6 +292,11 @@
                                     <i class="bi bi-speedometer2"></i> Dashboard
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('admin.my_attendance') }}">
+                                    <i class="bi bi-calendar-check"></i> My Attendance
+                                </a>
+                            </li>
                             {% if current_user.has_role('hr') %}
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('attendance.missing_attendance') }}">
@@ -447,6 +452,7 @@
                                     <i class="bi bi-clock-history"></i> Login User History
                                 </a>
                             </li>
+                           
                         </ul>
                     </li>
                     {% endif %}
@@ -457,8 +463,8 @@
                     <!-- Theme Toggler -->
                     <li class="nav-item">
                         <button class="btn nav-link" id="themeToggle" title="Toggle Theme">
-                            <i class="bi bi-sun-fill" id="lightThemeIcon"></i>
-                            <i class="bi bi-moon-fill" id="darkThemeIcon" style="display: none;"></i>
+                            <i class="bi bi-sun-fill" id="lightThemeIcon" style="display: none;"></i>
+                            <i class="bi bi-moon-fill" id="darkThemeIcon" ></i>
                         </button>
                     </li>
                     {% if current_user.is_authenticated and (current_user.is_admin or current_user.has_role('hr')) %}

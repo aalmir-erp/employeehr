@@ -158,18 +158,33 @@ function initThemeToggle() {
     const lightThemeIcon = document.getElementById('lightThemeIcon');
     const darkThemeIcon = document.getElementById('darkThemeIcon');
     const htmlRoot = document.getElementById('htmlRoot');
-    
-    // Check if there's a theme preference saved in localStorage
+
+    // By default set light theme
+    function setLightTheme() {
+        htmlRoot.setAttribute('data-bs-theme', 'light');
+        lightThemeIcon.style.display = 'none';
+        darkThemeIcon.style.display = 'inline';
+        localStorage.setItem('theme', 'light');
+    }
+
+    function setDarkTheme() {
+        htmlRoot.setAttribute('data-bs-theme', 'dark');
+        lightThemeIcon.style.display = 'inline';
+        darkThemeIcon.style.display = 'none';
+        localStorage.setItem('theme', 'dark');
+    }
+
+    // Check saved theme
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
         setDarkTheme();
     } else {
-        setLightTheme();
+        setLightTheme(); // default light theme
     }
-    
-    // Add click event to toggle button
+
+    // Toggle on click
     if (themeToggleBtn) {
-        themeToggleBtn.addEventListener('click', function() {
+        themeToggleBtn.addEventListener('click', () => {
             const currentTheme = htmlRoot.getAttribute('data-bs-theme');
             if (currentTheme === 'dark') {
                 setLightTheme();
@@ -178,23 +193,8 @@ function initThemeToggle() {
             }
         });
     }
-    
-    // Helper function to set light theme
-    function setLightTheme() {
-        htmlRoot.setAttribute('data-bs-theme', 'light');
-        lightThemeIcon.style.display = 'none';
-        darkThemeIcon.style.display = 'inline';
-        localStorage.setItem('theme', 'light');
-    }
-    
-    // Helper function to set dark theme
-    function setDarkTheme() {
-        htmlRoot.setAttribute('data-bs-theme', 'dark');
-        lightThemeIcon.style.display = 'inline';
-        darkThemeIcon.style.display = 'none';
-        localStorage.setItem('theme', 'dark');
-    }
 }
+
 
 // Initialize all select dropdowns with search functionality
 function initializeSearchableDropdowns() {

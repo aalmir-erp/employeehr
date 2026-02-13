@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-
 {% block title %}Login History{% endblock %}
 
 {% block content %}
@@ -17,31 +16,29 @@
 
             <div class="d-flex justify-content-between align-items-center">
                 <h1 class="mb-0">User Login Activity</h1>
-                <div class="btn-group">
-                    <a href="{{ url_for('admin.login_history') }}" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-clockwise"></i> Refresh
-                    </a>
-                </div>
+                <a href="{{ url_for('admin.login_history') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </a>
             </div>
         </div>
     </div>
 
-    <!-- Filters -->
-    <div class="row mb-3">
-        <div class="col-md-3">
-            <input type="text" id="searchInput" class="form-control" placeholder="Search by Username...">
+    <!-- ================= FILTERS: SINGLE ROW ================= -->
+    <div class="row mb-3 g-2 align-items-center">
+        <div class="col-md-3 col-sm-6">
+            <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Search Username...">
         </div>
-        <div class="col-md-3">
-            <select id="typeFilter" class="form-select">
-                <option value="">All Login Types</option>
+        <div class="col-md-2 col-sm-6">
+            <select id="typeFilter" class="form-select form-select-sm">
+                <option value="all" selected>All Types</option>
                 <option value="password">Password</option>
                 <option value="nfc_card">NFC Card</option>
                 <option value="url">ERP URL</option>
             </select>
         </div>
-        <div class="col-md-3">
-            <select id="employeeFilter" class="form-select">
-                <option value="">All Employees</option>
+        <div class="col-md-3 col-sm-6">
+            <select id="employeeFilter" class="form-select form-select-sm">
+                <option value="all" selected>All Employees</option>
                 {% for emp in employees %}
                 <option value="{{ emp.employee.name if emp.employee else emp.username }}">
                     {{ emp.employee.name if emp.employee else emp.username }}
@@ -49,66 +46,52 @@
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-3">
-            <input type="date" id="dateFilter" class="form-control">
+        <div class="col-md-2 col-sm-6">
+            <input type="date" id="dateFilter" class="form-control form-control-sm">
+        </div>
+        <div class="col-md-2 col-sm-12 d-grid">
+            <button id="searchBtn" class="btn btn-primary btn-sm">
+                <i class="bi bi-funnel"></i> Filter
+            </button>
         </div>
     </div>
 
-    <!-- Search Button -->
-    <div class="row mb-4">
-        <div class="col-md-2">
-            <button id="searchBtn" class="btn btn-primary w-100">Search</button>
-        </div>
-    </div>
-
-    <!-- Statistics Cards -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card bg-primary text-white">
-                <div class="card-body">
-                    <h6 class="card-title">Total Logins</h6>
-                    <h3>{{ login_records|length }}</h3>
-                    <p class="mb-0">All recorded logins</p>
-                </div>
+    <!-- ================= STATISTICS CARDS ================= -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-3 col-sm-6">
+            <div class="card bg-primary text-white shadow-sm text-center p-2">
+                <h6>Total Logins</h6>
+                <h3>{{ login_records|length }}</h3>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card bg-success text-white">
-                <div class="card-body">
-                    <h6 class="card-title">Password Logins</h6>
-                    <h3>{{ login_records|selectattr('0.login_type', 'equalto', 'password')|list|length }}</h3>
-                    <p class="mb-0">Via password</p>
-                </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card bg-success text-white shadow-sm text-center p-2">
+                <h6>Password Logins</h6>
+                <h3>{{ login_records|selectattr('0.login_type', 'equalto', 'password')|list|length }}</h3>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card bg-warning text-dark">
-                <div class="card-body">
-                    <h6 class="card-title">NFC Card Logins</h6>
-                    <h3>{{ login_records|selectattr('0.login_type', 'equalto', 'nfc_card')|list|length }}</h3>
-                    <p class="mb-0">Via NFC card</p>
-                </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card bg-warning text-dark shadow-sm text-center p-2">
+                <h6>NFC Card Logins</h6>
+                <h3>{{ login_records|selectattr('0.login_type', 'equalto', 'nfc_card')|list|length }}</h3>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card bg-info text-white">
-                <div class="card-body">
-                    <h6 class="card-title">ERP URL Logins</h6>
-                    <h3>{{ login_records|selectattr('0.login_type', 'equalto', 'url')|list|length }}</h3>
-                    <p class="mb-0">Via ERP URL</p>
-                </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card bg-info text-white shadow-sm text-center p-2">
+                <h6>ERP URL Logins</h6>
+                <h3>{{ login_records|selectattr('0.login_type', 'equalto', 'url')|list|length }}</h3>
             </div>
         </div>
     </div>
 
-    <!-- Login History Table -->
-    <div class="card mt-4">
-        <div class="card-header">
-            <h5 class="mb-0">All Login Records ({{ login_records|length }} total)</h5>
+    <!-- ================= LOGIN HISTORY TABLE ================= -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">All Login Records ({{ login_records|length }})</h5>
         </div>
-        <div class="card-body">
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-striped align-middle" id="loginTable">
+                <table class="table table-striped align-middle table-sm" id="loginTable">
                     <thead>
                         <tr>
                             <th>Username</th>
@@ -139,7 +122,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="text-center text-muted">No login history available.</td>
+                            <td colspan="5" class="text-center text-muted py-3">No login history available.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -150,7 +133,7 @@
 
 </div>
 
-<!-- Filters JS -->
+<!-- JS Filters -->
 <script>
 const searchInput = document.getElementById('searchInput');
 const typeFilter = document.getElementById('typeFilter');
@@ -174,16 +157,15 @@ function filterTable() {
         let show = true;
 
         if (search && !username.includes(search)) show = false;
-        if (type && loginType !== type) show = false;
-        if (employee && !employeeName.includes(employee)) show = false;
+        if (type !== 'all' && loginType !== type) show = false;
+        if (employee !== 'all' && !employeeName.includes(employee)) show = false;
         if (date && loginDate !== date) show = false;
 
         row.style.display = show ? '' : 'none';
     }
 }
 
-// Search only on button click
+// Filter on button click
 searchBtn.addEventListener('click', filterTable);
 </script>
-
 {% endblock %}

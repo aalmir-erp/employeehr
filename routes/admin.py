@@ -4,7 +4,7 @@ from flask_login import login_required, current_user, logout_user, login_user
 from datetime import datetime, timedelta
 from app import db
 from utils.odoo_connector import odoo_connector
-from models import User, Employee, Shift, ShiftAssignment, AttendanceDevice, OdooConfig, OdooMapping, ERPConfig, SystemConfig, EmployeeDevice,UserLoginHistory
+from models import User, Employee, Shift, ShiftAssignment, AttendanceDevice, OdooConfig, OdooMapping, ERPConfig, SystemConfig, EmployeeDevice,UserLoginHistory,AttendanceRecord
 from itsdangerous import URLSafeSerializer, BadSignature
 import threading
 import requests
@@ -14,6 +14,8 @@ from sqlalchemy import text
 import string
 import re
 import json
+from datetime import date
+from sqlalchemy import desc
 
 
 
@@ -89,6 +91,54 @@ def index():
         user_stats=user_stats,
         last_sync=last_sync
     )
+
+
+@bp.route('/my_attendance')
+@login_required
+def my_attendance():
+    today = date.today()
+    first_day_of_month = today.replace(day=1)
+    last_day_of_month = today.replace(day=28) + timedelta(days=4)
+    last_day_of_month = last_day_of_month - timedelta(days=last_day_of_month.day)
+
+    employee = current_user.employee
+    if not employee:
+        return "Employee record not found", 404
+
+    page = request.args.get('page', 1, type=int)
+    from_date = request.args.get('from_date', first_day_of_month.strftime('%Y-%m-%d'))
+    to_date = request.args.get('to_date', today.strftime('%Y-%m-%d'))
+    status = request.args.get('status', 'all')
+
+    query = AttendanceRecord.query.filter_by(employee_id=employee.id)
+
+    # Date filters
+    if from_date:
+        query = query.filter(AttendanceRecord.date >= from_date)
+    if to_date:
+        query = query.filter(AttendanceRecord.date <= to_date)
+
+    # Status filter
+    if status != "all":
+        query = query.filter(AttendanceRecord.status == status)
+
+    query = query.order_by(AttendanceRecord.date.desc())
+    pagination = query.paginate(page=page, per_page=15)
+    records = pagination.items
+
+    today_record = AttendanceRecord.query.filter_by(employee_id=employee.id, date=today).first()
+
+    return render_template(
+        'attendance/my_attendance.html',
+        employee=employee,
+        today=today,
+        first_day_of_month=first_day_of_month,
+        today_record=today_record,
+        records=records,
+        pagination=pagination,
+        selected_status=status
+    )
+
 
 @bp.route('/login_history')
 @login_required
