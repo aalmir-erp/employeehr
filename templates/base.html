@@ -293,8 +293,8 @@
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('admin.my_attendance') }}">
-                                    <i class="bi bi-calendar-check"></i> My Attendance
+                                <a class="dropdown-item" href="{{ url_for('admin.attendance_dashboard') }}">
+                                    <i class="bi bi-calendar-check"></i>  Attendance Dashboard
                                 </a>
                             </li>
                             {% if current_user.has_role('hr') %}
