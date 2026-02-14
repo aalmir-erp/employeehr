@@ -181,6 +181,7 @@ class Employee(db.Model):
     attendance_records = db.relationship('AttendanceRecord', backref='employee', lazy='dynamic')
     shift_assignments = db.relationship('ShiftAssignment', backref='employee', lazy='dynamic')
     current_shift = db.relationship('Shift', foreign_keys=[current_shift_id])
+    image = db.Column(db.String(255))
     
     def __repr__(self):
         return f'<Employee {self.name}>'

@@ -4,7 +4,7 @@ from flask_login import login_required, current_user, logout_user, login_user
 from datetime import datetime, timedelta
 from app import db
 from utils.odoo_connector import odoo_connector
-from models import User, Employee, Shift, ShiftAssignment, AttendanceDevice, OdooConfig, OdooMapping, ERPConfig, SystemConfig, EmployeeDevice,UserLoginHistory,AttendanceRecord
+from models import User, Employee, Shift, ShiftAssignment, AttendanceDevice, OdooConfig, OdooMapping, ERPConfig, SystemConfig, EmployeeDevice,UserLoginHistory,AttendanceRecord,AttendanceLog
 from itsdangerous import URLSafeSerializer, BadSignature
 import threading
 import requests
@@ -16,6 +16,7 @@ import re
 import json
 from datetime import date
 from sqlalchemy import desc
+from sqlalchemy import func
 
 
 
@@ -92,52 +93,48 @@ def index():
         last_sync=last_sync
     )
 
-
-@bp.route('/my_attendance')
+@bp.route('/attendance_dashboard')
 @login_required
-def my_attendance():
-    today = date.today()
-    first_day_of_month = today.replace(day=1)
-    last_day_of_month = today.replace(day=28) + timedelta(days=4)
-    last_day_of_month = last_day_of_month - timedelta(days=last_day_of_month.day)
+def attendance_dashboard():
 
-    employee = current_user.employee
-    if not employee:
-        return "Employee record not found", 404
+    # 🔹 Latest attendance log (top employee)
+    latest_log = AttendanceLog.query \
+        .order_by(AttendanceLog.timestamp.desc()) \
+        .first()
 
-    page = request.args.get('page', 1, type=int)
-    from_date = request.args.get('from_date', first_day_of_month.strftime('%Y-%m-%d'))
-    to_date = request.args.get('to_date', today.strftime('%Y-%m-%d'))
-    status = request.args.get('status', 'all')
+    active_employee = None
+    recent_records = []
 
-    query = AttendanceRecord.query.filter_by(employee_id=employee.id)
+    if latest_log:
+        active_employee = latest_log.employee
 
-    # Date filters
-    if from_date:
-        query = query.filter(AttendanceRecord.date >= from_date)
-    if to_date:
-        query = query.filter(AttendanceRecord.date <= to_date)
+        # 🔥 Last 5 days attendance from AttendanceRecord
+        today = datetime.now().date()
+        start_date = today - timedelta(days=5)
 
-    # Status filter
-    if status != "all":
-        query = query.filter(AttendanceRecord.status == status)
+        start_date_str = start_date.strftime('%Y-%m-%d')
+        today_str = today.strftime('%Y-%m-%d')
 
-    query = query.order_by(AttendanceRecord.date.desc())
-    pagination = query.paginate(page=page, per_page=15)
-    records = pagination.items
+        recent_records = AttendanceRecord.query.filter(
+            AttendanceRecord.employee_id == active_employee.id,
+            AttendanceRecord.date >= start_date_str,
+            AttendanceRecord.date <= today_str
+        ).order_by(AttendanceRecord.date.desc()).all()
 
-    today_record = AttendanceRecord.query.filter_by(employee_id=employee.id, date=today).first()
+    # 🔹 Last 15 logs (bottom)
+    last_15_logs = AttendanceLog.query \
+        .order_by(AttendanceLog.timestamp.desc()) \
+        .limit(15) \
+        .all()
 
     return render_template(
-        'attendance/my_attendance.html',
-        employee=employee,
-        today=today,
-        first_day_of_month=first_day_of_month,
-        today_record=today_record,
-        records=records,
-        pagination=pagination,
-        selected_status=status
+        'attendance/dashboard.html',
+        latest_log=latest_log,
+        active_employee=active_employee,
+        recent_records=recent_records,
+        last_15_logs=last_15_logs
     )
+
 
 
 @bp.route('/login_history')
@@ -1351,7 +1348,7 @@ def sync_employees():
     """Manually sync employees - placeholder"""
     if request.method == 'POST':
         if request.method == 'POST':
-            success = odoo_connector.sync_employees()
+            success = odoo_connector.sync_employee_images()
         
             if success:
                 flash('Successfully synced employees from Odoo', 'success')

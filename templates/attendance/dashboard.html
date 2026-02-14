@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+/* Hide header/navbar */
+#mainHeader,
+#mainNavbar,
+.navbar,
+header {
+    display: none !important;
+}
+
+/* Remove body spacing */
+body {
+    margin: 0 !important;
+}
+</style>
+
+<!-- ================= DASHBOARD WRAPPER ================= -->
+<div id="dashboardContent" class="container-fluid p-3">
+
+    <!-- ================= FULLSCREEN BUTTON ================= -->
+    <div style="position:fixed; top:15px; right:20px; z-index:9999;">
+        <button id="fullscreenBtn" class="btn btn-dark btn-sm shadow">
+            <i class="bi bi-arrows-fullscreen"></i> Full Screen
+        </button>
+    </div>
+
+    <div class="row">
+
+        <!-- ================= TOP ACTIVE EMPLOYEE ================= -->
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-body">
+
+                    {% if latest_log and active_employee %}
+                    <div class="row">
+
+                        <div class="col-md-4 text-center">
+                            {% if active_employee.image %}
+                                <img src="{{ url_for('static', filename='uploads/' ~ active_employee.image) }}"
+                                     style="width:160px;height:160px;border-radius:10px;object-fit:cover;">
+                            {% else %}
+                                <div class="rounded bg-secondary d-flex align-items-center justify-content-center"
+                                     style="width:160px;height:160px;margin:auto;">
+                                    <i class="bi bi-person fs-1 text-white"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-8">
+                            <h3 class="fw-bold">WELCOME!</h3>
+                            <h4 class="text-primary">{{ active_employee.name }}</h4>
+                            <p class="text-muted">
+                                Employee ID: {{ active_employee.employee_code }}
+                            </p>
+
+                            <div class="alert {% if latest_log.log_type == 'IN' %}alert-success{% else %}alert-danger{% endif %} mt-3">
+                                {% if latest_log.log_type == "IN" %}
+                                    ✔ Signed In Successfully
+                                {% else %}
+                                    ✔ Signed Out Successfully
+                                {% endif %}
+                            </div>
+
+                            <div>
+                                <strong>Status:</strong>
+                                {% if latest_log.log_type == "IN" %}
+                                    Clocked In
+                                {% else %}
+                                    Clocked Out
+                                {% endif %}
+                                <br>
+                                <strong>Time:</strong>
+                                {{ latest_log.timestamp.strftime('%I:%M %p') }}
+                            </div>
+
+                        </div>
+
+                    </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <h5 class="text-muted">No Attendance Activity Yet</h5>
+                        </div>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= RIGHT LAST 5 DAYS ================= -->
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h6 class="mb-0">Last 5 Days Attendance</h6>
+                </div>
+                <div class="card-body">
+
+                    {% if recent_records %}
+                        {% for record in recent_records %}
+                        <div class="border rounded p-2 mb-2">
+
+                            <div class="d-flex justify-content-between">
+                                <strong>{{ record.date }}</strong>
+
+                                {% if record.check_out %}
+                                    <span class="badge bg-success">Completed</span>
+                                {% elif record.check_in %}
+                                    <span class="badge bg-warning text-dark">In Progress</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Absent</span>
+                                {% endif %}
+                            </div>
+
+                            <div class="small mt-1 d-flex justify-content-between">
+                                <div>
+                                    IN:
+                                    {{ record.check_in.strftime('%I:%M %p') if record.check_in else '--' }}
+                                </div>
+                                <div>
+                                    OUT:
+                                    {{ record.check_out.strftime('%I:%M %p') if record.check_out else '--' }}
+                                </div>
+                                <div>
+                                    {{ record.work_hours|round(2) if record.work_hours else 0 }} hrs
+                                </div>
+                            </div>
+
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No recent attendance</p>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ================= BOTTOM LAST 15 ================= -->
+    <div class="row mt-3">
+        <div class="col-md-12">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h6 class="mb-0">Last 15 Attendance Logs</h6>
+                </div>
+
+                <div class="card-body">
+                    <div class="row">
+
+                        {% for log in last_15_logs %}
+                        <div class="col-md-6 mb-2">
+                            <div class="border rounded p-2 d-flex justify-content-between align-items-center">
+
+                                <div class="d-flex align-items-center gap-2">
+                                    {% if log.employee.image %}
+                                        <img src="{{ url_for('static', filename='uploads/' ~ log.employee.image) }}"
+                                             style="width:35px;height:35px;border-radius:50%;object-fit:cover;">
+                                    {% else %}
+                                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center"
+                                             style="width:35px;height:35px;">
+                                            <i class="bi bi-person text-white small"></i>
+                                        </div>
+                                    {% endif %}
+
+                                    <div>
+                                        <div class="fw-semibold small">
+                                            {{ log.employee.name }}
+                                        </div>
+                                        <div class="text-muted" style="font-size:11px;">
+                                            {{ log.timestamp.strftime('%d %b %Y') }}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="text-end">
+                                    {% if log.log_type == "IN" %}
+                                        <span class="badge bg-success">IN</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">OUT</span>
+                                    {% endif %}
+                                    <div style="font-size:11px;">
+                                        {{ log.timestamp.strftime('%I:%M %p') }}
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ================= FULLSCREEN + AJAX REFRESH ================= -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+    const btn = document.getElementById("fullscreenBtn");
+
+    function enterFullscreen() {
+        const elem = document.documentElement;
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen().catch(()=>{});
+        } else if (elem.webkitRequestFullscreen) {
+            elem.webkitRequestFullscreen();
+        }
+    }
+
+    function exitFullscreen() {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+    }
+
+    btn.addEventListener("click", function() {
+        if (!document.fullscreenElement) {
+            enterFullscreen();
+            btn.innerHTML = '<i class="bi bi-fullscreen-exit"></i> Exit';
+        } else {
+            exitFullscreen();
+            btn.innerHTML = '<i class="bi bi-arrows-fullscreen"></i> Full Screen';
+        }
+    });
+
+    // 🔥 AJAX refresh every 5 sec (NO PAGE RELOAD)
+    setInterval(function() {
+        fetch(window.location.href, { cache: "no-store" })
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, "text/html");
+                const newContent = doc.getElementById("dashboardContent");
+                if (newContent) {
+                    document.getElementById("dashboardContent").innerHTML = newContent.innerHTML;
+                }
+            });
+    }, 5000);
+
+});
+</script>
+
+{% endblock %}
