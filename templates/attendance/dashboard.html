@@ -2,7 +2,6 @@
 {% block content %}
 
 <style>
-/* Hide header/navbar */
 #mainHeader,
 #mainNavbar,
 .navbar,
@@ -10,16 +9,14 @@ header {
     display: none !important;
 }
 
-/* Remove body spacing */
 body {
     margin: 0 !important;
 }
 </style>
 
-<!-- ================= DASHBOARD WRAPPER ================= -->
 <div id="dashboardContent" class="container-fluid p-3">
 
-    <!-- ================= FULLSCREEN BUTTON ================= -->
+    <!-- FULLSCREEN BUTTON -->
     <div style="position:fixed; top:15px; right:20px; z-index:9999;">
         <button id="fullscreenBtn" class="btn btn-dark btn-sm shadow">
             <i class="bi bi-arrows-fullscreen"></i> Full Screen
@@ -28,7 +25,7 @@ body {
 
     <div class="row">
 
-        <!-- ================= TOP ACTIVE EMPLOYEE ================= -->
+        <!-- TOP ACTIVE EMPLOYEE -->
         <div class="col-md-8">
             <div class="card shadow-sm">
                 <div class="card-body">
@@ -38,8 +35,8 @@ body {
 
                         <div class="col-md-4 text-center">
                             {% if active_employee.image %}
-                                <img src="{{ url_for('static', filename='uploads/' ~ active_employee.image) }}"
-                                     style="width:160px;height:160px;border-radius:10px;object-fit:cover;">
+                            <img src="data:image/jpeg;base64,{{ active_employee.image }}"
+                            style="width:160px;height:160px;border-radius:10px;object-fit:cover;">
                             {% else %}
                                 <div class="rounded bg-secondary d-flex align-items-center justify-content-center"
                                      style="width:160px;height:160px;margin:auto;">
@@ -55,13 +52,44 @@ body {
                                 Employee ID: {{ active_employee.employee_code }}
                             </p>
 
-                            <div class="alert {% if latest_log.log_type == 'IN' %}alert-success{% else %}alert-danger{% endif %} mt-3">
-                                {% if latest_log.log_type == "IN" %}
-                                    ✔ Signed In Successfully
-                                {% else %}
-                                    ✔ Signed Out Successfully
-                                {% endif %}
+                            <div style="
+                            margin-top:20px;
+                            padding:12px 18px;
+                            border-radius:8px;
+                            display:flex;
+                            flex-wrap:wrap;
+                            justify-content:center;
+                            justify-content-md-start;
+                            align-items:center;
+                            gap:10px;
+                            font-size:16px;
+                            font-weight:600;
+                            letter-spacing:1px;
+                            text-transform:uppercase;
+                            box-shadow:0 6px 18px rgba(0,0,0,0.2);
+                            color:#fff;
+                            text-align:center;
+                            {% if latest_log.log_type == 'IN' %}
+                            background:linear-gradient(90deg,#0f5132,#198754);
+                            border-left:6px solid #00ff88;
+                            {% else %}
+                            background:linear-gradient(90deg,#842029,#dc3545);
+                            border-left:6px solid #ff4d6d;
+                            {% endif %}
+                            ">
+                            <i class="bi bi-check-circle-fill" style="font-size:20px;"></i>
+                            
+                            <span style="font-weight:800;">
+                            {% if latest_log.log_type == "IN" %}
+                            YOU SIGNED IN SUCCESSFULLY
+                            {% else %}
+                            YOU SIGNED OUT SUCCESSFULLY
+                            {% endif %}
+                            </span>
                             </div>
+                            <br/>
+                            
+                                
 
                             <div>
                                 <strong>Status:</strong>
@@ -74,7 +102,6 @@ body {
                                 <strong>Time:</strong>
                                 {{ latest_log.timestamp.strftime('%I:%M %p') }}
                             </div>
-
                         </div>
 
                     </div>
@@ -88,7 +115,7 @@ body {
             </div>
         </div>
 
-        <!-- ================= RIGHT LAST 5 DAYS ================= -->
+        <!-- RIGHT LAST 5 DAYS -->
         <div class="col-md-4">
             <div class="card shadow-sm">
                 <div class="card-header">
@@ -138,32 +165,36 @@ body {
 
     </div>
 
-    <!-- ================= BOTTOM LAST 15 ================= -->
+    <!-- LAST 15 LOGS (3 COLUMNS) -->
     <div class="row mt-3">
-        <div class="col-md-12">
+        <div class="col-12">
             <div class="card shadow-sm">
                 <div class="card-header">
                     <h6 class="mb-0">Last 15 Attendance Logs</h6>
                 </div>
-
+    
                 <div class="card-body">
+    
+                    {% if last_15_logs %}
+    
                     <div class="row">
-
-                        {% for log in last_15_logs %}
-                        <div class="col-md-6 mb-2">
-                            <div class="border rounded p-2 d-flex justify-content-between align-items-center">
-
+    
+                        <!-- COLUMN 1 -->
+                        <div class="col-12 col-md-4">
+                            {% for log in last_15_logs[0:5] %}
+                            <div class="border rounded p-2 mb-2 d-flex justify-content-between align-items-center">
+    
                                 <div class="d-flex align-items-center gap-2">
                                     {% if log.employee.image %}
-                                        <img src="{{ url_for('static', filename='uploads/' ~ log.employee.image) }}"
-                                             style="width:35px;height:35px;border-radius:50%;object-fit:cover;">
+                                        <img src="data:image/jpeg;base64,{{ log.employee.image }}"
+                                             style="width:32px;height:32px;border-radius:50%;object-fit:cover;">
                                     {% else %}
                                         <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center"
-                                             style="width:35px;height:35px;">
+                                             style="width:32px;height:32px;">
                                             <i class="bi bi-person text-white small"></i>
                                         </div>
                                     {% endif %}
-
+    
                                     <div>
                                         <div class="fw-semibold small">
                                             {{ log.employee.name }}
@@ -173,32 +204,114 @@ body {
                                         </div>
                                     </div>
                                 </div>
-
+    
                                 <div class="text-end">
-                                    {% if log.log_type == "IN" %}
-                                        <span class="badge bg-success">IN</span>
-                                    {% else %}
-                                        <span class="badge bg-danger">OUT</span>
-                                    {% endif %}
+                                    <span class="badge {% if log.log_type == 'IN' %}bg-success{% else %}bg-danger{% endif %}">
+                                        {{ log.log_type }}
+                                    </span>
                                     <div style="font-size:11px;">
                                         {{ log.timestamp.strftime('%I:%M %p') }}
                                     </div>
                                 </div>
-
+    
                             </div>
+                            {% endfor %}
                         </div>
-                        {% endfor %}
-
+    
+                        <!-- COLUMN 2 -->
+                        <div class="col-12 col-md-4">
+                            {% for log in last_15_logs[5:10] %}
+                            <div class="border rounded p-2 mb-2 d-flex justify-content-between align-items-center">
+    
+                                <div class="d-flex align-items-center gap-2">
+                                    {% if log.employee.image %}
+                                        <img src="data:image/jpeg;base64,{{ log.employee.image }}"
+                                             style="width:32px;height:32px;border-radius:50%;object-fit:cover;">
+                                    {% else %}
+                                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center"
+                                             style="width:32px;height:32px;">
+                                            <i class="bi bi-person text-white small"></i>
+                                        </div>
+                                    {% endif %}
+    
+                                    <div>
+                                        <div class="fw-semibold small">
+                                            {{ log.employee.name }}
+                                        </div>
+                                        <div class="text-muted" style="font-size:11px;">
+                                            {{ log.timestamp.strftime('%d %b %Y') }}
+                                        </div>
+                                    </div>
+                                </div>
+    
+                                <div class="text-end">
+                                    <span class="badge {% if log.log_type == 'IN' %}bg-success{% else %}bg-danger{% endif %}">
+                                        {{ log.log_type }}
+                                    </span>
+                                    <div style="font-size:11px;">
+                                        {{ log.timestamp.strftime('%I:%M %p') }}
+                                    </div>
+                                </div>
+    
+                            </div>
+                            {% endfor %}
+                        </div>
+    
+                        <!-- COLUMN 3 -->
+                        <div class="col-12 col-md-4">
+                            {% for log in last_15_logs[10:15] %}
+                            <div class="border rounded p-2 mb-2 d-flex justify-content-between align-items-center">
+    
+                                <div class="d-flex align-items-center gap-2">
+                                    {% if log.employee.image %}
+                                        <img src="data:image/jpeg;base64,{{ log.employee.image }}"
+                                             style="width:32px;height:32px;border-radius:50%;object-fit:cover;">
+                                    {% else %}
+                                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center"
+                                             style="width:32px;height:32px;">
+                                            <i class="bi bi-person text-white small"></i>
+                                        </div>
+                                    {% endif %}
+    
+                                    <div>
+                                        <div class="fw-semibold small">
+                                            {{ log.employee.name }}
+                                        </div>
+                                        <div class="text-muted" style="font-size:11px;">
+                                            {{ log.timestamp.strftime('%d %b %Y') }}
+                                        </div>
+                                    </div>
+                                </div>
+    
+                                <div class="text-end">
+                                    <span class="badge {% if log.log_type == 'IN' %}bg-success{% else %}bg-danger{% endif %}">
+                                        {{ log.log_type }}
+                                    </span>
+                                    <div style="font-size:11px;">
+                                        {{ log.timestamp.strftime('%I:%M %p') }}
+                                    </div>
+                                </div>
+    
+                            </div>
+                            {% endfor %}
+                        </div>
+    
                     </div>
+    
+                    {% else %}
+                        <p class="text-muted">No logs available</p>
+                    {% endif %}
+    
                 </div>
-
             </div>
         </div>
     </div>
+    
 
 </div>
 
-<!-- ================= FULLSCREEN + AJAX REFRESH ================= -->
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
 <script>
 document.addEventListener("DOMContentLoaded", function() {
 
@@ -206,31 +319,64 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function enterFullscreen() {
         const elem = document.documentElement;
+
         if (elem.requestFullscreen) {
-            elem.requestFullscreen().catch(()=>{});
+            return elem.requestFullscreen();
         } else if (elem.webkitRequestFullscreen) {
-            elem.webkitRequestFullscreen();
+            return elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) {
+            return elem.msRequestFullscreen();
         }
     }
 
     function exitFullscreen() {
         if (document.exitFullscreen) {
-            document.exitFullscreen();
+            return document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+            return document.webkitExitFullscreen();
+        }
+    }
+
+    function updateButton() {
+        if (document.fullscreenElement) {
+            btn.innerHTML = '<i class="bi bi-fullscreen-exit"></i> Exit';
+            localStorage.setItem("autoFullscreen", "true");
+        } else {
+            btn.innerHTML = '<i class="bi bi-arrows-fullscreen"></i> Full Screen';
+            localStorage.setItem("autoFullscreen", "false");
         }
     }
 
     btn.addEventListener("click", function() {
         if (!document.fullscreenElement) {
             enterFullscreen();
-            btn.innerHTML = '<i class="bi bi-fullscreen-exit"></i> Exit';
         } else {
             exitFullscreen();
-            btn.innerHTML = '<i class="bi bi-arrows-fullscreen"></i> Full Screen';
         }
     });
 
-    // 🔥 AJAX refresh every 5 sec (NO PAGE RELOAD)
-    setInterval(function() {
+    document.addEventListener("fullscreenchange", updateButton);
+
+    // 🔥 AUTO RESTORE FULLSCREEN AFTER RELOAD
+    if (localStorage.getItem("autoFullscreen") === "true") {
+        setTimeout(() => {
+            if (!document.fullscreenElement) {
+                enterFullscreen().catch(()=>{});
+            }
+        }, 500);
+    }
+
+    // ==============================
+    // SOCKET REALTIME UPDATE
+    // ==============================
+
+    const socket = io({
+        transports: ["websocket"],
+        upgrade: false
+    });
+
+    socket.on("attendance_update", function(data) {
+
         fetch(window.location.href, { cache: "no-store" })
             .then(response => response.text())
             .then(html => {
@@ -240,10 +386,14 @@ document.addEventListener("DOMContentLoaded", function() {
                 if (newContent) {
                     document.getElementById("dashboardContent").innerHTML = newContent.innerHTML;
                 }
-            });
-    }, 5000);
+            })
+            .catch(()=>{});
+    });
 
 });
 </script>
+
+
+
 
 {% endblock %}

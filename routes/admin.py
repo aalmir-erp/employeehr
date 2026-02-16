@@ -20,7 +20,6 @@ from sqlalchemy import func
 
 
 
-
 # Create blueprint
 bp = Blueprint('admin', __name__, url_prefix='/admin')
 SECRET_KEY = 'YOUR_SECRET_KEY_HERE' 
@@ -94,12 +93,11 @@ def index():
     )
 
 @bp.route('/attendance_dashboard')
-@login_required
 def attendance_dashboard():
 
-    # 🔹 Latest attendance log (top employee)
+    # 🔥 IMPORTANT: use ID not timestamp
     latest_log = AttendanceLog.query \
-        .order_by(AttendanceLog.timestamp.desc()) \
+        .order_by(AttendanceLog.id.desc()) \
         .first()
 
     active_employee = None
@@ -108,7 +106,6 @@ def attendance_dashboard():
     if latest_log:
         active_employee = latest_log.employee
 
-        # 🔥 Last 5 days attendance from AttendanceRecord
         today = datetime.now().date()
         start_date = today - timedelta(days=5)
 
@@ -121,9 +118,8 @@ def attendance_dashboard():
             AttendanceRecord.date <= today_str
         ).order_by(AttendanceRecord.date.desc()).all()
 
-    # 🔹 Last 15 logs (bottom)
     last_15_logs = AttendanceLog.query \
-        .order_by(AttendanceLog.timestamp.desc()) \
+        .order_by(AttendanceLog.id.desc()) \
         .limit(15) \
         .all()
 
@@ -134,7 +130,6 @@ def attendance_dashboard():
         recent_records=recent_records,
         last_15_logs=last_15_logs
     )
-
 
 
 @bp.route('/login_history')

@@ -1,91 +1,85 @@
 import os
 import logging
+import threading
+import psycopg2
+import select
 
 from flask import Flask
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_migrate import Migrate
 from flask_login import LoginManager, current_user
 from flask_wtf.csrf import CSRFProtect
-# from scheduler import scheduler
 from scheduler import init_scheduler_custom
 
-
-
-# Import the db instance from db.py to fix circular imports
 from db import db
+from extensions import socketio   # ✅ IMPORTANT
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
+# -------------------------------------------------
+# Logging
+# -------------------------------------------------
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize extensions
-login_manager = LoginManager()
-csrf = CSRFProtect()
-
-# Create the app
+# -------------------------------------------------
+# Create Flask App
+# -------------------------------------------------
 app = Flask(__name__)
 app.config['SCHEDULER_API_ENABLED'] = True
 
-init_scheduler_custom(app)
-# scheduler.start()
-
-
+# -------------------------------------------------
+# Basic Config
+# -------------------------------------------------
 app.secret_key = os.environ.get("SESSION_SECRET", "fallback_secret_key_for_development")
-app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)  # needed for url_for to generate with https
-
-# Configure database
-# Use SQLite for simplicity and avoiding connection issues
-logger.info("Using SQLite database for this session")
-# database_url = "sqlite:///attendance.db"
-# database_url = "postgresql+psycopg2://employee:employee@localhost:5432/employee"
-# app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:<password>@localhost/<your_db_name>'
-
-
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 app.config['WTF_CSRF_ENABLED'] = False
 
+app.config["SQLALCHEMY_DATABASE_URI"] = \
+    'postgresql://attendance_app:attendance_app@localhost/attendance_live'
 
-app.config["SQLALCHEMY_DATABASE_URI"] = 'postgresql://attendance_app:attendance_app@localhost/attendance_live'
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
 }
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-# Configure Odoo connection settings
-app.config["ODOO_HOST"] = os.environ.get("PGHOST", "localhost")
-app.config["ODOO_PORT"] = os.environ.get("PGPORT", "5432")
-app.config["ODOO_USER"] = os.environ.get("PGUSER", "mir-12312313plastic-e123rp")
-app.config["ODOO_PASSWORD"] = os.environ.get("PGPASSWORD", "aalm123132ir123")
-app.config["ODOO_DATABASE"] = os.environ.get("PGDATABASE", "mir_322342341plas1231tic")
-
-
-
-# Initialize extensions with app
+# -------------------------------------------------
+# Initialize Extensions
+# -------------------------------------------------
 db.init_app(app)
 migrate = Migrate(app, db)
+
+login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'auth.login'
+
+csrf = CSRFProtect()
 csrf.init_app(app)
 
-# Import models after initializing the app and db
+# 🔥 INIT SOCKETIO AFTER APP
+socketio.init_app(app)
+
+# -------------------------------------------------
+# Scheduler
+# -------------------------------------------------
+init_scheduler_custom(app)
+
+# -------------------------------------------------
+# Import Models
+# -------------------------------------------------
 with app.app_context():
-    # Import models here to ensure they're registered with SQLAlchemy
-    import models  # noqa: F401
-    
-    # Create all tables
+    import models
     db.create_all()
 
-# Import User model after models are imported
-# Fixes the circular import
 from models import User, AttendanceNotification
 
-# Setup login manager
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Register blueprints
+# -------------------------------------------------
+# Register Blueprints
+# -------------------------------------------------
 from routes.index import bp as index_bp
 from routes.auth import bp as auth_bp
 from routes.admin import bp as admin_bp
@@ -97,9 +91,8 @@ from routes.overtime import bp as overtime_bp
 from routes.admin_debug import bp as admin_debug_bp
 from routes.bonus import bp as bonus_bp
 from routes.supervisor_management import bp as supervisor_bp
-from routes.employees import bp as employees_bp  # Import the Blueprint
+from routes.employees import bp as employees_bp
 from routes.notifications import bp as notifications_bp
-
 
 app.register_blueprint(index_bp)
 app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -115,7 +108,9 @@ app.register_blueprint(supervisor_bp, url_prefix='/supervisor')
 app.register_blueprint(employees_bp, url_prefix='/employees')
 app.register_blueprint(notifications_bp, url_prefix='/notifications')
 
-# Add template context processors
+# -------------------------------------------------
+# Template Context
+# -------------------------------------------------
 from datetime import datetime
 import calendar
 
@@ -123,11 +118,8 @@ import calendar
 def inject_now():
     return {'now': datetime.utcnow()}
 
-
 @app.context_processor
 def inject_notification_preview():
-    """Provide notification summary data for templates."""
-
     if not current_user.is_authenticated:
         return {
             'unread_notifications_count': 0,
@@ -155,33 +147,68 @@ def inject_notification_preview():
         'latest_notifications': latest_notifications
     }
 
-# Add custom template filters
 @app.template_filter('month_name')
 def month_name_filter(month_number):
-    """Convert month number to month name"""
     try:
         return calendar.month_name[int(month_number)]
-    except (ValueError, IndexError):
+    except:
         return ""
 
 @app.template_filter('format_date')
 def format_date_filter(date):
-    """Format date as DD/MM/YYYY"""
     if not date:
         return ""
     try:
         if isinstance(date, str):
-            # Try to parse string dates
-            from datetime import datetime
             date = datetime.strptime(date, '%Y-%m-%d').date()
         return date.strftime('%d/%m/%Y')
-    except (ValueError, AttributeError):
+    except:
         return str(date)
 
-# Initialize scheduler
+# -------------------------------------------------
+# 🔥 PostgreSQL LISTEN/NOTIFY Realtime Thread
+# -------------------------------------------------
+def listen_for_attendance_notifications():
+    print("🔥 Listening for DB notifications...")
+
+    conn = psycopg2.connect(
+        dbname="attendance_live",
+        user="attendance_app",
+        password="attendance_app",
+        host="localhost",
+        port="5432"
+    )
+
+    conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+    cur = conn.cursor()
+    cur.execute("LISTEN attendance_channel;")
+
+    while True:
+        print("SDSDSDSDSD")
+        if select.select([conn], [], [], 5) == ([], [], []):
+            continue
+
+        conn.poll()
+        while conn.notifies:
+            notify = conn.notifies.pop(0)
+            print("🚀 New attendance insert detected:", notify.payload)
+
+            socketio.emit("attendance_update", {"id": notify.payload})
+            print("📡 Socket event emitted")
+
+
+listener_thread = threading.Thread(
+    target=listen_for_attendance_notifications,
+    daemon=True
+)
+listener_thread.start()
+
+# -------------------------------------------------
+# Scheduler Optional Init
+# -------------------------------------------------
 try:
     from utils.scheduler import init_scheduler
     init_scheduler(app)
     logger.info("Scheduler initialized successfully")
 except ImportError:
-    logger.warning("Scheduler module not found, skipping task initialization")
+    logger.warning("Scheduler module not found")
