@@ -8,6 +8,9 @@ from app import db
 from models import Employee, User, OdooMapping, OdooConfig
 from dotenv import load_dotenv
 import os
+import base64
+import requests
+
 
 load_dotenv()
 db_host = os.getenv('DB_HOST')
@@ -185,94 +188,67 @@ class OdooConnector:
         
         return query
 
-    def sync_employee_images(self):
-        """
-        Sync employee image_medium from Odoo 9
-        Stored in ir_attachment because attachment=True
-        """
 
-        if not self.connect():
-            logger.error("Could not connect to Odoo database")
-            return False
 
-        import base64
-        import os
-        import imghdr
-        from datetime import datetime
 
-        UPLOAD_FOLDER = "static/uploads"
+    # def sync_employee_images_from_odoo_http(self):
 
-        try:
-            if not os.path.exists(UPLOAD_FOLDER):
-                os.makedirs(UPLOAD_FOLDER)
+    #     ODOO_BASE_URL = "https://erp.mir.ae"
+    #     ODOO_DB = "mir_plastic"
+    #     ODOO_USER = "administrator"
 
-            # 🔥 Correct Odoo 9 query
-            query = """
-                SELECT res_id, db_datas
-                FROM ir_attachment
-                WHERE res_model = 'hr.employee'
-                AND res_field = 'image_medium'
-                AND db_datas IS NOT NULL
-            """
+    #     try:
+    #         # Login session
+    #         session = requests.Session()
 
-            self.cursor.execute(query)
-            attachments = self.cursor.fetchall()
+    #         login_payload = {
+    #             "db": ODOO_DB,
+    #             "login": ODOO_USER,
+    #             "password": ODOO_PASSWORD
+    #         }
 
-            sync_count = 0
+    #         login = session.post(
+    #             f"{ODOO_BASE_URL}/web/session/authenticate",
+    #             json={
+    #                 "jsonrpc": "2.0",
+    #                 "params": login_payload
+    #             }
+    #         )
 
-            for row in attachments:
-                odoo_id = row[0]
-                image_base64 = row[1]
+    #         print("Login response:", login.status_code)
 
-                if not image_base64:
-                    continue
+    #         employees = Employee.query.all()
 
-                employee = Employee.query.filter_by(odoo_id=odoo_id).first()
-                if not employee:
-                    continue
+    #         sync_count = 0
 
-                try:
-                    image_binary = base64.b64decode(image_base64)
+    #         for emp in employees:
 
-                    extension = imghdr.what(None, image_binary)
-                    if not extension:
-                        extension = "jpg"
+    #             image_url = (
+    #                 f"{ODOO_BASE_URL}/web/image?"
+    #                 f"model=hr.employee&id={emp.odoo_id}&field=image_medium"
+    #             )
 
-                    filename = "emp_%s.%s" % (odoo_id, extension)
-                    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    #             response = session.get(image_url)
 
-                    with open(filepath, "wb") as f:
-                        f.write(image_binary)
+    #             if response.status_code == 200 and response.content:
+    #                 base64_img = base64.b64encode(response.content).decode("utf-8")
 
-                    employee.image = filename
-                    employee.last_sync = datetime.utcnow()
+    #                 emp.image = base64_img
+    #                 emp.last_sync = datetime.utcnow()
 
-                    sync_count += 1
+    #                 sync_count += 1
+    #                 print("✔ Synced image for:", emp.odoo_id)
 
-                except Exception as img_error:
-                    logger.error(
-                        "Image decode failed for employee %s: %s"
-                        % (odoo_id, str(img_error))
-                    )
-                    continue
+    #         db.session.commit()
 
-            db.session.commit()
+    #         print("Total synced:", sync_count)
+    #         return True
 
-            logger.info(
-                "Successfully synced %s employee images from Odoo (image_medium)"
-                % sync_count
-            )
+    #     except Exception as e:
+    #         db.session.rollback()
+    #         print("Error:", e)
+    #         return False
 
-            return True
-
-        except Exception as e:
-            db.session.rollback()
-            logger.error("Error syncing employee images: %s" % str(e))
-            return False
-
-        finally:
-            self.disconnect()
-        
     
     def sync_employees(self):
         """Sync employee data from Odoo to local database using dynamic field mappings"""
