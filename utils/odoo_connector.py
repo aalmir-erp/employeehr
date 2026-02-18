@@ -8,6 +8,9 @@ from app import db
 from models import Employee, User, OdooMapping, OdooConfig
 from dotenv import load_dotenv
 import os
+import base64
+import requests
+
 
 load_dotenv()
 db_host = os.getenv('DB_HOST')
@@ -184,6 +187,68 @@ class OdooConnector:
         """
         
         return query
+
+
+
+
+    # def sync_employee_images_from_odoo_http(self):
+
+    #     ODOO_BASE_URL = "https://erp.mir.ae"
+    #     ODOO_DB = "mir_plastic"
+    #     ODOO_USER = "administrator"
+
+    #     try:
+    #         # Login session
+    #         session = requests.Session()
+
+    #         login_payload = {
+    #             "db": ODOO_DB,
+    #             "login": ODOO_USER,
+    #             "password": ODOO_PASSWORD
+    #         }
+
+    #         login = session.post(
+    #             f"{ODOO_BASE_URL}/web/session/authenticate",
+    #             json={
+    #                 "jsonrpc": "2.0",
+    #                 "params": login_payload
+    #             }
+    #         )
+
+    #         print("Login response:", login.status_code)
+
+    #         employees = Employee.query.all()
+
+    #         sync_count = 0
+
+    #         for emp in employees:
+
+    #             image_url = (
+    #                 f"{ODOO_BASE_URL}/web/image?"
+    #                 f"model=hr.employee&id={emp.odoo_id}&field=image_medium"
+    #             )
+
+    #             response = session.get(image_url)
+
+    #             if response.status_code == 200 and response.content:
+    #                 base64_img = base64.b64encode(response.content).decode("utf-8")
+
+    #                 emp.image = base64_img
+    #                 emp.last_sync = datetime.utcnow()
+
+    #                 sync_count += 1
+    #                 print("✔ Synced image for:", emp.odoo_id)
+
+    #         db.session.commit()
+
+    #         print("Total synced:", sync_count)
+    #         return True
+
+    #     except Exception as e:
+    #         db.session.rollback()
+    #         print("Error:", e)
+    #         return False
+
     
     def sync_employees(self):
         """Sync employee data from Odoo to local database using dynamic field mappings"""
