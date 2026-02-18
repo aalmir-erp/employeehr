@@ -118,6 +118,7 @@
             </div>
         </div>
     </div>
+
     
     <style>
         /* Grid layout */
@@ -140,6 +141,7 @@
             }
         }
         
+        /* Card Styling */
         .attendance-day .card {
             border-radius: 10px;
             transition: 0.2s;
@@ -148,14 +150,42 @@
         .attendance-day .card:hover {
             transform: translateY(-3px);
         }
+        
+        /* ===== THEME COLORS ===== */
+        
+        /* Light Theme */
+        [data-bs-theme="light"] .attendance-card {
+            color: #000;
+        }
+        
+        [data-bs-theme="light"] .attendance-card .card-header {
+            background-color: #f8f9fa;
+            color: #000;
+        }
+        
+        /* Dark Theme */
+        [data-bs-theme="dark"] .attendance-card {
+            color: #fff;
+        }
+        
+        [data-bs-theme="dark"] .attendance-card .card-header {
+            background-color: #212529;
+            color: #fff;
+        }
+        
+        /* Muted text fix */
+        [data-bs-theme="dark"] .attendance-card .text-muted {
+            color: #ccc !important;
+        }
         </style>
         
         
         <div class="attendance-row mb-4">
             {% for day, logs in attendance_logs.items() %}
             <div class="attendance-day">
-                <div class="card shadow-sm h-100">
-                    <div class="card-header bg-dark text-white text-center p-2">
+                <div class="card shadow-sm h-100 attendance-card">
+                    
+                    <div class="card-header text-center p-2">
                         <strong>{{ day.strftime('%d %b') }}</strong>
                     </div>
         
@@ -184,6 +214,7 @@
                         </div>
         
                     </div>
+        
                 </div>
             </div>
             {% endfor %}
