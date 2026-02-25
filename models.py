@@ -29,13 +29,38 @@ class JSONB(TypeDecorator):
             return json.loads(value)
         return value
 
+class AttendanceDispute(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=False)
+    employee_id = db.Column(db.Integer, nullable=False)
+    dispute_date = db.Column(db.Date, nullable=False)
+    dispute_type = db.Column(db.String(20), nullable=False) 
+    remarks = db.Column(db.Text, nullable=True)
+    admin_remarks = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), default="PENDING") 
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class AttendanceDisputeHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    dispute_id = db.Column(db.Integer, db.ForeignKey('attendance_dispute.id'), nullable=False)
+    by_user_id = db.Column(db.Integer, nullable=False)         
+    remark = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)          
+
 class UserLoginHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     username = db.Column(db.String(64), nullable=False)
     login_time = db.Column(db.DateTime, default=datetime.utcnow)
     login_type = db.Column(db.String(20), nullable=False)
-    user = db.relationship('User', backref='login_history', foreign_keys=[user_id])        
+    user = db.relationship('User', backref='login_history', foreign_keys=[user_id])  
+
+class FCMToken(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=False)
+    token = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)          
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)

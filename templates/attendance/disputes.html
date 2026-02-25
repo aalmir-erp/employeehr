@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container py-4">
+
+  <!-- HEADER -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h4 class="mb-1">Attendance Disputes</h4>
+      <small class="text-muted">Manage & track dispute updates</small>
+    </div>
+    <a href="/reports/dashboard" class="btn btn-outline-secondary btn-sm">Back</a>
+  </div>
+
+  <!-- ========================= -->
+  <!-- FILTERS -->
+  <!-- ========================= -->
+  <div class="card p-3 mb-3">
+    <form method="GET" action="/admin/attendance_disputes">
+      <div class="row g-2">
+
+        <div class="col-md-3">
+          <label class="form-label">Employee</label>
+          <select name="employee_id" class="form-select">
+            <option value="">All Employees</option>
+            {% for emp in employees %}
+              <option value="{{ emp.id }}"
+                {% if filters.employee_id and filters.employee_id|int == emp.id %}selected{% endif %}>
+                {{ emp.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Status</label>
+          <select name="status" class="form-select">
+            <option value="">All</option>
+            <option value="PENDING" {% if filters.status == 'PENDING' %}selected{% endif %}>PENDING</option>
+            <option value="RESOLVED" {% if filters.status == 'RESOLVED' %}selected{% endif %}>RESOLVED</option>
+            <option value="CLOSED" {% if filters.status == 'CLOSED' %}selected{% endif %}>CLOSED</option>
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Search</label>
+          <input type="text" name="q" value="{{ filters.q }}" class="form-control"
+                 placeholder="Search remarks or type">
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">From</label>
+          <input type="date" name="start" value="{{ filters.start }}" class="form-control">
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">To</label>
+          <input type="date" name="end" value="{{ filters.end }}" class="form-control">
+        </div>
+
+        <div class="col-md-12 d-flex gap-2 mt-2">
+          <button class="btn btn-primary w-100">Apply Filters</button>
+          <a href="/admin/attendance_disputes" class="btn btn-outline-secondary w-100">Reset</a>
+        </div>
+
+      </div>
+    </form>
+  </div>
+
+  <!-- BULK BUTTON -->
+  <div class="mb-2">
+    <button class="btn btn-danger btn-sm" id="bulkBtn">
+      Bulk Update
+    </button>
+  </div>
+
+  <!-- ========================= -->
+  <!-- TABLE -->
+  <!-- ========================= -->
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover align-middle mb-0">
+
+        <thead class="table-light">
+          <tr>
+            <th width="50"><input type="checkbox" id="selectAll"></th>
+            <th>ID</th>
+            <th>Date</th>
+            <th>Employee</th>
+            <th>Type</th>
+            <th>User Remarks</th>
+            <th>Status</th>
+            <th>Admin Remarks</th>
+            <th width="130">Action</th>
+            <th width="90">History</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for d in disputes %}
+          <tr data-id="{{ d.id }}">
+
+            <!-- Checkbox Disabled if CLOSED -->
+            <td>
+              <input type="checkbox"
+                     class="rowCheck"
+                     value="{{ d.id }}"
+                     {% if d.status == 'CLOSED' %}disabled{% endif %}>
+            </td>
+
+            <td>#{{ d.id }}</td>
+            <td>{{ d.dispute_date }}</td>
+            <td>{{ d.employee_name }}</td>
+            <td>
+              {% if d.dispute_type == 'CHECK_IN' %}
+                Check In
+              {% elif d.dispute_type == 'CHECK_OUT' %}
+                Check Out
+              {% elif d.dispute_type == 'FULL_DAY' %}
+                Full Day
+              {% else %}
+                {{ d.dispute_type }}
+              {% endif %}
+            </td>
+            <td>{{ d.remarks }}</td>
+
+            <td>
+              <span class="badge
+                {% if d.status == 'PENDING' %}bg-warning
+                {% elif d.status == 'RESOLVED' %}bg-success
+                {% else %}bg-secondary{% endif %}">
+                {{ d.status }}
+              </span>
+            </td>
+
+            <td>{{ d.admin_remarks or '-' }}</td>
+
+            <td>
+              {% if d.status == 'CLOSED' %}
+                <button class="btn btn-sm btn-secondary" disabled>
+                  Closed
+                </button>
+              {% else %}
+                <button class="btn btn-sm btn-primary updateBtn">
+                  Update Status
+                </button>
+              {% endif %}
+            </td>
+
+            <td>
+              <button class="btn btn-sm btn-info historyBtn"
+                      data-history='{{ d.remarks_history|tojson|safe }}'>
+                View
+              </button>
+            </td>
+
+          </tr>
+          {% endfor %}
+
+          {% if disputes|length == 0 %}
+          <tr>
+            <td colspan="9" class="text-center text-muted py-4">
+              No disputes found
+            </td>
+          </tr>
+          {% endif %}
+        </tbody>
+
+      </table>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ========================= -->
+<!-- SINGLE UPDATE MODAL -->
+<!-- ========================= -->
+<div class="modal fade" id="adminModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="adminForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Update Dispute</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <input type="hidden" id="disputeId">
+
+          <div class="mb-3">
+            <label>Status</label>
+            <select id="modalStatus" class="form-select">
+              <option value="PENDING">PENDING</option>
+              <option value="RESOLVED">RESOLVED</option>
+              <option value="CLOSED">CLOSED</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label>Admin Remarks</label>
+            <textarea id="modalRemarks" class="form-control" rows="3"></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ========================= -->
+<!-- BULK UPDATE MODAL -->
+<!-- ========================= -->
+<div class="modal fade" id="bulkModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="bulkForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Bulk Update</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="mb-3">
+            <label>Status</label>
+            <select id="bulkStatus" class="form-select">
+              <option value="PENDING">PENDING</option>
+              <option value="RESOLVED">RESOLVED</option>
+              <option value="CLOSED">CLOSED</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label>Admin Remarks</label>
+            <textarea id="bulkRemarks" class="form-control"></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-danger">Update</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ========================= -->
+<!-- HISTORY MODAL -->
+<!-- ========================= -->
+<div class="modal fade" id="historyModal">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Remarks History</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <table class="table table-bordered align-middle">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Remark</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ========================= -->
+<!-- JAVASCRIPT -->
+<!-- ========================= -->
+<script>
+
+document.addEventListener("DOMContentLoaded", function(){
+
+  // Select All
+  const selectAll = document.getElementById("selectAll");
+  selectAll.addEventListener("change", function(){
+    document.querySelectorAll(".rowCheck:not(:disabled)").forEach(cb=>{
+      cb.checked = this.checked;
+    });
+  });
+
+  // Open Single Update
+  document.querySelectorAll(".updateBtn").forEach(btn=>{
+    btn.addEventListener("click", function(){
+      const row = btn.closest("tr");
+      document.getElementById("disputeId").value = row.dataset.id;
+      document.getElementById("modalStatus").value =
+        row.querySelector(".badge").innerText.trim();
+      document.getElementById("modalRemarks").value = "";
+      new bootstrap.Modal(document.getElementById('adminModal')).show();
+    });
+  });
+
+  // Submit Single Update
+  document.getElementById("adminForm").addEventListener("submit", async function(e){
+    e.preventDefault();
+
+    const id = document.getElementById("disputeId").value;
+    const status = document.getElementById("modalStatus").value;
+    const remarks = document.getElementById("modalRemarks").value;
+
+    const res = await fetch(`/admin/attendance_disputes/${id}/status`,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "X-CSRFToken":"{{ csrf_token }}"
+      },
+      body: JSON.stringify({status:status, admin_remarks:remarks})
+    });
+
+    const data = await res.json();
+    if(data.success) location.reload();
+    else alert(data.message);
+  });
+
+  // Bulk Update
+  document.getElementById("bulkBtn").addEventListener("click", function(){
+    const checked = document.querySelectorAll(".rowCheck:checked");
+    if(!checked.length) return alert("Select at least one open dispute");
+    new bootstrap.Modal(document.getElementById('bulkModal')).show();
+  });
+
+  document.getElementById("bulkForm").addEventListener("submit", async function(e){
+    e.preventDefault();
+
+    const ids = [...document.querySelectorAll(".rowCheck:checked")].map(cb=>cb.value);
+    const status = document.getElementById("bulkStatus").value;
+    const remarks = document.getElementById("bulkRemarks").value;
+
+    const res = await fetch(`/admin/attendance_disputes/bulk_update`,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "X-CSRFToken":"{{ csrf_token }}"
+      },
+      body: JSON.stringify({ids:ids, status:status, admin_remarks:remarks})
+    });
+
+    const data = await res.json();
+    if(data.success) location.reload();
+    else alert(data.message);
+  });
+
+  // History
+  document.querySelectorAll(".historyBtn").forEach(btn=>{
+    btn.addEventListener("click", function(){
+
+      const history = JSON.parse(btn.dataset.history || "[]");
+      const tbody = document.getElementById("historyBody");
+      tbody.innerHTML = "";
+
+      history.forEach(h=>{
+        tbody.innerHTML += `
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <img src="data:image/jpeg;base64,${h.image}"
+                     width="40"
+                     height="40"
+                     class="rounded-circle border">
+                <div>
+                  <div class="fw-bold">${h.name}</div>
+                  <small class="text-muted">${h.datetime}</small>
+                </div>
+              </div>
+            </td>
+            <td>${h.remark}</td>
+            <td><span class="badge bg-info">${h.status}</span></td>
+          </tr>`;
+      });
+
+      new bootstrap.Modal(document.getElementById('historyModal')).show();
+    });
+  });
+
+});
+
+</script>
+
+{% endblock %}

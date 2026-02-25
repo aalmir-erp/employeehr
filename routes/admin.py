@@ -4,7 +4,7 @@ from flask_login import login_required, current_user, logout_user, login_user
 from datetime import datetime, timedelta
 from app import db
 from utils.odoo_connector import odoo_connector
-from models import User, Employee, Shift, ShiftAssignment, AttendanceDevice, OdooConfig, OdooMapping, ERPConfig, SystemConfig, EmployeeDevice,UserLoginHistory,AttendanceRecord,AttendanceLog
+from models import User, Employee, Shift, ShiftAssignment, AttendanceDevice, OdooConfig, OdooMapping, ERPConfig, SystemConfig, EmployeeDevice,UserLoginHistory,AttendanceRecord,AttendanceLog,FCMToken,AttendanceDispute,AttendanceDisputeHistory
 from itsdangerous import URLSafeSerializer, BadSignature
 import threading
 import requests
@@ -15,8 +15,10 @@ import string
 import re
 import json
 from datetime import date
-from sqlalchemy import desc
-from sqlalchemy import func
+from sqlalchemy import desc,or_,func, cast, String
+from utils.firebase import send_fcm_notification
+from sqlalchemy.orm import joinedload
+import logging, traceback
 
 
 
@@ -92,6 +94,191 @@ def index():
         last_sync=last_sync
     )
 
+# ===============================
+# LIST PAGE WITH FILTERS + HISTORY
+# ===============================
+@bp.route('/attendance_disputes')
+@login_required
+def attendance_disputes():
+
+    q = request.args.get("q", "").strip()
+    status = request.args.get("status", "").strip().upper()
+    start = request.args.get("start")
+    end = request.args.get("end")
+    employee_id = request.args.get("employee_id")
+
+    query = AttendanceDispute.query
+
+    if q:
+        query = query.filter(
+            or_(
+                AttendanceDispute.remarks.ilike(f"%{q}%"),
+                AttendanceDispute.dispute_type.ilike(f"%{q}%")
+            )
+        )
+
+    if employee_id:
+        try:
+            query = query.filter(AttendanceDispute.employee_id == int(employee_id))
+        except:
+            pass
+
+    if status:
+        query = query.filter(AttendanceDispute.status == status)
+
+    if start:
+        query = query.filter(AttendanceDispute.dispute_date >= start)
+
+    if end:
+        query = query.filter(AttendanceDispute.dispute_date <= end)
+
+    disputes = query.order_by(AttendanceDispute.id.desc()).all()
+
+    employees = Employee.query.order_by(Employee.name).all()
+    emp_map = {e.id: e.name for e in employees}
+
+    for d in disputes:
+        d.employee_name = emp_map.get(d.employee_id, "N/A")
+
+        history_rows = AttendanceDisputeHistory.query \
+            .filter_by(dispute_id=d.id) \
+            .order_by(AttendanceDisputeHistory.created_at.asc()) \
+            .all()
+
+        d.remarks_history = []
+
+        for h in history_rows:
+
+            user = User.query.get(h.by_user_id)
+
+            employee = None
+            if user and user.employee_id:
+                employee = Employee.query.filter_by(
+                    id=user.employee_id
+                ).first()
+
+
+            d.remarks_history.append({
+                "name": employee.name if employee else (user.name if user else "Unknown"),
+                "image": employee.image,
+                "remark": h.remark,
+                "status": h.status,
+                "datetime": h.created_at.strftime("%Y-%m-%d %H:%M:%S")
+            })
+
+    return render_template(
+        "attendance/disputes.html",
+        disputes=disputes,
+        employees=employees,
+        filters={
+            "q": q,
+            "status": status,
+            "start": start,
+            "end": end,
+            "employee_id": employee_id
+        }
+    )
+
+
+@bp.route('/attendance_disputes/<int:dispute_id>/status', methods=['POST'])
+@login_required
+def update_dispute_status(dispute_id):
+    try:
+        data = request.get_json() or {}
+        new_status = data.get("status")
+        admin_remarks = data.get("admin_remarks", "")
+
+        dispute = AttendanceDispute.query.get_or_404(dispute_id)
+
+        dispute.status = new_status
+        dispute.admin_remarks = admin_remarks
+
+        history = AttendanceDisputeHistory(
+            dispute_id=dispute.id,
+            by_user_id=current_user.id,
+            remark=admin_remarks,
+            status=new_status,
+            created_at=datetime.utcnow()
+        )
+
+        db.session.add(history)
+        db.session.commit()
+
+       
+        user = User.query.filter_by(
+            employee_id=dispute.employee_id
+        ).first()
+
+        if user:
+            fcm = FCMToken.query.filter_by(user_id=user.id).first()
+
+            if fcm:
+                admin_employee = Employee.query.filter_by(
+                    id=current_user.employee_id
+                ).first()
+
+                admin_name = admin_employee.name if admin_employee else current_user.name
+
+                title = f"{admin_name} updated your dispute to {new_status}"
+
+                body = dispute.remarks
+
+
+                send_fcm_notification(
+                    fcm.token,
+                    title,
+                    body
+                )
+
+        return jsonify(success=True)
+
+    except Exception:
+        db.session.rollback()
+        logging.exception("Update Error")
+        return jsonify(success=False, message="Server Error"), 500
+
+
+# ===============================
+# BULK UPDATE
+# ===============================
+@bp.route('/attendance_disputes/bulk_update', methods=['POST'])
+@login_required
+def bulk_update_disputes():
+    try:
+        data = request.get_json() or {}
+        ids = data.get("ids", [])
+        new_status = data.get("status")
+        admin_remarks = data.get("admin_remarks", "")
+
+        disputes = AttendanceDispute.query.filter(
+            AttendanceDispute.id.in_(ids)
+        ).all()
+
+        for dispute in disputes:
+            dispute.status = new_status
+            dispute.admin_remarks = admin_remarks
+
+            history = AttendanceDisputeHistory(
+                dispute_id=dispute.id,
+                by_user_id=current_user.id,
+                remark=admin_remarks,
+                status=new_status,
+                created_at=datetime.utcnow()
+            )
+
+            db.session.add(history)
+
+        db.session.commit()
+
+        return jsonify(success=True)
+
+    except Exception:
+        db.session.rollback()
+        logging.exception("Bulk Update Error")
+        return jsonify(success=False, message="Server Error"), 500
+
+
+
 @bp.route('/attendance_dashboard')
 def attendance_dashboard():
 
@@ -102,8 +289,11 @@ def attendance_dashboard():
 
     active_employee = None
     recent_records = []
+   
 
     if latest_log:
+    
+
         active_employee = latest_log.employee
 
         today = datetime.now().date()

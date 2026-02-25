@@ -346,6 +346,9 @@
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle {% if request.path.startswith('/admin') %}active{% endif %}" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
                             <i class="bi bi-gear"></i> HR
+                            {% if pending_dispute_count and pending_dispute_count > 0 %}
+                                    <span class="badge rounded-pill bg-danger">{{ pending_dispute_count }}</span>
+                                    {% endif %}
                         </a>
                         <ul class="dropdown-menu">
 
@@ -388,6 +391,16 @@
                                     <i class="bi bi-person-badge"></i> Employee Weekend Config
                                 </a>
                             </li>
+                            <a class="dropdown-item d-flex justify-content-between align-items-center"
+                                href="{{ url_for('admin.attendance_disputes') }}">
+                                        <i class="bi bi-calendar-check"></i> Attendance Dispute
+                                        {% if pending_dispute_count and pending_dispute_count > 0 %}
+                                    <span class="badge rounded-pill bg-danger">{{ pending_dispute_count }}</span>
+                                    {% endif %}
+                                    </span>
+                                   
+
+                                </a>
                             {% endif %}
                         </ul>
                     </li>
@@ -453,6 +466,7 @@
                                     <i class="bi bi-calendar-check"></i>  Attendance Dashboard
                                 </a>
                             </li>
+                           
                            
                         </ul>
                     </li>

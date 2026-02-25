@@ -310,7 +310,6 @@ body {
 
 </div>
 
-<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
@@ -370,25 +369,25 @@ document.addEventListener("DOMContentLoaded", function() {
     // SOCKET REALTIME UPDATE
     // ==============================
 
-    const socket = io({
-        transports: ["websocket"],
-        upgrade: false
-    });
-
-    socket.on("attendance_update", function(data) {
-
+    function refreshDashboard() {
         fetch(window.location.href, { cache: "no-store" })
             .then(response => response.text())
             .then(html => {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, "text/html");
+
                 const newContent = doc.getElementById("dashboardContent");
-                if (newContent) {
-                    document.getElementById("dashboardContent").innerHTML = newContent.innerHTML;
+                const currentContent = document.getElementById("dashboardContent");
+
+                if (newContent && currentContent) {
+                    currentContent.innerHTML = newContent.innerHTML;
                 }
             })
-            .catch(()=>{});
-    });
+            .catch(() => {});
+    }
+
+    // 🔥 CALL EVERY 2 SECONDS
+    setInterval(refreshDashboard, 2000);
 
 });
 </script>
