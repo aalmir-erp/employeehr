@@ -1677,6 +1677,9 @@ def missing_punches():
                            selected_department=department,
                            selected_punch_type=punch_type)
 
+
+
+
 @bp.route('/import_csv', methods=['GET', 'POST'])
 @login_required
 def import_csv():
@@ -1686,7 +1689,7 @@ def import_csv():
         return redirect(url_for('attendance.index'))
     
     # Import CSV parsers
-    from utils.csv_parsers import auto_detect_and_parse_csv, parse_mir_csv_file, parse_zkteco_standard_file, parse_hikvision_csv_file, import_attendance_records
+    from utils.csv_parsers import auto_detect_and_parse_csv_out_machine, auto_detect_and_parse_csv, parse_mir_csv_file, parse_zkteco_standard_file, parse_hikvision_csv_file, import_attendance_records, auto_detect_and_parse_csv_in_machine
     
     # Handle delete records request
     if request.method == 'POST' and 'delete_records' in request.form:
@@ -1845,13 +1848,21 @@ def import_csv():
             file_format = request.form.get('file_format', 'auto')
             device_id = request.form.get('device_id', str(default_device.id))
             create_missing = 'create_missing' in request.form
-            
-            # Parse based on selected format
             records = []
+            # Parse based on selected format
+            if int(device_id) ==4:
+                print(" heererer in device 4 ")
+                records = auto_detect_and_parse_csv_out_machine(temp_file.name)
+
+            if int(device_id) ==5:
+                records = auto_detect_and_parse_csv_in_machine(temp_file.name)
+
+
             
-            if file_format == 'auto':
+            elif file_format == 'auto':
                 current_app.logger.info("Auto-detecting CSV format")
                 records = auto_detect_and_parse_csv(temp_file.name)
+                print( "  in CSV")
                 
             elif file_format == 'mir':
                 current_app.logger.info("Using MIR format parser")

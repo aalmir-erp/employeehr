@@ -41,6 +41,7 @@ class OdooConnector:
             
             if config:
                 print (config, "config 1")
+                print(os.getenv("ODOO_HOST"), "--------------------------------HOST env")
                 host = config.host
                 port = config.port
                 user = config.user
@@ -55,7 +56,7 @@ class OdooConnector:
 
                 # Log connection parameters (mask password)
                 logger.info(f"Connecting to Odoo database at {host}:{port} with user {user} for database {database}")
-            else:
+            elif current_app.config.get('ODOO_HOST'):
                 print ( "no confih")
                 # Fall back to app config
                 host = current_app.config.get('ODOO_HOST')
@@ -66,6 +67,14 @@ class OdooConnector:
                 
                 # Log fallback usage
                 logger.info(f"No OdooConfig found, falling back to app config: {host}:{port}")
+            else:
+                host = os.getenv("ODOO_HOST")
+                print(os.getenv("ODOO_HOST")," else  ========")
+                port = os.getenv("ODOO_PORT")
+                user = os.getenv("ODOO_USER")
+                password = os.getenv("ODOO_PASSWORD")
+                database = os.getenv("ODOO_DATABASE")
+                sslmode = os.getenv("ODOO_SSLMODE", "disable")
             
             # Validate connection parameters
             if not host or not port or not user or not password or not database:
@@ -76,7 +85,7 @@ class OdooConnector:
                 if not password: missing.append("password")
                 if not database: missing.append("database")
                 
-                logger.error(f"Missing required Odoo connection parameters: {', '.join(missing)}")
+                logger.error(f" == Missing required Odoo connection parameters: {', '.join(missing)}")
                 return False
             
             logger.info(f"Attempting connection to Odoo PostgreSQL at {host}:{port}...")
@@ -253,6 +262,7 @@ class OdooConnector:
     def sync_employees(self):
         """Sync employee data from Odoo to local database using dynamic field mappings"""
         if not self.connect():
+            print("called  sync_employees")
             logger.error("Could not connect to Odoo database for employee sync")
             return False
         

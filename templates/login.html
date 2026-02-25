@@ -3,6 +3,29 @@
 {% block title %}Login - MIR AMS{% endblock %}
 
 {% block content %}
+<style>
+/* Standard */
+::placeholder {
+    color: #555 !important;   /* dark gray */
+    opacity: 1;               /* Firefox fix */
+}
+
+/* Chrome, Edge, Safari */
+::-webkit-input-placeholder {
+    color: #555 !important;
+}
+
+/* Firefox */
+::-moz-placeholder {
+    color: #555 !important;
+}
+
+/* IE / old Edge */
+:-ms-input-placeholder {
+    color: #555 !important;
+}
+</style>
+
 <div class="col-md-6 offset-md-3 col-lg-4 offset-lg-4">
     <div class="card mt-5">
         <div class="card-header text-center">
@@ -19,7 +42,8 @@
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-person"></i></span>
                         <input type="number" pattern="[0-9]+" class="form-control" id="username" name="username" required autofocus
-                               data-bs-toggle="tooltip" title="Enter your ERP Number">
+                               data-bs-toggle="tooltip"  placeholder="Enter your EMP ID"
+            title="Enter your EMP ID"  title="Enter your ERP Number">
                     </div>
                 </div>
 
@@ -28,8 +52,9 @@
                     <label for="password" class="form-label">Password</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-key"></i></span>
-                        <input type="password" class="form-control" id="password" name="password" required
-                               data-bs-toggle="tooltip" title="Enter your password">
+                        <input type="password"             placeholder="Your DOB (DDMMYYYY) — digits only, no / or -"
+            title="Enter date of birth as DDMMYYYY (digits only)"
+ class="form-control" id="password" name="password" required>
                     </div>
                 </div>
 

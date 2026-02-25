@@ -1533,7 +1533,7 @@ def sync_employees():
     """Manually sync employees - placeholder"""
     if request.method == 'POST':
         if request.method == 'POST':
-            success = odoo_connector.sync_employee_images()
+            success = odoo_connector.sync_employees()
         
             if success:
                 flash('Successfully synced employees from Odoo', 'success')
