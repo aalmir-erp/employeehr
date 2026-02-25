@@ -12,7 +12,105 @@ import io
 import logging
 import os
 from datetime import datetime, timedelta
+from sqlalchemy import text
+from models import db
 from flask import current_app
+
+def insert_attendance_records(record_all):
+    sql = text("""
+        INSERT INTO attendance_log
+        (employee_id, device_id, timestamp, log_type, is_processed, created_at, location)
+        VALUES
+        (:employee_id, :device_id, :timestamp, :log_type, FALSE, NOW(), NULL)
+    """)
+
+    for rec in record_all:
+        db.session.rollback()
+
+        row = db.session.execute(
+            text("SELECT direction FROM attendance_device WHERE device_id = :device_id"),
+            {"device_id": rec["device_id"]}
+        ).fetchone()
+
+        log_type = rec["log_type"]
+
+        if row:
+            direction = row[0]
+            if direction and direction.lower() in ["in", "out"]:
+                log_type = direction.upper()
+
+        db.session.execute(sql, {
+            "employee_id": rec["employee_id"],
+            "device_id": rec["device_id"],
+            "timestamp": rec["timestamp"],
+            "log_type": log_type
+        })
+
+    db.session.commit()
+
+
+def get_employee_id_by_odoo_id(odoo_id):
+    sql = text("SELECT id FROM employee WHERE odoo_id = :odoo_id")
+    result = db.session.execute(sql, {'odoo_id': odoo_id}).fetchone()
+    return result[0] if result else None
+
+
+
+def auto_detect_and_parse_csv_in_machine(file_path):
+    records = []
+    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+        # reader = csv.DictReader(f)
+        reader = csv.DictReader(f, delimiter='\t')
+
+
+        for row in reader:
+            enroll_id = row.get("EnNo")
+            timestamp = row.get("DateTime")
+
+            if not enroll_id or not timestamp:
+                continue
+
+            emp_id = get_employee_id_by_odoo_id(enroll_id)
+
+            record = {
+                "employee_id": emp_id if emp_id else 1,
+                "device_id": 2,  # IN machine
+                "timestamp": timestamp,
+                "log_type": "OUT"
+            }
+
+            records.append(record)
+    return records
+
+
+
+
+def auto_detect_and_parse_csv_out_machine(file_path):
+    records = []
+    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+        # reader = csv.DictReader(f)
+        reader = csv.DictReader(f, delimiter='\t')
+
+
+        for row in reader:
+            enroll_id = row.get("EnNo")
+            timestamp = row.get("DateTime")
+
+            if not enroll_id or not timestamp:
+                continue
+
+            emp_id = get_employee_id_by_odoo_id(enroll_id)
+
+            record = {
+                "employee_id": emp_id if emp_id else 1,
+                "device_id": 3,  # OUT machine
+                "timestamp": timestamp,
+                "log_type": "OUT"
+            }
+
+            records.append(record)
+    return records
+
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -437,7 +535,7 @@ def import_attendance_records(session, records, device_id, create_missing=True):
     logs_created = 0
     records_updated = 0
     batch_size = 100
-    
+    print(" import_attendance_records ---------------------")
     # Process in batches
     for i in range(0, len(records), batch_size):
         batch = records[i:i+batch_size]
@@ -457,6 +555,7 @@ def import_attendance_records(session, records, device_id, create_missing=True):
                     employee_id = employee.id if employee else None
                 
                 if not employee_id:
+                    print(" libe 527")
                     logger.warning(f"Skipping record for unknown employee: {employee_code}")
                     continue
                 
@@ -468,8 +567,8 @@ def import_attendance_records(session, records, device_id, create_missing=True):
                 ts = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
                 
                 # Look for existing log within 5 minutes
-                ts_minus = ts - timedelta(minutes=5)
-                ts_plus = ts + timedelta(minutes=5)
+                ts_minus = ts - timedelta(minutes=2)
+                ts_plus = ts + timedelta(minutes=2)
                 
                 existing_log = session.query(AttendanceLog).filter(
                     AttendanceLog.employee_id == employee_id,
@@ -478,6 +577,8 @@ def import_attendance_records(session, records, device_id, create_missing=True):
                 ).first()
                 
                 if existing_log:
+                    print(" libe 549")
+
                     logger.debug(f"Duplicate log found for {employee_code} at {timestamp}")
                     continue
                 
@@ -491,11 +592,14 @@ def import_attendance_records(session, records, device_id, create_missing=True):
                 )
                 session.add(log)
                 logs_created += 1
+                print("log =====================", log)
             
             # Commit batch
             session.commit()
             
         except Exception as e:
+            print(" libe 570")
+
             session.rollback()
             logger.error(f"Error importing batch: {str(e)}")
     

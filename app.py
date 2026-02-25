@@ -195,6 +195,15 @@ def listen_for_attendance_notifications():
 
             socketio.emit("attendance_update", {"id": notify.payload})
             print("📡 Socket event emitted")
+        with app.app_context():
+                # from utils.attendance_processor import process_unprocessed_logs
+
+                try:
+                    
+                    # process_unprocessed_logs(date_from=date.today())
+                    print("✅ Attendance processing triggered")
+                except Exception as e:
+                    print("❌ Attendance processing failed:", e)
 
 
 listener_thread = threading.Thread(
