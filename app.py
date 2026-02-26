@@ -276,21 +276,7 @@ def listen_for_attendance_notifications(app):
             notify = conn.notifies.pop(0)
             attendance_id = notify.payload
 
-<<<<<<< HEAD
             print("🚀 Notify received:", attendance_id)
-=======
-            socketio.emit("attendance_update", {"id": notify.payload})
-            print("📡 Socket event emitted")
-        with app.app_context():
-                # from utils.attendance_processor import process_unprocessed_logs
-
-                try:
-                    
-                    # process_unprocessed_logs(date_from=date.today())
-                    print("✅ Attendance processing triggered")
-                except Exception as e:
-                    print("❌ Attendance processing failed:", e)
->>>>>>> 7d0c7b418f08b04df7e721a8afc9989b99c60ad0
 
             if not should_send(attendance_id):
                 continue
