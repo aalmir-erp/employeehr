@@ -142,6 +142,49 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
 
     today = datetime.utcnow().date()
 
+    if date_from:
+        delete_start = date_from
+        delete_end = date_to or datetime.utcnow().date()
+
+        print(
+            f"DEBUG - Reprocessing mode: deleting AttendanceRecord "
+            f"from {delete_start} to {delete_end}"
+        )
+
+        delete_query = AttendanceRecord.query.filter(
+            # AttendanceRecord.status == 'absent',
+            AttendanceRecord.date >= delete_start,
+            AttendanceRecord.date <= delete_end
+        )
+
+        records_to_delete = delete_query.all()
+        print(records_to_delete, " records to delete --")
+        record_ids = [r.id for r in records_to_delete]
+
+        if record_ids:
+            # Reset related logs
+            AttendanceLog.query.filter(
+                AttendanceLog.attendance_record_id.in_(record_ids)
+            ).update(
+                {
+                    AttendanceLog.is_processed: False,
+                    AttendanceLog.attendance_record_id: None
+                },
+                synchronize_session=False
+            )
+
+            # Delete attendance records
+            AttendanceRecord.query.filter(
+                AttendanceRecord.id.in_(record_ids)
+            ).delete(synchronize_session=False)
+
+            db.session.commit()
+
+            print(
+                f"DEBUG - Deleted {len(record_ids)} AttendanceRecord(s) "
+                f"and reset linked logs"
+            )
+
     stale_records = AttendanceRecord.query.filter(
         AttendanceRecord.status == 'in_progress',
         AttendanceRecord.date < today
@@ -169,6 +212,8 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
         AttendanceLog.employee_id,
         func.date(AttendanceLog.timestamp)
     )
+
+
 
     if limit:
         unprocessed_combinations = unprocessed_combinations.limit(limit)
