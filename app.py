@@ -261,7 +261,6 @@ def listen_for_attendance_notifications(app):
         host="localhost",
         port="5432"
     )
-
     conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
     cur = conn.cursor()
     cur.execute("LISTEN attendance_channel;")
@@ -275,7 +274,6 @@ def listen_for_attendance_notifications(app):
         while conn.notifies:
             notify = conn.notifies.pop(0)
             attendance_id = notify.payload
-
             print("🚀 Notify received:", attendance_id)
 
             if not should_send(attendance_id):
@@ -284,15 +282,38 @@ def listen_for_attendance_notifications(app):
             socketio.emit("attendance_update", {"id": attendance_id})
 
             with app.app_context():
-
                 latest_log = AttendanceLog.query.get(attendance_id)
                 if not latest_log:
                     continue
 
-                user = User.query.filter_by(
-                    employee_id=latest_log.employee_id
+                # ============================
+                # AttendanceRecord create/update
+                # ============================
+                record_date = latest_log.timestamp.date() if latest_log.timestamp else date.today()
+                emp_id = latest_log.employee_id
+                check_in = latest_log.timestamp if latest_log.log_type == "IN" else None
+
+                record = AttendanceRecord.query.filter_by(
+                    employee_id=emp_id,
+                    date=record_date
                 ).first()
 
+                if not record:
+                    record = AttendanceRecord(
+                        employee_id=emp_id,
+                        date=record_date,
+                        check_in=check_in if latest_log.log_type == "IN" else None,
+                        status='in_progress'
+                    )
+                    db.session.add(record)
+                    db.session.flush()
+
+                db.session.commit()
+
+                # ============================
+                # Notification logic
+                # ============================
+                user = User.query.filter_by(employee_id=latest_log.employee_id).first()
                 if not user:
                     continue
 
@@ -300,24 +321,12 @@ def listen_for_attendance_notifications(app):
                 if not fcm:
                     continue
 
-                # -----------------------------------------
-                # TIME
-                # -----------------------------------------
-                log_time = latest_log.timestamp.strftime('%H:%M') \
-                    if latest_log.timestamp else "Unknown"
-
+                log_time = latest_log.timestamp.strftime('%H:%M') if latest_log.timestamp else "Unknown"
                 action = "Checkin" if latest_log.log_type == "IN" else "Checkout"
 
-                # -----------------------------------------
-                # MONTHLY SUMMARY
-                # -----------------------------------------
                 today = date.today()
                 start_date = date(today.year, today.month, 1)
-                end_date = date(
-                    today.year,
-                    today.month,
-                    calendar.monthrange(today.year, today.month)[1]
-                )
+                end_date = date(today.year, today.month, calendar.monthrange(today.year, today.month)[1])
 
                 records = AttendanceRecord.query.filter(
                     AttendanceRecord.employee_id == latest_log.employee_id,
@@ -329,11 +338,7 @@ def listen_for_attendance_notifications(app):
                 late = sum(1 for r in records if r.status == 'late')
                 overtime = sum(r.overt_time_weighted or 0 for r in records)
 
-                # -----------------------------------------
-                # TITLE & BODY
-                # -----------------------------------------
                 title = f"MIR AMS - {action}"
-
                 body = (
                     f"You marked {action} at {log_time}\n\n"
                     f"📊 Monthly Summary:\n"

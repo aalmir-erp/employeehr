@@ -534,10 +534,11 @@ def api_login():
         "role": user.role,
         "is_admin": user.is_admin
     }
+    print(token_payload,"=====================================")
 
     token = jwt.encode(
         token_payload,
-        os.getenv("JWT_SECRET_KEY"),
+        "Dxb@mir0190",
         algorithm="HS256"
     )
 
