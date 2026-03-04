@@ -1,6 +1,6 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from utils.overtime_engine import process_attendance_records
-from utils.attendance_processor import process_unprocessed_logs
+from utils.attendance_processor import process_unprocessed_logs, mark_absent_for_past_dates
 import requests
 from sqlalchemy import distinct, func
 from datetime import date, datetime
@@ -13,6 +13,26 @@ def process_attendance_job(app):
     with app.app_context():
         print(" process_attendance_job started ")
         process_unprocessed_logs(date_from=date.today())
+
+
+
+def mark_absent_daily(app):
+    with app.app_context():
+
+        yesterday = datetime.utcnow().date() - timedelta(days=1)
+
+        print(f"CRON - Marking absents for {yesterday}")
+
+        try:
+            mark_absent_for_past_dates(
+                date_from=yesterday,
+                date_to=yesterday
+            )
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"CRON ERROR - Absent job failed: {e}")
+
 
 
 
@@ -71,14 +91,24 @@ def fetch_employee_dob_and_update_password(app):
 
 
 def init_scheduler_custom(app):
-    # scheduler.add_job(
-    #     func=process_attendance_job,
-    #     args=[app],              # pass app explicitly
-    #     trigger="interval",
-    #     minutes=1,
-    #     id="attendance_processor",
-    #     replace_existing=True
-    # )
+    scheduler.add_job(
+        func=process_attendance_job,
+        args=[app],              # pass app explicitly
+        trigger="interval",
+        hours=4,                     # every 4 hours
+        id="attendance_processor",
+        replace_existing=False
+    )
+
+
+    scheduler.add_job(
+        func=mark_absent_daily,
+        args=[app],
+        trigger="interval",
+        hours=12,                     # every 12 hours
+        id="attendance_processor_absent",
+        replace_existing=False
+    )
 
     # scheduler.add_job(
     #     args=[app],
