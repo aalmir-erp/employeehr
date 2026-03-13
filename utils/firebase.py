@@ -22,36 +22,49 @@ def initialize_firebase():
 initialize_firebase()
 
 
-def send_fcm_notification(token, title, body, data=None):
-    try:
-        print("📲 Sending FCM...")
+def send_fcm_notification(tokens, title, body):
 
-        message = messaging.Message(
-            notification=messaging.Notification(
-                title=title,
-                body=body
-            ),
-            token=token,
-            data=data or {},
-            android=messaging.AndroidConfig(
-                priority="high",
-            ),
-        )
+    # agar single token ho to list bana do
+    if isinstance(tokens, str):
+        tokens = [tokens]
 
-        response = messaging.send(message)
-        print("✅ Notification sent:", response)
-        return True
+    success = 0
 
-    except Exception as e:
-        print("❌ FCM error:", e)
-        traceback.print_exc()
-        return False
+    for token in tokens:
+
+        if not token:
+            continue
+
+        try:
+
+            print("📲 Sending FCM:", token)
+
+            message = messaging.Message(
+                notification=messaging.Notification(
+                    title=title,
+                    body=body
+                ),
+                token=token,
+                android=messaging.AndroidConfig(priority="high"),
+            )
+
+            response = messaging.send(message)
+
+            print("✅ Sent:", response)
+
+            success += 1
+
+        except Exception as e:
+
+            print("FCM ERROR:", e)
+
+    return success
 
 
 def send_notification_async(token, title, body, data=None):
     thread = threading.Thread(
         target=send_fcm_notification,
-        args=(token, title, body, data),
+        args=(token, title, body),
         daemon=True
     )
     thread.start()

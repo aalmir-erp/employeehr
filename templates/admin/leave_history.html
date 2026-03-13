@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+{% block title %}Leave History{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <!-- HEADER -->
+    <div class="row mb-4">
+        <div class="col">
+
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('admin.index') }}">Admin Dashboard</a>
+                    </li>
+                    <li class="breadcrumb-item active">Leave History</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="mb-0">Employee Leave Requests</h2>
+
+                <a href="{{ url_for('admin.leave_history') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </a>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- STATUS TILES -->
+    <div class="row mb-4">
+
+        <div class="col-md-3">
+            <div class="card bg-primary text-white text-center shadow-sm">
+                <div class="card-body">
+                    <h6>Total Leaves</h6>
+                    <h3>{{ pagination.total }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark text-center shadow-sm">
+                <div class="card-body">
+                    <h6>Pending</h6>
+                    <h3>{{ pending_count if pending_count is defined else leave_records|selectattr('0.status','equalto','pending')|list|length }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-success text-white text-center shadow-sm">
+                <div class="card-body">
+                    <h6>Approved</h6>
+                    <h3>{{ approved_count if approved_count is defined else leave_records|selectattr('0.status','equalto','approved')|list|length }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-danger text-white text-center shadow-sm">
+                <div class="card-body">
+                    <h6>Rejected</h6>
+                    <h3>{{ rejected_count if rejected_count is defined else leave_records|selectattr('0.status','equalto','rejected')|list|length }}</h3>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- FILTERS -->
+    <div class="row mb-3 g-2">
+
+        <div class="col-md-3">
+            <select id="employeeFilter" class="form-select">
+                <option value="all">All Employees</option>
+                {% for emp in employees %}
+                    <option value="{{ emp.name|lower }}">{{ emp.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-3">
+            <select id="statusFilter" class="form-select">
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+            </select>
+        </div>
+
+        <div class="col-md-3">
+            <input type="date" id="dateFilter" class="form-control">
+        </div>
+
+        <div class="col-md-3 d-flex gap-2">
+            <button class="btn btn-primary w-100" id="filterBtn">
+                <i class="bi bi-funnel"></i> Filter
+            </button>
+
+            <button class="btn btn-secondary w-100" id="resetBtn">
+                Reset
+            </button>
+        </div>
+
+    </div>
+
+    <!-- TABLE -->
+    <div class="card shadow-sm">
+
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">Leave Records</h5>
+        </div>
+
+        <div class="card-body p-0">
+
+            <div class="table-responsive">
+
+                <table class="table table-striped align-middle table-sm mb-0" id="leaveTable">
+
+                    <thead class="table-light">
+                        <tr>
+                            <th>Employee</th>
+                            <th>From Date</th>
+                            <th>To Date</th>
+                            <th>Reason</th>
+                            <th>Status</th>
+                            <th>HR Remarks</th>
+                            <th>Action</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for leave, user in leave_records %}
+                        <tr>
+
+                            <td>{{ user.employee.name if user.employee else user.username }}</td>
+
+                            <td>{{ leave.from_date }}</td>
+
+                            <td>{{ leave.to_date }}</td>
+
+                            <td>{{ leave.reason }}</td>
+
+                            <td id="status-{{ leave.id }}">
+                                {% if leave.status == 'approved' %}
+                                    <span class="badge bg-success">Approved</span>
+                                {% elif leave.status == 'pending' %}
+                                    <span class="badge bg-warning text-dark">Pending</span>
+                                {% elif leave.status == 'rejected' %}
+                                    <span class="badge bg-danger">Rejected</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ leave.status }}</span>
+                                {% endif %}
+                            </td>
+
+                            <td id="remark-{{ leave.id }}">
+                                {{ leave.hr_remark if leave.hr_remark else '-' }}
+                            </td>
+
+                            <td id="action-{{ leave.id }}">
+                                {% if leave.status == 'pending' %}
+
+                                    <button class="btn btn-success btn-sm approve-btn"
+                                            data-id="{{ leave.id }}"
+                                            data-employee="{{ user.employee.id if user.employee else user.id }}">
+                                        Approve
+                                    </button>
+
+                                    <button class="btn btn-danger btn-sm reject-btn"
+                                            data-id="{{ leave.id }}"
+                                            data-employee="{{ user.employee.id if user.employee else user.id }}">
+                                        Reject
+                                    </button>
+
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+
+                            <td>{{ leave.created_at.strftime('%Y-%m-%d') if leave.created_at else '-' }}</td>
+
+                        </tr>
+                        {% endfor %}
+
+                        {% if not leave_records %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4">No leave records found.</td>
+                        </tr>
+                        {% endif %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGINATION -->
+    <nav class="mt-3">
+        <ul class="pagination justify-content-center">
+
+            {% if pagination.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('admin.leave_history', page=pagination.prev_num) }}">
+                        Previous
+                    </a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">Previous</span>
+                </li>
+            {% endif %}
+
+            {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if page_num %}
+                    {% if page_num == pagination.page %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_num }}</span>
+                        </li>
+                    {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.leave_history', page=page_num) }}">
+                                {{ page_num }}
+                            </a>
+                        </li>
+                    {% endif %}
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if pagination.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('admin.leave_history', page=pagination.next_num) }}">
+                        Next
+                    </a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">Next</span>
+                </li>
+            {% endif %}
+
+        </ul>
+    </nav>
+
+</div>
+
+<!-- REJECT MODAL -->
+<div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
+
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title">Reject Leave</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+
+                <input type="hidden" id="rejectLeaveId">
+
+                <label for="rejectRemark" class="form-label">Remarks</label>
+                <textarea class="form-control" id="rejectRemark" rows="4"></textarea>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cancel
+                </button>
+
+                <button class="btn btn-danger" id="confirmReject">
+                    Reject
+                </button>
+
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const table = document.getElementById("leaveTable").getElementsByTagName("tbody")[0];
+    const employeeFilter = document.getElementById("employeeFilter");
+    const statusFilter = document.getElementById("statusFilter");
+    const dateFilter = document.getElementById("dateFilter");
+
+    const rejectModal = new bootstrap.Modal(
+        document.getElementById("rejectModal")
+    );
+
+    /* APPROVE / REJECT */
+    document.addEventListener("click", function (e) {
+
+        if (e.target.classList.contains("approve-btn")) {
+            const leaveId = e.target.dataset.id;
+            const employeeId = e.target.dataset.employee;
+
+            if (!confirm("Approve this leave request?")) return;
+
+            updateLeaveStatus(leaveId, employeeId, "approved", "");
+        }
+
+        if (e.target.classList.contains("reject-btn")) {
+            const leaveId = e.target.dataset.id;
+            const employeeId = e.target.dataset.employee;
+
+            document.getElementById("rejectLeaveId").value = leaveId;
+            document.getElementById("rejectLeaveId").dataset.employee = employeeId;
+            document.getElementById("rejectRemark").value = "";
+
+            rejectModal.show();
+        }
+
+    });
+
+    document.getElementById("confirmReject").addEventListener("click", function () {
+        const leaveId = document.getElementById("rejectLeaveId").value;
+        const employeeId = document.getElementById("rejectLeaveId").dataset.employee;
+        const remark = document.getElementById("rejectRemark").value;
+
+        if (remark.trim() === "") {
+            alert("Remarks are required for rejection");
+            return;
+        }
+
+        updateLeaveStatus(leaveId, employeeId, "rejected", remark);
+        rejectModal.hide();
+    });
+
+    /* API */
+    function updateLeaveStatus(leaveId, employeeId, status, remark) {
+        fetch("/admin/update-leave-status", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                leave_id: leaveId,
+                employee_id: employeeId,
+                status: status,
+                remark: remark
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+
+    /* FILTER BUTTON */
+    document.getElementById("filterBtn").addEventListener("click", function () {
+        const emp = employeeFilter.value;
+        const status = statusFilter.value;
+        const date = dateFilter.value;
+
+        for (let row of table.rows) {
+            const empName = row.cells[0].innerText.toLowerCase();
+            const leaveStatus = row.cells[4].innerText.toLowerCase();
+            const leaveDate = row.cells[1].innerText;
+
+            let show = true;
+
+            if (emp !== "all" && !empName.includes(emp)) show = false;
+            if (status !== "all" && !leaveStatus.includes(status)) show = false;
+            if (date && leaveDate !== date) show = false;
+
+            row.style.display = show ? "" : "none";
+        }
+    });
+
+    /* RESET */
+    document.getElementById("resetBtn").addEventListener("click", function () {
+        employeeFilter.value = "all";
+        statusFilter.value = "all";
+        dateFilter.value = "";
+
+        for (let row of table.rows) {
+            row.style.display = "";
+        }
+    });
+
+});
+</script>
+
+{% endblock %}

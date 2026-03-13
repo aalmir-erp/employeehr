@@ -346,8 +346,8 @@
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle {% if request.path.startswith('/admin') %}active{% endif %}" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
                             <i class="bi bi-gear"></i> HR
-                            {% if pending_dispute_count and pending_dispute_count > 0 %}
-                                    <span class="badge rounded-pill bg-danger">{{ pending_dispute_count }}</span>
+                            {% if total_pending_count and total_pending_count > 0 %}
+                                    <span class="badge rounded-pill bg-danger">{{ total_pending_count }}</span>
                                     {% endif %}
                         </a>
                         <ul class="dropdown-menu">
@@ -357,6 +357,7 @@
                             <i class="bi bi-award"></i> Bonus System
                         </a>
                     </li>
+                   
 {% if current_user.has_role('hr') %}
                     <li class="dropdown-item">
                         <a class="nav-link {% if request.path.startswith('users') %}active{% endif %}" href="{{ url_for('admin.users') }}">
@@ -364,9 +365,20 @@
                         </a>
                     </li>
 {% endif %}
-                    
+{% if current_user.has_role('supervisor') or current_user.has_role('hr') %}
+<li>
+    <a class="dropdown-item"
+        href="{{ url_for('admin.hr_annual_leaves') }}">
+                <i class="bi bi-calendar-check"></i>Annual Leave Requests
+                {% if pending_annual_leave_count and pending_annual_leave_count > 0 %}
+                <span class="badge rounded-pill bg-danger">{{ pending_annual_leave_count }}</span>
+                {% endif %}
+        </a>
+    </li>  
+<li>
+    {% endif %}               
                     {% if current_user.has_role('hr') %}
-                     <li>
+                              <li>
                                 <a class="dropdown-item" href="{{ url_for('admin.employees') }}">
                                     <i class="bi bi-people"></i> Employees
                                 </a>
@@ -391,6 +403,15 @@
                                     <i class="bi bi-person-badge"></i> Employee Weekend Config
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item"
+                                    href="{{ url_for('admin.leave_history') }}">
+                                            <i class="bi bi-calendar-check"></i> Leave Requests
+                                            {% if pending_leave_request_count and pending_leave_request_count > 0 %}
+                                            <span class="badge rounded-pill bg-danger">{{ pending_leave_request_count }}</span>
+                                            {% endif %}
+                                    </a>
+                                </li>  
                             <li>
                             <a class="dropdown-item"
                                 href="{{ url_for('admin.attendance_disputes') }}">
@@ -465,6 +486,18 @@
                                     <i class="bi bi-calendar-check"></i>  Attendance Dashboard
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('admin.mobile_users') }}">
+                                <i class="bi bi-phone"></i>
+                                Mobile Users
+                                </a>
+                             </li>
+                             <li>
+                                <a class="dropdown-item" href="{{ url_for('admin.notification_page') }}">
+                                <i class="bi bi-bell"></i>
+                                Push Notifications
+                                </a>
+                             </li>
                            
                            
                         </ul>

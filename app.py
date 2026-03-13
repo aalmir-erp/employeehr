@@ -14,7 +14,7 @@ from flask_wtf.csrf import CSRFProtect
 
 from scheduler import init_scheduler_custom
 from db import db
-from models import AttendanceLog, User, FCMToken, AttendanceNotification,AttendanceDispute,AttendanceRecord
+from models import AttendanceLog, User, FCMToken, AttendanceNotification,AttendanceDispute,AttendanceRecord,AnnualLeave,EmployeeLeave,Employee
 from extensions import socketio
 
 import firebase_admin
@@ -178,22 +178,81 @@ def format_date_filter(date):
         return str(date)
 
 @app.context_processor
-def inject_pending_dispute_count():
-    try:
-        if current_user.is_authenticated and (
-            current_user.has_role('hr') or
-            current_user.has_role('supervisor')
-        ):
-            pending_count = AttendanceDispute.query.filter_by(
-                status="PENDING"
-            ).count()
-        else:
-            pending_count = 0
+def inject_pending_counts():
 
-        return dict(pending_dispute_count=pending_count)
+    try:
+
+        pending_dispute_count = 0
+        pending_annual_leave_count = 0
+        pending_leave_request_count = 0
+        total_pending_count = 0
+
+        if current_user.is_authenticated:
+
+            # ===================================
+            # HR / ADMIN → ALL RECORDS
+            # ===================================
+            if current_user.has_role('hr') or current_user.has_role('admin'):
+
+                pending_dispute_count = AttendanceDispute.query.filter_by(
+                    status="PENDING"
+                ).count()
+
+                pending_annual_leave_count = AnnualLeave.query.filter(
+                    AnnualLeave.status.in_(["pending_supervisor", "pending_hr"])
+                ).count()
+
+                pending_leave_request_count = EmployeeLeave.query.filter_by(
+                    status="pending"
+                ).count()
+
+            # ===================================
+            # SUPERVISOR → ONLY HIS DEPARTMENT
+            # ===================================
+            elif current_user.has_role('supervisor'):
+
+                supervisor_employee = Employee.query.filter_by(
+                    id=current_user.employee_id
+                ).first()
+
+                if supervisor_employee and supervisor_employee.department:
+
+                    pending_dispute_count = 0
+
+                    pending_annual_leave_count = db.session.query(
+                        AnnualLeave
+                    ).join(
+                        Employee, AnnualLeave.employee_id == Employee.id
+                    ).filter(
+                        AnnualLeave.status == "pending_supervisor",
+                        Employee.department == supervisor_employee.department
+                    ).count()
+
+                    pending_leave_request_count = 0
+
+        # ================================
+        # TOTAL PENDING
+        # ================================
+        total_pending_count = (
+            pending_dispute_count +
+            pending_annual_leave_count +
+            pending_leave_request_count
+        )
+
+        return dict(
+            pending_dispute_count=pending_dispute_count,
+            pending_annual_leave_count=pending_annual_leave_count,
+            pending_leave_request_count=pending_leave_request_count,
+            total_pending_count=total_pending_count
+        )
 
     except Exception:
-        return dict(pending_dispute_count=0)        
+        return dict(
+            pending_dispute_count=0,
+            pending_annual_leave_count=0,
+            pending_leave_request_count=0,
+            total_pending_count=0
+        )   
 
 # -------------------------------------------------
 # 🔥 PostgreSQL LISTEN/NOTIFY Realtime Thread
@@ -211,7 +270,7 @@ executor = ThreadPoolExecutor(max_workers=3)
 # =========================================================
 def send_fcm_notification(token, title, body):
     try:
-        print("📲 Sending FCM...")
+        print("📲 Sending FCM...",token,title,body)
 
         message = messaging.Message(
             notification=messaging.Notification(
@@ -341,11 +400,6 @@ def listen_for_attendance_notifications(app):
                 title = f"MIR AMS - {action}"
                 body = (
                     f"You marked {action} at {log_time}\n\n"
-                    f"📊 Monthly Summary:\n"
-                    f"Present: {present}\n"
-                    f"Absent: {absent}\n"
-                    f"Late: {late}\n"
-                    f"Overtime: {round(overtime, 2)} hrs"
                 )
 
                 print("📲 Triggering FCM...")

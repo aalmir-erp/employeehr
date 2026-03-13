@@ -29,6 +29,70 @@ class JSONB(TypeDecorator):
             return json.loads(value)
         return value
 
+class EmployeeLeave(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id"),   # 🔴 yeh missing tha
+        nullable=False
+    )
+    from_date = db.Column(db.Date, nullable=False)
+    to_date = db.Column(db.Date, nullable=False)
+    reason = db.Column(db.Text)
+    hr_remark = db.Column(db.Text)
+    status = db.Column(db.String(20), default="pending")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship("User", backref="leaves")
+
+class AnnualLeave(db.Model):
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    user_id = db.Column(db.Integer)
+
+    employee_id = db.Column(
+        db.Integer,
+        db.ForeignKey("employee.id")
+    )
+
+    employee = db.relationship(
+        "Employee",
+        backref="annual_leaves"
+    )
+
+    supervisor_id = db.Column(db.Integer)
+
+    department = db.Column(db.String(100))
+
+    date_from = db.Column(db.Date, nullable=False)
+    date_to = db.Column(db.Date, nullable=False)
+
+    total_days = db.Column(db.Integer)
+
+    status = db.Column(db.String(50), default="pending_supervisor")
+
+    supervisor_remark = db.Column(db.Text)
+    hr_remark = db.Column(db.Text)
+    admin_remark = db.Column(db.Text)
+
+    reason = db.Column(db.Text)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow) 
+
+class MobileAppLoginHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    user_id = db.Column(db.Integer, nullable=False)
+    employee_id = db.Column(db.Integer, nullable=False)
+    login_time = db.Column(db.DateTime, default=datetime.utcnow)
+    gps_location = db.Column(db.String(255), nullable=True)
+    device_name = db.Column(db.String(150), nullable=True)
+    device_ip = db.Column(db.String(100), nullable=True)
+    last_active_at = db.Column(db.DateTime, nullable=True)
+    app_version = db.Column(db.String(50), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 class AttendanceDispute(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, nullable=False)
@@ -40,12 +104,29 @@ class AttendanceDispute(db.Model):
     status = db.Column(db.String(20), default="PENDING") 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class AttendanceDisputeAttachment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    dispute_id = db.Column(db.Integer, db.ForeignKey('attendance_dispute.id'), nullable=False)
+    history_id = db.Column(
+        db.Integer,
+        db.ForeignKey('attendance_dispute_history.id'),
+        nullable=True
+    )
+    file_name = db.Column(db.String(255))
+    file_path = db.Column(db.String(500))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)    
+
 class AttendanceDisputeHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     dispute_id = db.Column(db.Integer, db.ForeignKey('attendance_dispute.id'), nullable=False)
     by_user_id = db.Column(db.Integer, nullable=False)         
     remark = db.Column(db.Text, nullable=False)
     status = db.Column(db.String(20), nullable=True)
+    is_viewed = db.Column(
+        db.Boolean,
+        default=False,
+        nullable=False
+    )
     created_at = db.Column(db.DateTime, default=datetime.utcnow)          
 
 class UserLoginHistory(db.Model):

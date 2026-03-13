@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+
+{% block title %}Send Notification{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid">
+
+<div class="row justify-content-center">
+
+<div class="col-lg-8">
+
+<div class="card shadow-lg border-0">
+
+<div class="card-header bg-primary text-white">
+
+<h4 class="mb-0">
+<i class="bi bi-bell-fill"></i>
+Push Notification Center
+</h4>
+
+</div>
+
+<div class="card-body p-4">
+
+<form id="notificationForm">
+
+<!-- Notification Type Toggle -->
+
+<div class="mb-4">
+
+<label class="form-label fw-bold">Send Notification To</label>
+
+<div class="d-flex gap-4">
+
+<div class="form-check form-check-inline">
+
+<input class="form-check-input"
+type="radio"
+name="targetType"
+id="deptRadio"
+value="department"
+checked>
+
+<label class="form-check-label fw-bold">
+Department
+</label>
+
+</div>
+
+<div class="form-check form-check-inline">
+
+<input class="form-check-input"
+type="radio"
+name="targetType"
+id="userRadio"
+value="user">
+
+<label class="form-check-label fw-bold">
+Individual User
+</label>
+
+</div>
+
+</div>
+
+</div>
+
+
+<!-- Department Select -->
+
+<div id="departmentBox" class="mb-3">
+
+<label class="form-label">
+<i class="bi bi-diagram-3"></i>
+Select Department
+</label>
+
+<select id="department" class="form-select">
+
+<option value="">Select Department</option>
+
+{% for d in departments %}
+<option value="{{ d[0] }}">{{ d[0] }}</option>
+{% endfor %}
+
+</select>
+
+</div>
+
+
+<!-- User Select -->
+
+<div id="userBox" class="mb-3" style="display:none;">
+
+<label class="form-label">
+<i class="bi bi-person"></i>
+Select User
+</label>
+
+<select id="user_id" class="form-select bg-info" multiple>
+
+    <option value="">Select User</option>
+    
+    {% for user, employee in users %}
+    
+    <option value="{{ user.id }}">
+    
+    {% if employee %}
+    {{ employee.name }} ({{ employee.employee_code }})
+    {% else %}
+    {{ user.username }}
+    {% endif %}
+    
+    </option>
+    
+    {% endfor %}
+    
+    </select>
+
+</div>
+
+
+<!-- Title -->
+
+<div class="mb-3">
+
+<label class="form-label">
+<i class="bi bi-type"></i>
+Notification Title
+</label>
+
+<input
+type="text"
+id="title"
+class="form-control"
+placeholder="Enter notification title"
+required
+>
+
+</div>
+
+
+<!-- Message -->
+
+<div class="mb-4">
+
+<label class="form-label">
+<i class="bi bi-chat-left-text"></i>
+Notification Message
+</label>
+
+<textarea
+id="message"
+class="form-control"
+rows="4"
+placeholder="Write your notification message..."
+required
+></textarea>
+
+</div>
+
+
+<!-- Buttons -->
+
+<div class="d-flex gap-2">
+
+<button type="submit" class="btn btn-primary">
+
+<i class="bi bi-send"></i>
+Send Notification
+
+</button>
+
+<button type="reset" class="btn btn-outline-secondary">
+
+Reset
+
+</button>
+
+</div>
+
+</form>
+
+
+<div id="notificationResponse" class="mt-4"></div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+
+<script>
+
+/* ================= Toggle Logic ================= */
+
+const deptRadio = document.getElementById("deptRadio")
+const userRadio = document.getElementById("userRadio")
+
+const deptBox = document.getElementById("departmentBox")
+const userBox = document.getElementById("userBox")
+
+deptRadio.addEventListener("change", ()=>{
+
+deptBox.style.display = "block"
+userBox.style.display = "none"
+
+})
+
+userRadio.addEventListener("change", ()=>{
+
+deptBox.style.display = "none"
+userBox.style.display = "block"
+
+})
+
+
+/* ================= SEND AJAX ================= */
+
+document.getElementById("notificationForm").addEventListener("submit", function(e){
+
+e.preventDefault()
+
+const type = document.querySelector('input[name="targetType"]:checked').value
+
+let department = ""
+let user_id = ""
+
+if(type === "department"){
+department = document.getElementById("department").value
+}else{
+user_id = document.getElementById("user_id").value
+}
+
+const title = document.getElementById("title").value
+const message = document.getElementById("message").value
+
+
+fetch("/admin/send-notification",{
+
+method:"POST",
+
+headers:{
+"Content-Type":"application/json"
+},
+
+body:JSON.stringify({
+department:department,
+user_id:user_id,
+title:title,
+message:message
+})
+
+})
+.then(res=>res.json())
+.then(data=>{
+
+const box=document.getElementById("notificationResponse")
+
+if(data.success){
+
+box.innerHTML = `
+<div class="alert alert-success alert-dismissible fade show">
+
+<strong>Success!</strong> ${data.message}
+
+<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+
+</div>
+`
+
+}else{
+
+box.innerHTML = `
+<div class="alert alert-danger alert-dismissible fade show">
+
+<strong>Error!</strong> ${data.message}
+
+<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+
+</div>
+`
+
+}
+
+})
+.catch(()=>{
+
+document.getElementById("notificationResponse").innerHTML = `
+<div class="alert alert-danger">
+
+Server Error
+
+</div>
+`
+
+})
+
+})
+
+</script>
+
+{% endblock %}

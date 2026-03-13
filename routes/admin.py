@@ -4,7 +4,7 @@ from flask_login import login_required, current_user, logout_user, login_user
 from datetime import datetime, timedelta
 from app import db
 from utils.odoo_connector import odoo_connector
-from models import User, Employee, Shift, ShiftAssignment, AttendanceDevice, OdooConfig, OdooMapping, ERPConfig, SystemConfig, EmployeeDevice,UserLoginHistory,AttendanceRecord,AttendanceLog,FCMToken,AttendanceDispute,AttendanceDisputeHistory
+from models import User, Employee, Shift, ShiftAssignment, AttendanceDevice, OdooConfig, OdooMapping, ERPConfig, SystemConfig, EmployeeDevice,UserLoginHistory,AttendanceRecord,AttendanceLog,FCMToken,AttendanceDispute,AttendanceDisputeHistory,MobileAppLoginHistory,AttendanceDisputeAttachment,EmployeeLeave,AnnualLeave
 from itsdangerous import URLSafeSerializer, BadSignature
 import threading
 import requests
@@ -19,6 +19,9 @@ from sqlalchemy import desc,or_,func, cast, String
 from utils.firebase import send_fcm_notification
 from sqlalchemy.orm import joinedload
 import logging, traceback
+import jwt
+from flask import send_file
+import os
 
 
 
@@ -94,6 +97,419 @@ def index():
         last_sync=last_sync
     )
 
+def calculate_days(date_from, date_to):
+
+    return (date_to - date_from).days + 1
+
+@bp.route("/hr-annual-leaves")
+@login_required
+def hr_annual_leaves():
+
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+
+    query = AnnualLeave.query
+
+    supervisor_employee = None
+
+    # ===============================
+    # ADMIN / HR → SEE ALL RECORDS
+    # ===============================
+    if current_user.has_role("admin") or current_user.has_role("hr"):
+        pass  # koi filter nahi
+
+    # ===============================
+    # SUPERVISOR → ONLY HIS DEPARTMENT
+    # ===============================
+    elif current_user.has_role("supervisor"):
+
+        supervisor_employee = Employee.query.filter_by(
+            id=current_user.employee_id
+        ).first()
+
+        if supervisor_employee and supervisor_employee.department:
+
+            query = query.join(
+                Employee,
+                AnnualLeave.employee_id == Employee.id
+            ).filter(
+                Employee.department == supervisor_employee.department
+            )
+
+    # ===============================
+    # PAGINATION
+    # ===============================
+    pagination = query.order_by(
+        AnnualLeave.id.desc()
+    ).paginate(page=page, per_page=per_page, error_out=False)
+
+    leaves = pagination.items
+
+    # ===============================
+    # EMPLOYEE DROPDOWN
+    # ===============================
+    if current_user.has_role("admin") or current_user.has_role("hr"):
+
+        employees = Employee.query.order_by(Employee.name).all()
+
+    elif current_user.has_role("supervisor") and supervisor_employee:
+
+        employees = Employee.query.filter_by(
+            department=supervisor_employee.department
+        ).order_by(Employee.name).all()
+
+    else:
+        employees = []
+
+    return render_template(
+        "admin/hr_annual_leaves.html",
+        leaves=leaves,
+        employees=employees,
+        pagination=pagination,
+        current_user=current_user
+    )
+
+@bp.route("/hr-approve-leave", methods=["POST"])
+@login_required
+def hr_approve_leave():
+
+    data = request.get_json()
+
+    leave_id = data.get("leave_id")
+    remark = data.get("remark")
+    status = data.get("status")
+
+    leave = AnnualLeave.query.get(leave_id)
+
+    if not leave:
+        return jsonify({"success": False})
+
+    # ----------------------------------
+    # ROLE ACTION
+    # ----------------------------------
+
+    if current_user.has_role("admin"):
+
+        leave.admin_remark = remark
+
+        if status == "approved":
+            leave.status = "approved"
+
+        elif status == "rejected":
+            leave.status = "rejected"
+
+
+    elif current_user.has_role("hr"):
+
+        leave.hr_remark = remark
+
+        if status == "approved":
+            leave.status = "approved"
+
+        elif status == "rejected":
+            leave.status = "rejected"
+
+
+    elif current_user.has_role("supervisor"):
+
+        leave.supervisor_remark = remark
+
+        if status == "approved":
+            leave.status = "pending_hr"
+
+        elif status == "rejected":
+            leave.status = "rejected"
+
+    db.session.commit()
+
+    # ----------------------------------
+    # FIND USER
+    # ----------------------------------
+
+    user = User.query.get(leave.user_id)
+
+    if not user:
+        return jsonify({"success": True})
+
+    # ----------------------------------
+    # GET FCM TOKENS
+    # ----------------------------------
+
+    user_tokens = FCMToken.query.filter_by(user_id=user.id).all()
+
+    tokens = [t.token for t in user_tokens if t.token]
+
+    if not tokens:
+        return jsonify({"success": True})
+
+    # ----------------------------------
+    # CREATE MESSAGE
+    # ----------------------------------
+
+    if leave.status == "approved":
+
+        title = "Annual Leave Approved"
+
+        message = f"Your annual leave from {leave.date_from} to {leave.date_to} has been approved."
+
+
+    elif leave.status == "rejected":
+
+        title = "Annual Leave Rejected"
+
+        message = f"Your annual leave request has been rejected. Remark: {remark}"
+
+
+    elif leave.status == "pending_hr":
+
+        title = "Leave Forwarded to HR"
+
+        message = "Your leave has been approved by Supervisor and forwarded to HR."
+
+
+    else:
+
+        title = "Leave Update"
+
+        message = "Your leave request status has been updated."
+
+    # ----------------------------------
+    # SEND FCM
+    # ----------------------------------
+
+    send_fcm_notification(tokens, title, message)
+
+    return jsonify({"success": True})         
+
+@bp.route("/leave-history")
+@login_required
+def leave_history():
+
+    page = request.args.get("page", 1, type=int)
+    per_page = 10
+
+    pagination = EmployeeLeave.query.order_by(
+        EmployeeLeave.created_at.desc()
+    ).paginate(page=page, per_page=per_page, error_out=False)
+
+    leaves = pagination.items
+
+    leave_records = []
+
+    for leave in leaves:
+        user = User.query.filter_by(id=leave.user_id).first()
+        leave_records.append((leave, user))
+
+    employees = db.session.query(
+        Employee.id,
+        Employee.name
+    ).order_by(Employee.name).all()
+
+    return render_template(
+        "admin/leave_history.html",
+        leave_records=leave_records,
+        employees=employees,
+        pagination=pagination
+    )
+
+@bp.route("/update-leave-status", methods=["POST"])
+def update_leave_status():
+
+    data = request.get_json()
+
+    leave_id = data.get("leave_id")
+    employee_id = data.get("employee_id")
+    status = data.get("status")
+    remark = data.get("remark")
+
+    print("Update Leave Status API called")
+
+    leave = EmployeeLeave.query.get(leave_id)
+
+    if not leave:
+        return jsonify({"success": False, "message": "Leave not found"})
+
+
+    # UPDATE LEAVE
+    leave.status = status
+    leave.hr_remark = remark
+    db.session.commit()
+
+
+    # ---------------------------------------------------
+    # FIND EMPLOYEE
+    # ---------------------------------------------------
+
+    employee = Employee.query.get(employee_id)
+
+    if not employee:
+        return jsonify({"success": True})
+
+
+    employee_code = employee.employee_code
+
+
+    # ---------------------------------------------------
+    # FIND USER USING EMPLOYEE CODE
+    # username == employee_code
+    # ---------------------------------------------------
+
+    user = User.query.filter_by(username=employee_code).first()
+
+    if not user:
+        print("User not found for employee_code:", employee_code)
+        return jsonify({"success": True})
+
+
+    # ---------------------------------------------------
+    # GET FCM TOKEN
+    # ---------------------------------------------------
+
+    user_tokens = FCMToken.query.filter_by(user_id=user.id).all()
+
+    tokens = [t.token for t in user_tokens if t.token]
+
+    if not tokens:
+        print("No FCM tokens for user:", user.id)
+        return jsonify({"success": True})
+
+
+    # ---------------------------------------------------
+    # CREATE NOTIFICATION MESSAGE
+    # ---------------------------------------------------
+
+    if status == "approved":
+        title = "Leave Approved"
+        message = f"Your leave from {leave.from_date} to {leave.to_date} has been approved."
+
+    elif status == "rejected":
+        title = "Leave Rejected"
+        message = f"Your leave has been rejected. Remark: {remark}"
+
+    else:
+        title = "Leave Update"
+        message = "Your leave request status has been updated."
+
+
+    # ---------------------------------------------------
+    # SEND FCM
+    # ---------------------------------------------------
+
+    send_fcm_notification(tokens, title, message)
+
+
+    return jsonify({"success": True})   
+
+@bp.route("/notifications", methods=["GET"])
+def notification_page():
+
+    departments = db.session.query(User.department).distinct().all()
+
+    users = db.session.query(
+        User,
+        Employee
+    ).join(
+        Employee, Employee.id == User.employee_id
+    ).all()
+
+    print(users,"==============================users")
+
+    return render_template(
+        "admin/send_notification.html",
+        departments=departments,
+        users=users
+    )
+
+@bp.route("/send-notification", methods=["POST"])
+def send_notification_api():
+
+    data = request.get_json()
+
+    title = data.get("title")
+    message = data.get("message")
+    department = data.get("department")
+    user_ids = data.get("user_ids")
+
+    tokens = []
+
+    # Multiple users
+    if user_ids:
+
+        user_tokens = FCMToken.query.filter(
+            FCMToken.user_id.in_(user_ids)
+        ).all()
+
+        tokens = [t.token for t in user_tokens if t.token]
+
+
+    # Department users
+    elif department:
+
+        dept_users = User.query.filter_by(department=department).all()
+
+        user_ids = [u.id for u in dept_users]
+
+        user_tokens = FCMToken.query.filter(
+            FCMToken.user_id.in_(user_ids)
+        ).all()
+
+        tokens = [t.token for t in user_tokens if t.token]
+
+
+    # All users
+    else:
+
+        user_tokens = FCMToken.query.all()
+
+        tokens = [t.token for t in user_tokens if t.token]
+
+
+    if not tokens:
+
+        return jsonify({
+            "success": False,
+            "message": "No valid FCM tokens found"
+        })
+
+
+    sent = send_fcm_notification(tokens, title, message)
+
+
+    return jsonify({
+        "success": True,
+        "message": f"Notification sent to {sent} users"
+    })
+
+@bp.route("/mobile-users")
+def mobile_users():
+
+    users = db.session.query(
+        User,
+        Employee,
+        MobileAppLoginHistory
+    ).join(
+        Employee, Employee.id == User.employee_id
+    ).outerjoin(
+        MobileAppLoginHistory,
+        MobileAppLoginHistory.user_id == User.id
+    ).all()
+
+    return render_template(
+        "admin/mobile_users.html",
+        users=users
+    )  
+
+
+@bp.route("/dispute_attachment/<int:attachment_id>")
+def dispute_attachment(attachment_id):
+
+    attachment = AttendanceDisputeAttachment.query.get(attachment_id)
+
+    if not attachment or not os.path.exists(attachment.file_path):
+        return "File not found", 404
+
+    return send_file(attachment.file_path, as_attachment=False)   
+
 # ===============================
 # LIST PAGE WITH FILTERS + HISTORY
 # ===============================
@@ -106,6 +522,9 @@ def attendance_disputes():
     start = request.args.get("start")
     end = request.args.get("end")
     employee_id = request.args.get("employee_id")
+
+    page = request.args.get("page", 1, type=int)
+    per_page = 10
 
     query = AttendanceDispute.query
 
@@ -132,18 +551,56 @@ def attendance_disputes():
     if end:
         query = query.filter(AttendanceDispute.dispute_date <= end)
 
-    disputes = query.order_by(AttendanceDispute.id.desc()).all()
+    latest_activity_subquery = db.session.query(
+        AttendanceDisputeHistory.dispute_id.label("dispute_id"),
+        func.max(AttendanceDisputeHistory.created_at).label("last_activity")
+    ).group_by(
+        AttendanceDisputeHistory.dispute_id
+    ).subquery()
+
+    query = query.outerjoin(
+        latest_activity_subquery,
+        AttendanceDispute.id == latest_activity_subquery.c.dispute_id
+    )
+
+    query = query.order_by(
+        func.coalesce(
+            latest_activity_subquery.c.last_activity,
+            AttendanceDispute.created_at
+        ).desc()
+    )
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    disputes = pagination.items
 
     employees = Employee.query.order_by(Employee.name).all()
     emp_map = {e.id: e.name for e in employees}
 
     for d in disputes:
+
         d.employee_name = emp_map.get(d.employee_id, "N/A")
 
-        history_rows = AttendanceDisputeHistory.query \
-            .filter_by(dispute_id=d.id) \
-            .order_by(AttendanceDisputeHistory.created_at.asc()) \
-            .all()
+        d.unread_count = AttendanceDisputeHistory.query.filter(
+            AttendanceDisputeHistory.dispute_id == d.id,
+            AttendanceDisputeHistory.is_viewed == False,
+            AttendanceDisputeHistory.by_user_id != int(current_user.id)
+        ).count()
+
+        attachments = AttendanceDisputeAttachment.query.filter_by(
+            dispute_id=d.id,
+            history_id=None
+        ).all()
+
+        d.attachments = [
+            {"id": a.id, "file_name": a.file_name}
+            for a in attachments
+        ]
+
+        history_rows = AttendanceDisputeHistory.query.filter_by(
+            dispute_id=d.id
+        ).order_by(
+            AttendanceDisputeHistory.created_at.asc()
+        ).all()
 
         d.remarks_history = []
 
@@ -153,16 +610,24 @@ def attendance_disputes():
 
             employee = None
             if user and user.employee_id:
-                employee = Employee.query.filter_by(
-                    id=user.employee_id
-                ).first()
+                employee = Employee.query.get(user.employee_id)
 
+            history_attachments = AttendanceDisputeAttachment.query.filter_by(
+                history_id=h.id
+            ).all()
+
+            history_files = [
+                {"id": a.id, "file_name": a.file_name}
+                for a in history_attachments
+            ]
 
             d.remarks_history.append({
                 "name": employee.name if employee else (user.name if user else "Unknown"),
-                "image": employee.image,
+                "image": employee.image if employee else None,
                 "remark": h.remark,
                 "status": h.status,
+                "is_viewed": h.is_viewed,
+                "attachments": history_files,
                 "datetime": h.created_at.strftime("%Y-%m-%d %H:%M:%S")
             })
 
@@ -170,6 +635,7 @@ def attendance_disputes():
         "attendance/disputes.html",
         disputes=disputes,
         employees=employees,
+        pagination=pagination,
         filters={
             "q": q,
             "status": status,
@@ -178,6 +644,27 @@ def attendance_disputes():
             "employee_id": employee_id
         }
     )
+@bp.route('/mark_dispute_viewed', methods=['POST'])
+@login_required
+def mark_dispute_viewed():
+
+    dispute_id = request.json.get("dispute_id")
+
+    if not dispute_id:
+        return jsonify({"success": False})
+
+    # Sirf USER messages viewed hon
+    AttendanceDisputeHistory.query.filter(
+        AttendanceDisputeHistory.dispute_id == dispute_id,
+        AttendanceDisputeHistory.is_viewed == False,
+        AttendanceDisputeHistory.by_user_id != current_user.id
+    ).update({
+        "is_viewed": True
+    }, synchronize_session=False)
+
+    db.session.commit()
+
+    return jsonify({"success": True})    
 
 
 @bp.route('/attendance_disputes/<int:dispute_id>/status', methods=['POST'])
@@ -219,9 +706,9 @@ def update_dispute_status(dispute_id):
 
                 admin_name = admin_employee.name if admin_employee else current_user.name
 
-                title = f"{admin_name} updated your dispute to {new_status}"
+                title = f"{admin_name} updated your ticket to {new_status}"
 
-                body = dispute.remarks
+                body = dispute.admin_remarks
 
 
                 send_fcm_notification(
@@ -244,8 +731,11 @@ def update_dispute_status(dispute_id):
 @bp.route('/attendance_disputes/bulk_update', methods=['POST'])
 @login_required
 def bulk_update_disputes():
+
     try:
+
         data = request.get_json() or {}
+
         ids = data.get("ids", [])
         new_status = data.get("status")
         admin_remarks = data.get("admin_remarks", "")
@@ -254,7 +744,16 @@ def bulk_update_disputes():
             AttendanceDispute.id.in_(ids)
         ).all()
 
+        tokens = []
+
+        admin_employee = Employee.query.filter_by(
+            id=current_user.employee_id
+        ).first()
+
+        admin_name = admin_employee.name if admin_employee else current_user.name
+
         for dispute in disputes:
+
             dispute.status = new_status
             dispute.admin_remarks = admin_remarks
 
@@ -268,13 +767,36 @@ def bulk_update_disputes():
 
             db.session.add(history)
 
+            # ==========================
+            # GET USER TOKENS (MULTIPLE DEVICES)
+            # ==========================
+            user_tokens = FCMToken.query.filter_by(
+                user_id=dispute.user_id
+            ).all()
+
+            for t in user_tokens:
+
+                title = f"{admin_name} updated your ticket"
+
+                body = dispute.admin_remarks
+
+                send_fcm_notification(t.token, title, body)
+
         db.session.commit()
+
+        # ==========================
+        # SEND NOTIFICATIONS
+        # ==========================
+       
 
         return jsonify(success=True)
 
-    except Exception:
+    except Exception as e:
+
         db.session.rollback()
+
         logging.exception("Bulk Update Error")
+
         return jsonify(success=False, message="Server Error"), 500
 
 
@@ -1229,15 +1751,24 @@ def add_user():
     return render_template('admin/add_user.html', employees=employees)
 
 
+
+
 @bp.route('/loginuser/<token>', methods=['GET', 'POST'])
 def loginuser_from_qr(token):
     employee = None
     dob_clean = None
+    is_mobile = request.headers.get('X-Mobile-App') == 'true'
+    device_name = request.args.get('device_name')
+    gps_location = request.args.get('gps_location')
+    app_version = request.args.get('app_version')
+    device_ip = request.remote_addr
+
+    print(is_mobile,"ismoevviev=============================================")
 
     if request.method != 'POST':
         try:
             res = requests.post(
-                "https://erp.mir.ae/get_employee_by_token",
+                "http://192.168.100.54:8070/get_employee_by_token",
                 data={'token': token},
                 timeout=5
             )
@@ -1264,6 +1795,70 @@ def loginuser_from_qr(token):
 
         # 🔹 If user already exists → login
         existing_user = User.query.filter_by(employee_id=employee.id).first()
+
+        if is_mobile:
+
+            if not existing_user:
+                return jsonify({"success": False, "message": "User not found"}), 404
+
+            token_payload = {
+                "user_id": existing_user.id,
+                "username": existing_user.username,
+                "role": existing_user.role,
+                "is_admin": existing_user.is_admin
+            }    
+
+            token = jwt.encode(
+                token_payload,
+                "Dxb@mir0190",
+                algorithm="HS256"
+            )
+
+            print(token,"jwt_token=========================================")
+            existing_login = MobileAppLoginHistory.query.filter_by(
+                user_id=existing_user.id
+            ).first()
+
+            print(existing_login)
+
+            if existing_login:
+
+                existing_login.login_time = datetime.utcnow()
+                existing_login.device_name = device_name
+                existing_login.device_ip = device_ip
+                existing_login.gps_location = gps_location
+                existing_login.app_version = app_version
+
+            else:
+
+                new_login = MobileAppLoginHistory(
+                    user_id=existing_user.id,
+                    employee_id=employee.id if employee else None,
+                    login_time=datetime.utcnow(),
+                    device_name=device_name,
+                    device_ip=device_ip,
+                    gps_location=gps_location,
+                    app_version=app_version
+                )
+
+                db.session.add(new_login)
+                db.session.commit()
+           
+
+            return jsonify({
+                "success": True,
+                "message": "Login successful",
+                "token": token,
+                "user": {
+                    "id": existing_user.id,
+                    "username": existing_user.username,
+                    "name": employee.name if employee else None,
+                    "image": employee.image if employee else None,
+                    "role": existing_user.role,
+                    "is_admin": existing_user.is_admin
+                }
+            }), 200
+
         if existing_user:
             login_user(existing_user)
 
