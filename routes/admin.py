@@ -428,41 +428,58 @@ def send_notification_api():
     title = data.get("title")
     message = data.get("message")
     department = data.get("department")
-    user_ids = data.get("user_ids")
+    user_ids = data.get("user_id")
+    if user_ids and not isinstance(user_ids, list):
+        user_ids = [user_ids]
+
+    print(user_ids,"=================================user_ids")
 
     tokens = []
 
-    # Multiple users
+    # -------------------------------
+    # MULTIPLE USERS
+    # -------------------------------
     if user_ids:
 
-        user_tokens = FCMToken.query.filter(
-            FCMToken.user_id.in_(user_ids)
-        ).all()
+        user_tokens = (
+            db.session.query(FCMToken.user_id, FCMToken.token)
+            .filter(FCMToken.user_id.in_(user_ids))
+            .distinct(FCMToken.user_id)
+            .all()
+        )
 
         tokens = [t.token for t in user_tokens if t.token]
 
-
-    # Department users
+    # -------------------------------
+    # DEPARTMENT USERS
+    # -------------------------------
     elif department:
 
         dept_users = User.query.filter_by(department=department).all()
 
         user_ids = [u.id for u in dept_users]
 
-        user_tokens = FCMToken.query.filter(
-            FCMToken.user_id.in_(user_ids)
-        ).all()
+        user_tokens = (
+            db.session.query(FCMToken.user_id, FCMToken.token)
+            .filter(FCMToken.user_id.in_(user_ids))
+            .distinct(FCMToken.user_id)
+            .all()
+        )
 
         tokens = [t.token for t in user_tokens if t.token]
 
-
-    # All users
+    # -------------------------------
+    # ALL USERS
+    # -------------------------------
     else:
 
-        user_tokens = FCMToken.query.all()
+        user_tokens = (
+            db.session.query(FCMToken.user_id, FCMToken.token)
+            .distinct(FCMToken.user_id)
+            .all()
+        )
 
         tokens = [t.token for t in user_tokens if t.token]
-
 
     if not tokens:
 
@@ -471,9 +488,7 @@ def send_notification_api():
             "message": "No valid FCM tokens found"
         })
 
-
     sent = send_fcm_notification(tokens, title, message)
-
 
     return jsonify({
         "success": True,

@@ -198,112 +198,116 @@ Reset
 
 <script>
 
-/* ================= Toggle Logic ================= */
-
-const deptRadio = document.getElementById("deptRadio")
-const userRadio = document.getElementById("userRadio")
-
-const deptBox = document.getElementById("departmentBox")
-const userBox = document.getElementById("userBox")
-
-deptRadio.addEventListener("change", ()=>{
-
-deptBox.style.display = "block"
-userBox.style.display = "none"
-
-})
-
-userRadio.addEventListener("change", ()=>{
-
-deptBox.style.display = "none"
-userBox.style.display = "block"
-
-})
-
-
-/* ================= SEND AJAX ================= */
-
-document.getElementById("notificationForm").addEventListener("submit", function(e){
-
-e.preventDefault()
-
-const type = document.querySelector('input[name="targetType"]:checked').value
-
-let department = ""
-let user_id = ""
-
-if(type === "department"){
-department = document.getElementById("department").value
-}else{
-user_id = document.getElementById("user_id").value
-}
-
-const title = document.getElementById("title").value
-const message = document.getElementById("message").value
-
-
-fetch("/admin/send-notification",{
-
-method:"POST",
-
-headers:{
-"Content-Type":"application/json"
-},
-
-body:JSON.stringify({
-department:department,
-user_id:user_id,
-title:title,
-message:message
-})
-
-})
-.then(res=>res.json())
-.then(data=>{
-
-const box=document.getElementById("notificationResponse")
-
-if(data.success){
-
-box.innerHTML = `
-<div class="alert alert-success alert-dismissible fade show">
-
-<strong>Success!</strong> ${data.message}
-
-<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-
-</div>
-`
-
-}else{
-
-box.innerHTML = `
-<div class="alert alert-danger alert-dismissible fade show">
-
-<strong>Error!</strong> ${data.message}
-
-<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-
-</div>
-`
-
-}
-
-})
-.catch(()=>{
-
-document.getElementById("notificationResponse").innerHTML = `
-<div class="alert alert-danger">
-
-Server Error
-
-</div>
-`
-
-})
-
-})
-
-</script>
+    /* ================= Toggle Logic ================= */
+    
+    const deptRadio = document.getElementById("deptRadio")
+    const userRadio = document.getElementById("userRadio")
+    
+    const deptBox = document.getElementById("departmentBox")
+    const userBox = document.getElementById("userBox")
+    
+    deptRadio.addEventListener("change", ()=>{
+    
+        deptBox.style.display = "block"
+        userBox.style.display = "none"
+    
+    })
+    
+    userRadio.addEventListener("change", ()=>{
+    
+        deptBox.style.display = "none"
+        userBox.style.display = "block"
+    
+    })
+    
+    
+    /* ================= SEND AJAX ================= */
+    
+    document.getElementById("notificationForm").addEventListener("submit", function(e){
+    
+    e.preventDefault()
+    
+    const type = document.querySelector('input[name="targetType"]:checked').value
+    
+    let department = ""
+    let user_ids = []
+    
+    if(type === "department"){
+    
+        department = document.getElementById("department").value
+    
+    }else{
+    
+        const select = document.getElementById("user_id")
+    
+        user_ids = Array.from(select.selectedOptions).map(option => option.value)
+    
+    }
+    
+    const title = document.getElementById("title").value
+    const message = document.getElementById("message").value
+    
+    
+    fetch("/admin/send-notification",{
+    
+    method:"POST",
+    
+    headers:{
+    "Content-Type":"application/json"
+    },
+    
+    body:JSON.stringify({
+    department:department,
+    user_id:user_ids,
+    title:title,
+    message:message
+    })
+    
+    })
+    .then(res=>res.json())
+    .then(data=>{
+    
+    const box=document.getElementById("notificationResponse")
+    
+    if(data.success){
+    
+    box.innerHTML = `
+    <div class="alert alert-success alert-dismissible fade show">
+    
+    <strong>Success!</strong> ${data.message}
+    
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    
+    </div>
+    `
+    
+    }else{
+    
+    box.innerHTML = `
+    <div class="alert alert-danger alert-dismissible fade show">
+    
+    <strong>Error!</strong> ${data.message}
+    
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    
+    </div>
+    `
+    
+    }
+    
+    })
+    .catch(()=>{
+    
+    document.getElementById("notificationResponse").innerHTML = `
+    <div class="alert alert-danger">
+    Server Error
+    </div>
+    `
+    
+    })
+    
+    })
+    
+    </script>
 
 {% endblock %}
