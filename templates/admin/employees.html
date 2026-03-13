@@ -41,8 +41,8 @@
         </div>
         <div class="card-body">
             <!-- Employee Statistics -->
-            <div class="row mb-4">
-                <div class="col-md-3 mb-3">
+            <div class="row mb-3">
+               <!--  <div class="col-md-3 mb-3">
                     <div class="card bg-primary text-white h-100">
                         <div class="card-body">
                             <h5 class="card-title"><i class="bi bi-people me-2"></i> Total</h5>
@@ -50,8 +50,8 @@
                             <p class="mb-0">Total employees</p>
                         </div>
                     </div>
-                </div>
-                <div class="col-md-3 mb-3">
+                </div> -->
+                <div class="col-md-4 mb-4">
                     <div class="card bg-success text-white h-100">
                         <div class="card-body">
                             <h5 class="card-title"><i class="bi bi-person-check me-2"></i> Active</h5>
@@ -60,7 +60,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3 mb-3">
+                <div class="col-md-4 mb-4">
                     <div class="card bg-info text-white h-100">
                         <div class="card-body">
                             <h5 class="card-title"><i class="bi bi-building me-2"></i> Departments</h5>
@@ -69,7 +69,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3 mb-3">
+                <div class="col-md-4 mb-4">
                     <div class="card bg-warning text-dark h-100">
                         <div class="card-body">
                             <h5 class="card-title"><i class="bi bi-calendar-check me-2"></i> Today</h5>
@@ -79,6 +79,19 @@
                     </div>
                 </div>
             </div>
+            <div class="d-flex justify-content-end mb-3">
+    {% if show_inactive %}
+        <a href="{{ url_for('admin.employees') }}"
+           class="btn btn-sm btn-outline-secondary">
+            Show Active Only
+        </a>
+    {% else %}
+        <a href="{{ url_for('admin.employees', show_inactive=1) }}"
+           class="btn btn-sm btn-outline-warning">
+            Show Inactive Employees
+        </a>
+    {% endif %}
+</div>
             
             <!-- Employees Table -->
             <div class="table-responsive">

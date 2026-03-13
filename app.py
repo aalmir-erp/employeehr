@@ -357,7 +357,7 @@ def listen_for_attendance_notifications(app):
                     date=record_date
                 ).first()
 
-                if not record:
+                if not record and latest_log.log_type == "IN":
                     record = AttendanceRecord(
                         employee_id=emp_id,
                         date=record_date,
