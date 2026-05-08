@@ -1854,7 +1854,7 @@ def import_csv():
                 print(" heererer in device 4 ")
                 records = auto_detect_and_parse_csv_out_machine(temp_file.name)
 
-            if int(device_id) ==5:
+            elif int(device_id) ==5:
                 records = auto_detect_and_parse_csv_in_machine(temp_file.name)
 
 

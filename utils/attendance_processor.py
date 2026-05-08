@@ -2,7 +2,7 @@
 Utility functions for processing attendance logs and records
 """
 import logging
-from datetime import datetime, timedelta,time
+from datetime import datetime, timedelta,time, date
 
 from sqlalchemy import and_, func, or_
 
@@ -757,6 +757,7 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
         date_to (date, optional): Only process logs until this date
     """
     from utils.overtime_engine import calculate_overtime
+    today = date.today()
     employee_ids = []
 
     print(f"DEBUG - Starting process_unprocessed_logs with limit={limit}, date_from={date_from}, date_to={date_to}")
@@ -854,7 +855,41 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
         check_out = check_out_logs[-1].timestamp if check_out_logs else None
 
         if not check_in or not check_out or check_in == check_out:
-            print(f"DEBUG - Invalid or missing check-in/check-out for employee {emp_id}")
+            print(f"DEBUG - Missing OUT for employee {emp_id} on {log_date}")
+
+            record = AttendanceRecord.query.filter(
+                AttendanceRecord.employee_id == emp_id,
+                AttendanceRecord.date == log_date
+            ).first()
+
+            if not record:
+                record = AttendanceRecord(
+                    employee_id=emp_id,
+                    date=log_date
+                )
+                records_created += 1
+
+            record.check_in = check_in
+            record.check_out = None
+            if log_date == today:
+                record.status = 'in_progress'
+            else:
+                record.status = 'missing_out'
+            # record.status = 'missing'
+            record.work_hours = 0
+            record.total_duration = 0
+            record.break_duration = 0
+
+            db.session.add(record)
+            db.session.flush()
+
+            # mark logs processed
+            for log in unprocessed_logs:
+                log.is_processed = True
+                log.attendance_record_id = record.id
+                logs_processed += 1
+
+            db.session.commit()
             continue
 
         break_duration, break_start, break_end = estimate_break_duration(logs)
@@ -918,10 +953,17 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
             print(f"ERROR - Database error while processing logs: {str(e)}")
 
     print("DEBUG - Checking for missing dates to mark as absent...")
+    
+
 
     for emp in Employee.query.filter(Employee.id.in_(employee_ids)).all():
         current_date = date_from
         while current_date <= date_to:
+
+            if current_date >= today:
+                current_date += timedelta(days=1)
+                continue
+
             attendance_exists = AttendanceRecord.query.filter_by(
                 employee_id=emp.id,
                 date=current_date

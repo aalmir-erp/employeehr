@@ -87,19 +87,25 @@ def auto_detect_and_parse_csv_in_machine(file_path):
 
 def auto_detect_and_parse_csv_out_machine(file_path):
     records = []
+    print(" in machine auto_detect_and_parse_csv_out_machine ")
     with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
         # reader = csv.DictReader(f)
         reader = csv.DictReader(f, delimiter='\t')
+        print(reader, "reader =============================")
 
 
         for row in reader:
+            print(row, " hhhhhhhhhhhhhh")
             enroll_id = row.get("EnNo")
             timestamp = row.get("DateTime")
+            print(enroll_id)
+            print(timestamp)
 
             if not enroll_id or not timestamp:
                 continue
 
             emp_id = get_employee_id_by_odoo_id(enroll_id)
+            print(emp_id, "emp_id")
 
             record = {
                 "employee_id": emp_id if emp_id else 1,
@@ -107,6 +113,7 @@ def auto_detect_and_parse_csv_out_machine(file_path):
                 "timestamp": timestamp,
                 "log_type": "OUT"
             }
+            print(record)
 
             records.append(record)
     return records

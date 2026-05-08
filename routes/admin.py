@@ -1822,7 +1822,7 @@ def loginuser_from_qr(token):
     if request.method != 'POST':
         try:
             res = requests.post(
-                "http://192.168.100.54:8070/get_employee_by_token",
+                "https://erp.mir.ae/get_employee_by_token",
                 data={'token': token},
                 timeout=5
             )
@@ -1840,7 +1840,8 @@ def loginuser_from_qr(token):
         email = data.get('email')
         phone = data.get('phone')
 
-        dob_clean = dob.replace('-', '') if dob else None
+        # dob_clean = dob.replace('-', '') if dob else None
+        dob_clean = datetime.strptime(dob, '%Y-%m-%d').strftime('%d%m%Y')
 
         employee = Employee.query.filter_by(odoo_id=employee_id).first()
         if not employee:

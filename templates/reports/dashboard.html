@@ -838,7 +838,7 @@
                             statusIcon = '<i class="bi bi-exclamation-circle-fill text-warning"></i>';
                         } else if (record.status === 'early-out') {
                             statusIcon = '<i class="bi bi-arrow-left-circle-fill text-info"></i>';
-                        } else if (record.status === 'missing') {
+                        } else if (record.status === 'missing' || record.status === 'missing_out'  ) {
                             statusIcon = '<i class="bi bi-question-circle-fill text-secondary"></i>';
                         }
                         
@@ -967,7 +967,7 @@
                 statusBadge = '<span class="badge bg-warning text-dark">Late</span>';
             } else if (record.status === 'early-out') {
                 statusBadge = '<span class="badge bg-info text-dark">Early Out</span>';
-            } else if (record.status === 'missing' ) {
+            } else if (record.status === 'missing' || record.status === 'missing_out') {
                 statusBadge = '<span class="badge bg-secondary">Missing OUT</span>';
             }
             
@@ -1233,10 +1233,10 @@
         }
         else if (status === 'early-out') {
             return '<span class="badge bg-info text-dark">Early Out</span>';
-        } else if (status === 'missing') {
+        } else if (status === 'missing' || status === 'missing_out') {
             return '<span class="badge bg-secondary">Missing OUT</span>';
         }
-        return '<span class="badge bg-secondary">Unknown</span>';
+        return `<span class="badge bg-secondary">${status}</span>`;
     }
     
     function calculateWorkPercentage(workHours, expectedHours) {
