@@ -441,6 +441,26 @@ class MissingAttendance(db.Model):
 
     employee = db.relationship('Employee', backref='missing_attendances')
 
+
+class AttendanceStatusChangeHistory(db.Model):
+    __tablename__ = 'attendance_status_change_history'
+
+    id = db.Column(db.Integer, primary_key=True)
+    attendance_record_id = db.Column(db.Integer, db.ForeignKey('attendance_record.id'), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    check_in = db.Column(db.DateTime, nullable=True)
+    check_out = db.Column(db.DateTime, nullable=True)
+    previous_status = db.Column(db.String(20), nullable=False)
+    new_status = db.Column(db.String(20), nullable=False)
+    reason = db.Column(db.String(255), nullable=False)
+    hours_old_threshold = db.Column(db.Integer, nullable=True)
+    checkout_window_hours = db.Column(db.Integer, nullable=True)
+    converted_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    attendance_record = db.relationship('AttendanceRecord', backref='status_change_history')
+    employee = db.relationship('Employee', backref='attendance_status_change_history')
+
 class AttendanceRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)

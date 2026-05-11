@@ -1,6 +1,10 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from utils.overtime_engine import process_attendance_records
-from utils.attendance_processor import process_unprocessed_logs, mark_absent_for_past_dates
+from utils.attendance_processor import (
+    process_unprocessed_logs,
+    mark_absent_for_past_dates,
+    close_stale_in_progress_records,
+)
 import requests
 from sqlalchemy import distinct, func
 from datetime import date, datetime, timedelta
@@ -134,6 +138,21 @@ def process_attendance_job(app):
         # process_unprocessed_logs(date_from=date_from)
 
 
+def cleanup_stale_in_progress_job(app):
+    with app.app_context():
+        print("CRON - Cleaning stale in_progress attendance records")
+
+        try:
+            updated_count = close_stale_in_progress_records(
+                hours_old=24,
+                checkout_window_hours=24
+            )
+            print(f"CRON - Stale in_progress cleanup updated {updated_count} records")
+        except Exception as e:
+            db.session.rollback()
+            print(f"CRON ERROR - Stale in_progress cleanup failed: {e}")
+
+
 
 def mark_absent_daily(app):
     with app.app_context():
@@ -218,6 +237,16 @@ def init_scheduler_custom(app):
         # hours=4,                     # every 4 hours
         minutes=5,
         id="attendance_processor",
+        replace_existing=False
+    )
+
+
+    scheduler.add_job(
+        func=cleanup_stale_in_progress_job,
+        args=[app],
+        trigger="interval",
+        hours=1,
+        id="attendance_stale_in_progress_cleanup",
         replace_existing=False
     )
 

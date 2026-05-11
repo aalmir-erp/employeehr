@@ -6,8 +6,82 @@ from datetime import datetime, timedelta,time, date
 
 from sqlalchemy import and_, func, or_
 
-from models import AttendanceLog, AttendanceRecord, Employee, db, Holiday,Shift
+from models import (
+    AttendanceLog,
+    AttendanceRecord,
+    AttendanceStatusChangeHistory,
+    Employee,
+    db,
+    Holiday,
+    Shift,
+)
 
+
+
+def close_stale_in_progress_records(hours_old=24, checkout_window_hours=24, limit=None):
+    """Safely close old in-progress records that have no matching OUT log.
+
+    This cleanup intentionally does not reset processed logs or reprocess attendance
+    history. It only updates AttendanceRecord rows that are older than the safety
+    window, have a check-in but no checkout, and have no OUT/check_out log within
+    the configured checkout matching window after the check-in time.
+    """
+    cutoff = datetime.utcnow() - timedelta(hours=hours_old)
+
+    query = AttendanceRecord.query.filter(
+        AttendanceRecord.status == 'in_progress',
+        AttendanceRecord.check_in.isnot(None),
+        AttendanceRecord.check_out.is_(None),
+        AttendanceRecord.check_in < cutoff,
+    ).order_by(AttendanceRecord.date.asc(), AttendanceRecord.id.asc())
+
+    if limit:
+        query = query.limit(limit)
+
+    candidates = query.all()
+    updated_count = 0
+
+    for record in candidates:
+        checkout_deadline = record.check_in + timedelta(hours=checkout_window_hours)
+        matching_out_log = AttendanceLog.query.filter(
+            AttendanceLog.employee_id == record.employee_id,
+            AttendanceLog.timestamp > record.check_in,
+            AttendanceLog.timestamp <= checkout_deadline,
+            func.lower(AttendanceLog.log_type).in_(['out', 'check_out'])
+        ).first()
+
+        if matching_out_log:
+            continue
+
+        db.session.add(AttendanceStatusChangeHistory(
+            attendance_record_id=record.id,
+            employee_id=record.employee_id,
+            date=record.date,
+            check_in=record.check_in,
+            check_out=record.check_out,
+            previous_status=record.status,
+            new_status='missing_out',
+            reason='stale_in_progress_cleanup_no_matching_out_log',
+            hours_old_threshold=hours_old,
+            checkout_window_hours=checkout_window_hours,
+        ))
+
+        record.status = 'missing_out'
+        record.work_hours = record.work_hours or 0
+        record.total_duration = record.total_duration or 0
+        record.break_duration = record.break_duration or 0
+        updated_count += 1
+
+    if updated_count:
+        db.session.commit()
+    else:
+        db.session.flush()
+
+    print(
+        f"DEBUG - Stale in_progress cleanup checked {len(candidates)} records, "
+        f"updated {updated_count} to missing_out"
+    )
+    return updated_count
 
 
 def determine_shift_type(check_in_time, employee_id=None):
