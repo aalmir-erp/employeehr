@@ -1,6 +1,6 @@
 """Dedupe attendance records and enforce one record per employee date
 
-Revision ID: 20260512_dedupe_attendance_records
+Revision ID: 20260512_attendance_dedupe
 Revises: 035c401d7d70
 Create Date: 2026-05-12 00:00:00.000000
 
@@ -9,7 +9,7 @@ from alembic import op
 
 
 # revision identifiers, used by Alembic.
-revision = '20260512_dedupe_attendance_records'
+revision = '20260512_attendance_dedupe'
 down_revision = '035c401d7d70'
 branch_labels = None
 depends_on = None
@@ -112,12 +112,25 @@ def upgrade():
             );
     """)
 
-    op.create_unique_constraint(
-        CONSTRAINT_NAME,
-        'attendance_record',
-        ['employee_id', 'date']
-    )
+    op.execute(f"""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_constraint
+                WHERE conname = '{CONSTRAINT_NAME}'
+                    AND conrelid = 'attendance_record'::regclass
+            ) THEN
+                ALTER TABLE attendance_record
+                ADD CONSTRAINT {CONSTRAINT_NAME}
+                UNIQUE (employee_id, date);
+            END IF;
+        END $$;
+    """)
 
 
 def downgrade():
-    op.drop_constraint(CONSTRAINT_NAME, 'attendance_record', type_='unique')
+    op.execute(f"""
+        ALTER TABLE attendance_record
+        DROP CONSTRAINT IF EXISTS {CONSTRAINT_NAME};
+    """)
