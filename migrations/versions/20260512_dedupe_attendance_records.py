@@ -1,7 +1,7 @@
 """Dedupe attendance records and enforce one record per employee date
 
 Revision ID: 20260512_dedupe_attendance_records
-Revises: 20260511_status_history
+Revises: 035c401d7d70
 Create Date: 2026-05-12 00:00:00.000000
 
 """
@@ -10,7 +10,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '20260512_dedupe_attendance_records'
-down_revision = '20260511_status_history'
+down_revision = '035c401d7d70'
 branch_labels = None
 depends_on = None
 
