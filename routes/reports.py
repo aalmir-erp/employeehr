@@ -1236,6 +1236,21 @@ def export_employee_summary(format):
     else:
         return jsonify({'error': 'Unsupported export format'}), 400
 
+
+def _attendance_record_rank(record):
+    """Rank duplicate records so reports prefer the most complete row."""
+    return (
+        0 if record.check_in else 1,
+        0 if record.check_out else 1,
+        0 if record.status != 'absent' else 1,
+        -(max(
+            record.updated_at.timestamp() if record.updated_at else 0,
+            record.created_at.timestamp() if record.created_at else 0,
+        )),
+        -record.id,
+    )
+
+
 @bp.route('/api/employee_attendance/<int:employee_id>')
 @login_required
 def api_employee_attendance(employee_id):
@@ -1260,7 +1275,16 @@ def api_employee_attendance(employee_id):
     records = AttendanceRecord.query.filter(
         AttendanceRecord.employee_id == employee_id,
         AttendanceRecord.date.between(start_date, end_date)
-    ).order_by(AttendanceRecord.date).all()
+    ).order_by(AttendanceRecord.date, AttendanceRecord.id).all()
+
+    # Be defensive while older databases are being migrated: if duplicate
+    # records exist for an employee/date, expose only the most complete row.
+    records_by_date = {}
+    for record in records:
+        existing = records_by_date.get(record.date)
+        if existing is None or _attendance_record_rank(record) < _attendance_record_rank(existing):
+            records_by_date[record.date] = record
+    records = [records_by_date[record_date] for record_date in sorted(records_by_date)]
     
     # Calculate employee summary
     total_days = (end_date - start_date).days + 1
