@@ -19,92 +19,97 @@ CONSTRAINT_NAME = 'uq_attendance_record_employee_date'
 
 
 def upgrade():
-    # Consolidate existing duplicate rows before adding the unique constraint.
-    # Keep the row with the richest attendance data, prefer non-absent records,
-    # then the most recently updated/newest row as a deterministic tie breaker.
+    # Build the duplicate map once and reuse it.  This avoids ranking the full
+    # attendance_record table twice, which made the migration look stuck on
+    # larger databases.
     op.execute("""
-        WITH ranked_records AS (
+        CREATE TEMP TABLE attendance_record_duplicate_map ON COMMIT DROP AS
+        WITH duplicate_keys AS (
+            SELECT employee_id, date
+            FROM attendance_record
+            GROUP BY employee_id, date
+            HAVING COUNT(*) > 1
+        ), ranked_records AS (
             SELECT
-                id,
-                FIRST_VALUE(id) OVER (
-                    PARTITION BY employee_id, date
+                record.id,
+                FIRST_VALUE(record.id) OVER (
+                    PARTITION BY record.employee_id, record.date
                     ORDER BY
-                        CASE WHEN check_in IS NOT NULL THEN 0 ELSE 1 END,
-                        CASE WHEN check_out IS NOT NULL THEN 0 ELSE 1 END,
-                        CASE WHEN status <> 'absent' THEN 0 ELSE 1 END,
-                        COALESCE(updated_at, created_at) DESC NULLS LAST,
-                        id DESC
+                        CASE WHEN record.check_in IS NOT NULL THEN 0 ELSE 1 END,
+                        CASE WHEN record.check_out IS NOT NULL THEN 0 ELSE 1 END,
+                        CASE WHEN record.status <> 'absent' THEN 0 ELSE 1 END,
+                        COALESCE(record.updated_at, record.created_at) DESC NULLS LAST,
+                        record.id DESC
                 ) AS keeper_id,
                 ROW_NUMBER() OVER (
-                    PARTITION BY employee_id, date
+                    PARTITION BY record.employee_id, record.date
                     ORDER BY
-                        CASE WHEN check_in IS NOT NULL THEN 0 ELSE 1 END,
-                        CASE WHEN check_out IS NOT NULL THEN 0 ELSE 1 END,
-                        CASE WHEN status <> 'absent' THEN 0 ELSE 1 END,
-                        COALESCE(updated_at, created_at) DESC NULLS LAST,
-                        id DESC
+                        CASE WHEN record.check_in IS NOT NULL THEN 0 ELSE 1 END,
+                        CASE WHEN record.check_out IS NOT NULL THEN 0 ELSE 1 END,
+                        CASE WHEN record.status <> 'absent' THEN 0 ELSE 1 END,
+                        COALESCE(record.updated_at, record.created_at) DESC NULLS LAST,
+                        record.id DESC
                 ) AS row_num
-            FROM attendance_record
-        ), duplicate_records AS (
-            SELECT id, keeper_id
-            FROM ranked_records
-            WHERE row_num > 1
+            FROM attendance_record AS record
+            JOIN duplicate_keys
+                ON duplicate_keys.employee_id = record.employee_id
+                AND duplicate_keys.date = record.date
         )
-        UPDATE attendance_log AS log
-        SET attendance_record_id = duplicate_records.keeper_id
-        FROM duplicate_records
-        WHERE log.attendance_record_id = duplicate_records.id;
+        SELECT id, keeper_id
+        FROM ranked_records
+        WHERE row_num > 1;
     """)
+
     op.execute("""
-        WITH ranked_records AS (
-            SELECT
-                id,
-                ROW_NUMBER() OVER (
-                    PARTITION BY employee_id, date
-                    ORDER BY
-                        CASE WHEN check_in IS NOT NULL THEN 0 ELSE 1 END,
-                        CASE WHEN check_out IS NOT NULL THEN 0 ELSE 1 END,
-                        CASE WHEN status <> 'absent' THEN 0 ELSE 1 END,
-                        COALESCE(updated_at, created_at) DESC NULLS LAST,
-                        id DESC
-                ) AS row_num
-            FROM attendance_record
-        )
-        DELETE FROM attendance_record
-        WHERE id IN (
-            SELECT id
-            FROM ranked_records
-            WHERE row_num > 1
-        );
+        UPDATE attendance_log AS log
+        SET attendance_record_id = duplicate_map.keeper_id
+        FROM attendance_record_duplicate_map AS duplicate_map
+        WHERE log.attendance_record_id = duplicate_map.id;
+    """)
+
+    op.execute("""
+        DELETE FROM attendance_record AS record
+        USING attendance_record_duplicate_map AS duplicate_map
+        WHERE record.id = duplicate_map.id;
     """)
 
     # Repair historical records created by the old incomplete-punch logic.
     # OUT-only days were previously saved as missing_out with both summary
     # timestamps empty, even though the raw attendance_log row still contained
-    # the checkout punch.
+    # the checkout punch.  Use per-record indexed lookups instead of grouping
+    # the whole attendance_log table.
     op.execute("""
-        WITH day_logs AS (
-            SELECT
-                employee_id,
-                timestamp::date AS log_date,
-                MIN(timestamp) FILTER (WHERE log_type IN ('IN', 'check_in')) AS first_in,
-                MAX(timestamp) FILTER (WHERE log_type IN ('OUT', 'check_out')) AS last_out
-            FROM attendance_log
-            GROUP BY employee_id, timestamp::date
-        )
         UPDATE attendance_record AS record
         SET
-            check_out = day_logs.last_out,
+            check_out = (
+                SELECT MAX(log.timestamp)
+                FROM attendance_log AS log
+                WHERE log.employee_id = record.employee_id
+                    AND log.timestamp >= record.date::timestamp
+                    AND log.timestamp < record.date::timestamp + INTERVAL '1 day'
+                    AND log.log_type IN ('OUT', 'check_out')
+            ),
             status = 'missing_in',
             updated_at = CURRENT_TIMESTAMP
-        FROM day_logs
-        WHERE record.employee_id = day_logs.employee_id
-            AND record.date = day_logs.log_date
-            AND record.check_in IS NULL
+        WHERE record.check_in IS NULL
             AND record.check_out IS NULL
-            AND day_logs.first_in IS NULL
-            AND day_logs.last_out IS NOT NULL
-            AND record.status IN ('missing_out', 'missing', 'pending');
+            AND record.status IN ('missing_out', 'missing', 'pending')
+            AND EXISTS (
+                SELECT 1
+                FROM attendance_log AS out_log
+                WHERE out_log.employee_id = record.employee_id
+                    AND out_log.timestamp >= record.date::timestamp
+                    AND out_log.timestamp < record.date::timestamp + INTERVAL '1 day'
+                    AND out_log.log_type IN ('OUT', 'check_out')
+            )
+            AND NOT EXISTS (
+                SELECT 1
+                FROM attendance_log AS in_log
+                WHERE in_log.employee_id = record.employee_id
+                    AND in_log.timestamp >= record.date::timestamp
+                    AND in_log.timestamp < record.date::timestamp + INTERVAL '1 day'
+                    AND in_log.log_type IN ('IN', 'check_in')
+            );
     """)
 
     op.create_unique_constraint(
