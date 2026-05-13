@@ -7,9 +7,8 @@ import io
 import xlsxwriter
 import json
 from app import db
-from models import Employee, AttendanceRecord, Shift, AttendanceLog
+from models import Employee, AttendanceRecord, Shift
 from utils.helpers import get_date_range, get_attendance_stats
-from collections import defaultdict
 
 
 # Create blueprint
@@ -33,8 +32,6 @@ def dashboard():
     end_date = request.args.get('end_date')
     
     today = date.today()
-    start_date_log = '2026-01-25'
-    start_date_log = datetime.strptime(start_date_log, '%Y-%m-%d').date()
     try:
         start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
         end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
@@ -43,45 +40,39 @@ def dashboard():
         start_date = date(today.year, today.month, 1)
         end_date = date(today.year, today.month, calendar.monthrange(today.year, today.month)[1])
 
-    start_date_log = datetime.utcnow() - timedelta(days=7)
-    employee_id = current_user.employee.id
-
-    logs = (
-        AttendanceLog.query
-        .filter(
-            AttendanceLog.employee_id == employee_id,
-            AttendanceLog.timestamp >= start_date_log
-        )
-        .order_by(AttendanceLog.timestamp.desc())
-        .all()
-    )
-
-    attendance_logs = defaultdict(lambda: {'IN': [], 'OUT': []})
-
-    for log in logs:
-        day = log.timestamp.date()
-        attendance_logs[day][log.log_type].append(log.timestamp)
-
-    # Sort days (latest first)
-    attendance_logs = dict(sorted(attendance_logs.items(), reverse=True))
-
-    for log in logs:
-        day = log.timestamp.date()
-        if log.log_type in ['IN', 'check_in']:
-            attendance_logs[day]['IN'].append(log.timestamp)
-        elif log.log_type in ['OUT', 'check_out']:
-            attendance_logs[day]['OUT'].append(log.timestamp)
-
+    # The compact IN/OUT cards should use the same processed summary rows as
+    # the employee detail modal.  Previously these cards were recalculated from
+    # raw AttendanceLog rows using ``datetime.utcnow() - timedelta(days=7)``.
+    # That rolling timestamp cut off the morning of the first displayed day, so
+    # the card could show a later IN punch (for example a break/second IN)
+    # while the detail modal correctly showed the real AttendanceRecord.check_in.
+    employee_id = current_user.employee.id if current_user.employee else None
+    card_start_date = max(start_date, today - timedelta(days=7))
+    card_end_date = min(end_date, today)
     daily_summary = {}
 
-    for day, logs in attendance_logs.items():
-        daily_summary[day] = {
-            'IN': min(logs['IN']) if logs['IN'] else None,
-            'OUT': max(logs['OUT']) if logs['OUT'] else None
-        }
+    if employee_id and card_start_date <= card_end_date:
+        card_records = AttendanceRecord.query.filter(
+            AttendanceRecord.employee_id == employee_id,
+            AttendanceRecord.date.between(card_start_date, card_end_date)
+        ).order_by(AttendanceRecord.date.desc(), AttendanceRecord.id.desc()).all()
 
-    # Latest day first
-    daily_summary = dict(sorted(daily_summary.items(), reverse=True))
+        # Be defensive during migration rollout: duplicate records should not
+        # exist after the unique constraint is applied, but if old duplicates are
+        # still present, show the same best record the detail API would choose.
+        card_records_by_date = {}
+        for record in card_records:
+            existing = card_records_by_date.get(record.date)
+            if existing is None or _attendance_record_rank(record) < _attendance_record_rank(existing):
+                card_records_by_date[record.date] = record
+
+        daily_summary = {
+            record_date: {
+                'IN': record.check_in,
+                'OUT': record.check_out
+            }
+            for record_date, record in sorted(card_records_by_date.items(), reverse=True)
+        }
     
     # Get filter parameters
     department = request.args.get('department', 'all')
