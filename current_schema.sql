@@ -161,7 +161,8 @@ CREATE TABLE attendance_record (
     overtime_night_hours FLOAT DEFAULT 0.0,    -- Night shift overtime
     shift_type VARCHAR(20) DEFAULT 'day',
     total_duration FLOAT DEFAULT 0.0,
-    late_minutes INTEGER DEFAULT 0 NOT NULL
+    late_minutes INTEGER DEFAULT 0 NOT NULL,
+    CONSTRAINT uq_attendance_record_employee_date UNIQUE (employee_id, date)
 );
 
 -- Add indexes to improve search performance for attendance records

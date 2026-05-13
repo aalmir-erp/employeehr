@@ -929,7 +929,11 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
         check_out = check_out_logs[-1].timestamp if check_out_logs else None
 
         if not check_in or not check_out or check_in == check_out:
-            print(f"DEBUG - Missing OUT for employee {emp_id} on {log_date}")
+            missing_status = 'missing_in' if not check_in and check_out else 'missing_out'
+            if log_date == today and check_in and not check_out:
+                missing_status = 'in_progress'
+
+            print(f"DEBUG - {missing_status} for employee {emp_id} on {log_date}")
 
             record = AttendanceRecord.query.filter(
                 AttendanceRecord.employee_id == emp_id,
@@ -944,12 +948,8 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
                 records_created += 1
 
             record.check_in = check_in
-            record.check_out = None
-            if log_date == today:
-                record.status = 'in_progress'
-            else:
-                record.status = 'missing_out'
-            # record.status = 'missing'
+            record.check_out = check_out
+            record.status = missing_status
             record.work_hours = 0
             record.total_duration = 0
             record.break_duration = 0

@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS attendance_record (
     break_end timestamp without time zone NULL,
     break_calculated boolean NULL DEFAULT false,
     CONSTRAINT attendance_record_pkey PRIMARY KEY (id),
+    CONSTRAINT uq_attendance_record_employee_date UNIQUE (employee_id, date),
     CONSTRAINT attendance_record_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES employee(id),
     CONSTRAINT attendance_record_shift_id_fkey FOREIGN KEY (shift_id) REFERENCES shift(id),
     CONSTRAINT attendance_record_overtime_rule_id_fkey FOREIGN KEY (overtime_rule_id) REFERENCES overtime_rule(id)

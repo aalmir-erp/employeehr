@@ -890,9 +890,9 @@
         
         // Sort records by date in descending order
         const sortedRecords = [...records].sort((a, b) => new Date(b.date) - new Date(a.date));
-        let adjustedOvertime = 0
         sortedRecords.forEach(record => {
             let statusBadge = '';
+            let adjustedOvertime = record.overtime_hours || 0;
             const checkIn = record.check_in ? new Date(`1970-01-01T${record.check_in}`) : null;
             const checkOut = record.check_out ? new Date(`1970-01-01T${record.check_out}`) : null;
 

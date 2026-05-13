@@ -462,6 +462,10 @@ class AttendanceStatusChangeHistory(db.Model):
     employee = db.relationship('Employee', backref='attendance_status_change_history')
 
 class AttendanceRecord(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint('employee_id', 'date', name='uq_attendance_record_employee_date'),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
     employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
     shift_id = db.Column(db.Integer, db.ForeignKey('shift.id'), nullable=True)

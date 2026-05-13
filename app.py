@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 import threading
 import psycopg2
@@ -29,6 +30,15 @@ import calendar
 # -------------------------------------------------
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def is_migration_command():
+    """Return True when Flask/Alembic is importing the app for migrations."""
+    migration_args = {'db', 'upgrade', 'downgrade', 'migrate', 'revision', 'stamp', 'current', 'heads', 'history'}
+    return bool(migration_args.intersection(sys.argv[1:]))
+
+
+IS_MIGRATION_COMMAND = is_migration_command()
 
 # -------------------------------------------------
 # Create Flask App
@@ -72,14 +82,16 @@ socketio.init_app(app)
 # -------------------------------------------------
 # Scheduler
 # -------------------------------------------------
-init_scheduler_custom(app)
+if not IS_MIGRATION_COMMAND:
+    init_scheduler_custom(app)
 
 # -------------------------------------------------
 # Import Models
 # -------------------------------------------------
 with app.app_context():
     import models
-    db.create_all()
+    if not IS_MIGRATION_COMMAND:
+        db.create_all()
 
 from models import User, AttendanceNotification
 
@@ -422,14 +434,16 @@ def start_listener_once(app):
 
     print("✅ Listener started (single instance)")
 
-start_listener_once(app)
+if not IS_MIGRATION_COMMAND:
+    start_listener_once(app)
 
 # -------------------------------------------------
 # Scheduler Optional Init
 # -------------------------------------------------
-try:
-    from utils.scheduler import init_scheduler
-    init_scheduler(app)
-    logger.info("Scheduler initialized successfully")
-except ImportError:
-    logger.warning("Scheduler module not found")
+if not IS_MIGRATION_COMMAND:
+    try:
+        from utils.scheduler import init_scheduler
+        init_scheduler(app)
+        logger.info("Scheduler initialized successfully")
+    except ImportError:
+        logger.warning("Scheduler module not found")
