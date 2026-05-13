@@ -39,6 +39,10 @@ def is_migration_command():
 
 
 IS_MIGRATION_COMMAND = is_migration_command()
+SKIP_BACKGROUND_SERVICES = (
+    IS_MIGRATION_COMMAND
+    or os.environ.get("DISABLE_APP_BACKGROUND_SERVICES", "").lower() in {"1", "true", "yes"}
+)
 
 # -------------------------------------------------
 # Create Flask App
@@ -82,7 +86,7 @@ socketio.init_app(app)
 # -------------------------------------------------
 # Scheduler
 # -------------------------------------------------
-if not IS_MIGRATION_COMMAND:
+if not SKIP_BACKGROUND_SERVICES:
     init_scheduler_custom(app)
 
 # -------------------------------------------------
@@ -90,7 +94,7 @@ if not IS_MIGRATION_COMMAND:
 # -------------------------------------------------
 with app.app_context():
     import models
-    if not IS_MIGRATION_COMMAND:
+    if not SKIP_BACKGROUND_SERVICES:
         db.create_all()
 
 from models import User, AttendanceNotification
@@ -434,13 +438,13 @@ def start_listener_once(app):
 
     print("✅ Listener started (single instance)")
 
-if not IS_MIGRATION_COMMAND:
+if not SKIP_BACKGROUND_SERVICES:
     start_listener_once(app)
 
 # -------------------------------------------------
 # Scheduler Optional Init
 # -------------------------------------------------
-if not IS_MIGRATION_COMMAND:
+if not SKIP_BACKGROUND_SERVICES:
     try:
         from utils.scheduler import init_scheduler
         init_scheduler(app)

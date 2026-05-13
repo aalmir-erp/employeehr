@@ -565,6 +565,18 @@ class AttendanceRecord(db.Model):
 
 
         
+    def reset_overtime_fields(self, overtime_rate=1.0):
+        """Clear all stored overtime values before/after recalculation."""
+        self.overtime_hours = 0.0
+        self.overtime_rate = overtime_rate
+        self.overtime_night_hours = 0.0
+        self.regular_overtime_hours = 0.0
+        self.weekend_overtime_hours = 0.0
+        self.holiday_overtime_hours = 0.0
+        self.overt_time_weighted = 0.0
+        return 0.0, overtime_rate
+
+
     def calculate_overtime(self, standard_hours=None):
         """
         Calculate overtime hours and rate using assigned rule or system defaults
@@ -603,9 +615,7 @@ class AttendanceRecord(db.Model):
         else:
             # For regular weekdays, only hours beyond standard hours are overtime
             if self.work_hours <= standard_hours:
-                self.overtime_hours = 0.0
-                self.overtime_rate = 1.0
-                return 0.0, 1.0
+                return self.reset_overtime_fields(overtime_rate=1.0)
                 
             # Calculate overtime hours (work hours beyond standard hours)
             overtime_hours = self.work_hours - standard_hours 

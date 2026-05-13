@@ -12,7 +12,7 @@ It supports:
 """
 
 from datetime import datetime, timedelta
-from sqlalchemy import and_, or_, func
+from sqlalchemy import or_
 from flask import current_app
 from models import AttendanceRecord, db,Employee,Shift
 
@@ -66,8 +66,11 @@ def calculate_overtime(record, recalculate=False, commit=True):
     """
     from models import db
     
-    # Skip if no check-in/check-out or already calculated and not forcing recalculation
+    # Skip if no check-in/check-out. When recalculating, also clear any stale
+    # overtime values that may have been left from an older incorrect state.
     if not record.check_in or not record.check_out:
+        if recalculate and hasattr(record, 'reset_overtime_fields'):
+            return record.reset_overtime_fields(overtime_rate=1.0)
         return 0.0, 1.0
         
     if record.overtime_hours > 0 and record.overtime_rate > 1.0 and not recalculate:
@@ -234,20 +237,18 @@ def process_attendance_records(date_from=None, date_to=None, employee_id=None, r
     query = AttendanceRecord.query
 
     if date_from and date_to:
-        print(f"DEBUG - Filtering logs from {date_from} to {date_to}")
+        print(f"DEBUG - Filtering attendance records from {date_from} to {date_to}")
         query = query.filter(
-            func.date(AttendanceRecord.check_in) >= date_from,
-            func.date(AttendanceRecord.check_in) <= date_to
+            AttendanceRecord.date >= date_from,
+            AttendanceRecord.date <= date_to
         )
     elif date_from:
-        print(f"DEBUG - Filtering logs for date {date_from}")
-        query = query.filter(
-            func.date(AttendanceRecord.check_in) == date_from
-        )
+        print(f"DEBUG - Filtering attendance records for date {date_from}")
+        query = query.filter(AttendanceRecord.date == date_from)
 
     # Filter by employee ID if provided
     if employee_id:
-        print(f"DEBUG - Filtering logs for employee ID {employee_id}")
+        print(f"DEBUG - Filtering attendance records for employee ID {employee_id}")
         query = query.filter(AttendanceRecord.employee_id == employee_id)
 
     # Only process records with both check-in and check-out
@@ -261,7 +262,7 @@ def process_attendance_records(date_from=None, date_to=None, employee_id=None, r
     print(records,employee_id, "   records=============================================================================================  -----")
 
     for record in records:
-        employee = Employee.query.get(employee_id)
+        employee = Employee.query.get(employee_id or record.employee_id)
         if employee and employee.current_shift_id:
             shift = Shift.query.get(employee.current_shift_id)
             record.shift_id = shift.id
