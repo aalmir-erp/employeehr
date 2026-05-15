@@ -9,8 +9,10 @@ from app import db
 from models import User, Employee, AttendanceRecord, AttendanceLog,UserLoginHistory ,FCMToken,AttendanceDispute ,AttendanceDisputeHistory,MobileAppLoginHistory,AttendanceDisputeAttachment,EmployeeLeave,AnnualLeave
 from sqlalchemy import func
 from flask_login import login_required, current_user, logout_user, login_user
+import requests
 
 bp = Blueprint("api", __name__)
+ODOO_URL = "https://erp.mir.ae"
 
 # ---------------------------------------------------
 # Helpers
@@ -948,6 +950,7 @@ def api_login():
             "role": user.role,
             "is_admin": user.is_admin,
             "department": department,
+            "employee_code":employee.employee_code,
             "supervisor": {
                 "id": supervisor_id,
                 "name": supervisor_name
@@ -1192,4 +1195,172 @@ def check_user_active():
             "success": False,
             "message": "Invalid token",
             "logout": True
-        }), 401    
+        }), 401 
+
+@bp.route("/user/update-profile", methods=["POST"])
+def update_user_profile():
+    try:
+        data = request.get_json()
+        print(data, "======================== update profile data")
+
+        if not data:
+            return jsonify({
+                "success": False,
+                "message": "No data provided"
+            }), 400
+
+        user_id = data.get("user_id")
+        employee_id = data.get("employee_id") or data.get("odoo_id")
+        username = data.get("username") or data.get("employee_code")
+
+        image = data.get("image") or data.get("image_base64")
+
+        personal_number = data.get("personal_number")
+        personal_email = data.get("personal_email")
+        home_telephone = data.get("home_telephone")
+        birthday = data.get("birthday")
+        joining_date = data.get("joining_date")
+
+        if not employee_id:
+            return jsonify({
+                "success": False,
+                "message": "employee_id is required"
+            }), 400
+
+        # Remove data:image/jpeg;base64, prefix if frontend sends full data URI
+        if image and isinstance(image, str) and image.startswith("data:") and "," in image:
+            image = image.split(",", 1)[1]
+
+        user = None
+        employee = None
+
+        # ===============================
+        # FIND USER / EMPLOYEE
+        # ===============================
+
+        if user_id:
+            user = User.query.filter_by(id=user_id).first()
+
+        if employee_id:
+            employee = Employee.query.filter_by(odoo_id=employee_id).first()
+
+        if not employee and username:
+            employee = Employee.query.filter_by(employee_code=username).first()
+
+        if not employee and user:
+            employee = Employee.query.filter_by(employee_code=user.username).first()
+
+        if not employee:
+            return jsonify({
+                "success": False,
+                "message": "Employee not found"
+            }), 404
+
+        # ===============================
+        # UPDATE FLASK DB IMAGE ONLY
+        # ===============================
+
+        if image:
+            employee.image = image
+
+            # Optional: agar User model mein image field hai to yeh bhi update ho jayega
+            if user and hasattr(user, "image"):
+                user.image = image
+
+            db.session.commit()
+
+        # ===============================
+        # SEND ALL DATA TO ODOO
+        # ===============================
+
+        odoo_payload = {
+            "jsonrpc": "2.0",
+            "params": {
+                "employee_id": employee.odoo_id or employee_id,
+                "personal_number": personal_number or "",
+                "personal_email": personal_email or "",
+                "home_telephone": home_telephone or "",
+                "birthday": birthday or "",
+                "joining_date": joining_date or "",
+            }
+        }
+
+        if image:
+            odoo_payload["params"]["image"] = image
+
+        print(odoo_payload, "======================== odoo payload")
+
+        odoo_response = requests.post(
+            "%s/api/mobile/employee/profile/update" % ODOO_URL,
+            json=odoo_payload,
+            headers={
+                "Content-Type": "application/json"
+            },
+            timeout=20
+        )
+
+        try:
+            odoo_json = odoo_response.json()
+        except Exception:
+            return jsonify({
+                "success": False,
+                "message": "Invalid response from Odoo",
+                "odoo_status": odoo_response.status_code,
+                "odoo_text": odoo_response.text
+            }), 500
+
+        odoo_result = odoo_json.get("result") or odoo_json
+
+        print(odoo_result, "======================== odoo result")
+
+        if not odoo_result or not odoo_result.get("success"):
+            return jsonify({
+                "success": False,
+                "message": odoo_result.get("message") if odoo_result else "Odoo profile update failed",
+                "odoo_result": odoo_result
+            }), 400
+
+        # ===============================
+        # RESPONSE DATA
+        # ===============================
+
+        odoo_employee = odoo_result.get("employee") or {}
+
+        return jsonify({
+            "success": True,
+            "message": odoo_result.get("message") or "Profile updated successfully",
+            "employee": {
+                "id": odoo_employee.get("id") or employee.odoo_id,
+                "name": odoo_employee.get("name") or employee.name,
+                "personal_number": odoo_employee.get("personal_number") or personal_number or "",
+                "personal_email": odoo_employee.get("personal_email") or personal_email or "",
+                "home_telephone": odoo_employee.get("home_telephone") or home_telephone or "",
+                "birthday": odoo_employee.get("birthday") or birthday or "",
+                "age": odoo_employee.get("age") or "",
+                "joining_date": odoo_employee.get("joining_date") or joining_date or "",
+                "image": image or employee.image,
+                "department": employee.department,
+                "employee_code": employee.employee_code,
+            },
+            "user": {
+                "id": user.id if user else None,
+                "odoo_id": employee.odoo_id,
+                "username": user.username if user else employee.employee_code,
+                "name": employee.name,
+                "image": image or employee.image,
+                "employee_code": employee.employee_code,
+                "department": employee.department
+            },
+            "updated_fields": odoo_result.get("updated_fields") or [],
+            "odoo_updated": True,
+            "odoo_result": odoo_result
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print("Update user profile error:", str(e))
+
+        return jsonify({
+            "success": False,
+            "message": "Profile update failed: %s" % str(e)
+        }), 500

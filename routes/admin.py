@@ -28,6 +28,7 @@ import os
 # Create blueprint
 bp = Blueprint('admin', __name__, url_prefix='/admin')
 SECRET_KEY = 'YOUR_SECRET_KEY_HERE' 
+ODOO_URL = "https://erp.mir.ae"
 
 
 # @bp.before_request
@@ -1822,7 +1823,7 @@ def loginuser_from_qr(token):
     if request.method != 'POST':
         try:
             res = requests.post(
-                "https://erp.mir.ae/get_employee_by_token",
+                "%s/get_employee_by_token" % ODOO_URL,
                 data={'token': token},
                 timeout=5
             )
@@ -1847,6 +1848,23 @@ def loginuser_from_qr(token):
         if not employee:
             flash('Invalid or expired QR code', 'danger')
             return render_template('qr_invalid.html')
+
+        supervisor_user = User.query.filter(
+                User.department == employee.department,
+                User.role == "supervisor",
+        ).first()
+
+
+        if supervisor_user:
+
+            supervisor_id = supervisor_user.id
+
+            sup_emp = Employee.query.filter_by(
+                employee_code=supervisor_user.username
+            ).first()
+
+            if sup_emp:
+                supervisor_name = sup_emp.name    
 
         # 🔹 If user already exists → login
         existing_user = User.query.filter_by(employee_id=employee.id).first()
@@ -1910,7 +1928,14 @@ def loginuser_from_qr(token):
                     "name": employee.name if employee else None,
                     "image": employee.image if employee else None,
                     "role": existing_user.role,
-                    "is_admin": existing_user.is_admin
+                    "is_admin": existing_user.is_admin,
+                    "employee_code":employee.employee_code,
+                    "odoo_id" : employee.odoo_id,
+                    "department" : employee.department,
+                    "supervisor": {
+                        "id": supervisor_id,
+                        "name": supervisor_name
+                    }
                 }
             }), 200
 
