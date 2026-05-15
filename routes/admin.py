@@ -1823,7 +1823,7 @@ def loginuser_from_qr(token):
     if request.method != 'POST':
         try:
             res = requests.post(
-                "%s/get_employee_by_token" % ODOO_URL,
+                "https://erp.mir.ae/get_employee_by_token",
                 data={'token': token},
                 timeout=5
             )
@@ -1840,11 +1840,14 @@ def loginuser_from_qr(token):
         dob = data.get('dob')
         email = data.get('email')
         phone = data.get('phone')
+        supervisor_id = False
+        supervisor_name = ""
 
         # dob_clean = dob.replace('-', '') if dob else None
         dob_clean = datetime.strptime(dob, '%Y-%m-%d').strftime('%d%m%Y')
 
         employee = Employee.query.filter_by(odoo_id=employee_id).first()
+        print(employee,"======================employee")
         if not employee:
             flash('Invalid or expired QR code', 'danger')
             return render_template('qr_invalid.html')
@@ -1867,7 +1870,8 @@ def loginuser_from_qr(token):
                 supervisor_name = sup_emp.name    
 
         # 🔹 If user already exists → login
-        existing_user = User.query.filter_by(employee_id=employee.id).first()
+        existing_user = User.query.filter_by(username=employee.employee_code).first()
+        print(employee.employee_code,"======",existing_user,"========================existing_user",is_mobile)
 
         if is_mobile:
 
