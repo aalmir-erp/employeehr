@@ -10,6 +10,7 @@ from sqlalchemy import distinct, func
 from datetime import date, datetime, timedelta
 from models import BonusEvaluationPeriod,db, BonusSubmission, BonusEvaluation, Employee, PayrollStatus, AttendanceRecord, Department, BonusAuditLog,\
     AttendanceNotification,User
+from services.daily_attendance_report_service import send_daily_attendance_reports
 
 
 
@@ -174,6 +175,20 @@ def mark_absent_daily(app):
 
 
 
+def send_daily_attendance_report_job(app):
+    with app.app_context():
+        report_date = date.today() - timedelta(days=1)
+        print(f"CRON - Sending daily attendance report for {report_date}")
+
+        try:
+            result = send_daily_attendance_reports(report_date=report_date, ensure_ready=True)
+            print(f"CRON - Daily attendance report result: {result}")
+        except Exception as e:
+            db.session.rollback()
+            print(f"CRON ERROR - Daily attendance report failed: {e}")
+
+
+
 def fetch_employee_dob_and_update_password(app):
     with app.app_context():
 
@@ -258,6 +273,16 @@ def init_scheduler_custom(app):
         hours=12,                     # every 12 hours
         id="attendance_processor_absent",
         replace_existing=False
+    )
+
+    scheduler.add_job(
+        func=send_daily_attendance_report_job,
+        args=[app],
+        trigger="cron",
+        hour=10,
+        minute=30,
+        id="daily_attendance_email_report",
+        replace_existing=True
     )
 
     # Cron job (10th of every month at 00:05)
