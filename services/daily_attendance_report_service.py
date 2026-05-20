@@ -98,6 +98,21 @@ def _classify_shift(record, employee):
     return "Other / Unknown Shift"
 
 
+
+
+def _attendance_record_rank(record):
+    """Rank duplicate records so reports prefer the most complete row."""
+    return (
+        0 if record.check_in else 1,
+        0 if record.check_out else 1,
+        0 if record.status != "absent" else 1,
+        -(max(
+            record.updated_at.timestamp() if record.updated_at else 0,
+            record.created_at.timestamp() if record.created_at else 0,
+        )),
+        -record.id,
+    )
+
 def _record_has_exception(record):
     if not record:
         return True
@@ -156,8 +171,13 @@ def _load_department_report_data(report_date):
     records = AttendanceRecord.query.options(
         joinedload(AttendanceRecord.employee),
         joinedload(AttendanceRecord.shift),
-    ).filter(AttendanceRecord.date == report_date).all()
-    records_by_employee = {record.employee_id: record for record in records}
+    ).filter(AttendanceRecord.date == report_date).order_by(AttendanceRecord.id).all()
+
+    records_by_employee = {}
+    for record in records:
+        existing = records_by_employee.get(record.employee_id)
+        if existing is None or _attendance_record_rank(record) < _attendance_record_rank(existing):
+            records_by_employee[record.employee_id] = record
 
     departments = defaultdict(lambda: {
         "rows": [],
