@@ -15,7 +15,10 @@ logger = logging.getLogger(__name__)
 
 # Fixed recipients can be edited here if preferred, or provided as a comma-separated
 # ATTENDANCE_REPORT_CC environment variable.
-DEFAULT_ATTENDANCE_REPORT_CC = []
+DEFAULT_ATTENDANCE_REPORT_CC = [
+    # "hr@company.com",
+    # "ops@company.com",
+]
 DEFAULT_ATTENDANCE_REPORT_FROM = None
 
 EXCEPTION_STATUSES = {
@@ -35,7 +38,8 @@ def _parse_email_list(value):
     if not value:
         return []
     if isinstance(value, str):
-        candidates = value.split(",")
+        normalized = value.replace(";", ",").replace("\n", ",")
+        candidates = normalized.split(",")
     else:
         candidates = value
     return [email.strip() for email in candidates if email and email.strip()]
