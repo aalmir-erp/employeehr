@@ -2,15 +2,48 @@ import logging
 import os
 import xmlrpc.client
 
+from models import OdooConfig
+
 logger = logging.getLogger(__name__)
+
+# Optional in-code defaults for local/UAT when shell exports are not used.
+# Replace with your ERP values if you prefer code-based setup.
+DEFAULT_ODOO_URL = ""
+DEFAULT_ODOO_DB = ""
+DEFAULT_ODOO_USERNAME = ""
+DEFAULT_ODOO_PASSWORD = ""
+
+
+def _get_odoo_credentials():
+    """Resolve Odoo credentials from env, then DB config, then code defaults."""
+    env_url = os.environ.get("ODOO_URL", "").strip().rstrip("/")
+    env_db = os.environ.get("ODOO_DB", "").strip()
+    env_username = os.environ.get("ODOO_USERNAME", "").strip()
+    env_password = os.environ.get("ODOO_PASSWORD", "").strip()
+
+    if all([env_url, env_db, env_username, env_password]):
+        return env_url, env_db, env_username, env_password
+
+    config = OdooConfig.query.first()
+    if config and config.url and config.database and config.username and config.api_key:
+        return (
+            config.url.strip().rstrip("/"),
+            config.database.strip(),
+            config.username.strip(),
+            config.api_key.strip(),
+        )
+
+    return (
+        DEFAULT_ODOO_URL.strip().rstrip("/"),
+        DEFAULT_ODOO_DB.strip(),
+        DEFAULT_ODOO_USERNAME.strip(),
+        DEFAULT_ODOO_PASSWORD.strip(),
+    )
 
 
 def get_odoo_connection():
     """Return an authenticated Odoo XML-RPC object proxy."""
-    url = os.environ.get("ODOO_URL", "").rstrip("/")
-    db = os.environ.get("ODOO_DB", "")
-    username = os.environ.get("ODOO_USERNAME", "")
-    password = os.environ.get("ODOO_PASSWORD", "")
+    url, db, username, password = _get_odoo_credentials()
 
     if not all([url, db, username, password]):
         logger.error("Odoo mail connection settings are incomplete")
