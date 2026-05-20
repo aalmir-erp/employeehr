@@ -8,10 +8,10 @@ logger = logging.getLogger(__name__)
 
 # Optional in-code defaults for local/UAT when shell exports are not used.
 # Replace with your ERP values if you prefer code-based setup.
-DEFAULT_ODOO_URL = ""
-DEFAULT_ODOO_DB = ""
-DEFAULT_ODOO_USERNAME = ""
-DEFAULT_ODOO_PASSWORD = ""
+DEFAULT_ODOO_URL = "https://erp.mir.ae"
+DEFAULT_ODOO_DB = "mir_plastic"
+DEFAULT_ODOO_USERNAME = "administrator"
+DEFAULT_ODOO_PASSWORD = "NKlK%O840&j!"
 
 
 def _get_odoo_credentials():

@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 # Fixed recipients can be edited here if preferred, or provided as a comma-separated
 # ATTENDANCE_REPORT_CC environment variable.
 DEFAULT_ATTENDANCE_REPORT_CC = [
-    # "hr@company.com",
-    # "ops@company.com",
+    "hr@mir.ae",
+    "it@mir.ae",
 ]
 DEFAULT_ATTENDANCE_REPORT_FROM = None
 
