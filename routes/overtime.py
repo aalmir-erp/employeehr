@@ -534,7 +534,7 @@ def fetch_pay_roll_from_odoo():
     from_date = data.get('from_date')
     to_date = data.get('to_date')
 
-    print(overtime_data )
+    # print(overtime_data )
 
     payload = {
     'employee_ids': overtime_data,
@@ -542,7 +542,9 @@ def fetch_pay_roll_from_odoo():
     'from_date': from_date,
     'to_date': to_date
     }
-    print(overtime_data, "overtime_data  =======")
+    print(payload, "payload  =======")
+    9/0
+
     # Send POST request to Odoo controller (adjust URL accordingly)
     # try:
     if 1:
@@ -685,7 +687,6 @@ def send_overtime_to_odoo():
             status_eval_map = {}
 
 
-
             for bonus in approved_evals:
                 emp_id = bonus.employee_id
                 if emp_id not in latest_eval_map:
@@ -751,22 +752,22 @@ def send_overtime_to_odoo():
         print (" ------------------------------------------------------------------JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ")
         print (item)
         
-        empl_absent = AttendanceRecord.query.filter(
-            AttendanceRecord.date >= from_date,
-            AttendanceRecord.employee_id == emp_id,
-            AttendanceRecord.date <= to_date,
-            AttendanceRecord.status == 'absent',
-        ).order_by(AttendanceRecord.date).all()
+        # empl_absent = AttendanceRecord.query.filter(
+        #     AttendanceRecord.date >= from_date,
+        #     AttendanceRecord.employee_id == emp_id,
+        #     AttendanceRecord.date <= to_date,
+        #     AttendanceRecord.status == 'absent',
+        # ).order_by(AttendanceRecord.date).all()
 
-        for record in empl_absent:
-            employee = Employee.query.filter_by(id=record.employee_id).first()
-            if not employee or not employee.odoo_id:
-                print(f"❌ Skipping: No Odoo ID for employee_id {record.employee_id}")
-                continue
+        # for record in empl_absent:
+        #     employee = Employee.query.filter_by(id=record.employee_id).first()
+        #     if not employee or not employee.odoo_id:
+        #         print(f"❌ Skipping: No Odoo ID for employee_id {record.employee_id}")
+        #         continue
 
-            odoo_employee_id = employee.odoo_id
-            leave_date_str = str(record.date)
-            absent.append({'odoo_employee_id':odoo_employee_id,'leave_date_str':leave_date_str})
+        #     odoo_employee_id = employee.odoo_id
+        #     leave_date_str = str(record.date)
+        #     absent.append({'odoo_employee_id':odoo_employee_id,'leave_date_str':leave_date_str})
 
 
 

@@ -107,24 +107,6 @@ def login_as_user(user_id):
     flash(f'Successfully logged in as {target_user.username}', 'success')
     return redirect(url_for('index.index'))
 
-# @bp.route('/loginodoo/<string:employee_token>')
-# def login_as_user_odoo(employee_token):
-#     s = URLSafeSerializer(SECRET_KEY)
-
-#     employee_id = s.loads(employee_token)
-#     print(employee_id)
-
-#     # Use employee_id for your logic here
-#     # Example:
-#     print(employee_id,"============================================dddddddddddddddd")
-#     target_user = User.query.filter_by(odoo_id=employee_id).first_or_404()
-#     print(target_user,"================2222222222222222222222222222")
-
-#     logout_user()
-#     login_user(target_user)
-
-#     flash(f'Successfully logged in as {target_user.username}', 'success')
-#     return redirect(url_for('index.index'))
 
 @bp.route('/loginodoo/<string:employee_token>')
 def login_as_user_odoo(employee_token):
@@ -138,7 +120,43 @@ def login_as_user_odoo(employee_token):
     employee = Employee.query.filter_by(odoo_id=odoo_employee_id).first_or_404()
 
     # Step 2: Now get user using the employee.id
-    target_user = User.query.filter_by(employee_id=employee.id).first_or_404()
+    target_user = User.query.filter_by(employee_id=employee.id).first()
+    if not target_user:
+        try:
+            res = requests.post(
+                "https://erp.mir.ae/get_employee_dob_by_id",
+                data={'id': odoo_employee_id},
+                timeout=5
+            )
+            data = res.json()
+        except Exception as e:
+            return f"Odoo connection failed: {str(e)}", 500
+        if not data.get('success'):
+            flash('Invalid or expired QR code', 'danger')
+            return render_template('qr_invalid.html')
+
+        target_user = User(
+            email=data.get('email'),
+            username=employee.employee_code or f"user{employee.id}",
+            role='employee',
+            employee_id=employee.id,
+            department=employee.department,
+            is_admin=False,
+            created_at=datetime.utcnow(),
+            last_login=None,
+            force_password_change=True
+        )
+        dob = data.get('dob')
+        dob_clean = datetime.strptime(dob, '%Y-%m-%d').strftime('%d%m%Y')
+        target_user.set_password(dob_clean)
+
+        db.session.add(target_user)
+        db.session.flush()  # get target_user.id
+        employee.user_id = target_user.id
+        db.session.commit()
+
+        # employee_id = data['employee_id']
+        # name = data.get('name'
 
     logout_user()
     login_user(target_user)
@@ -989,10 +1007,12 @@ def loginuser_from_qr(token):
         employee_id = data['employee_id']
         name = data.get('name')
         dob = data.get('dob')
+        dob_clean = datetime.strptime(dob, '%Y-%m-%d').strftime('%d%m%Y')
+        # print(formatted)
         email = data.get('email')
         phone = data.get('phone')
         print(dob)
-        dob_clean = dob.replace('-', '')
+        # dob_clean = dob.replace('-', '')
         print(dob_clean)
         employee = Employee.query.filter_by(odoo_id=employee_id).first()
         print(employee)
@@ -1162,6 +1182,7 @@ def reset_user_password():
 def employees():
     """Manage employees"""
     # Get employees
+
     if request.method == 'POST':
         # employee_id = request.args.get('employee_id')
         # action_change = request.args.get('action_change')
@@ -1183,7 +1204,15 @@ def employees():
             else:
                 flash('Employee not found or already inactive.', 'warning')
             db.session.commit()
-    employees = Employee.query.all()
+    # employees = Employee.query.all()
+    show_inactive = request.args.get('show_inactive') == '1'
+
+    query = Employee.query
+    if not show_inactive:
+        query = query.filter(Employee.is_active == True)
+
+    employees = query.order_by(Employee.id.desc()).all()
+
     sql = text("""
     SELECT e.id,
        EXISTS (
@@ -1243,6 +1272,7 @@ WHERE e.odoo_id IS NOT NULL
                            shifts=shifts,
                            employee_devide_status=employee_devide_status,
                            stats=stats,
+                           show_inactive=show_inactive,
                            selected_filters=selected_filters)
 
 @bp.route('/sync-employees', methods=['GET', 'POST'])

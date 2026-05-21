@@ -28,7 +28,7 @@ def index():
 def dashboard():
     """Comprehensive attendance dashboard with drill-down capabilities"""
     # Get date range from request
-    print(current_user.role,current_user.is_admin,"=======================================================>>>>>>>>>>>>>")
+    # print(current_user.role,current_user.is_admin,"=======================================================>>>>>>>>>>>>>")
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     

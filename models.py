@@ -101,6 +101,8 @@ class User(UserMixin, db.Model):
 class Department(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), unique=True, nullable=False)
+    is_bonus_allow = db.Column(db.Boolean, default=False)
+
     
     # Department-level overtime eligibility settings
     weekday_overtime_eligible = db.Column(db.Boolean, default=True)
@@ -273,7 +275,7 @@ class AttendanceNotification(db.Model):
     __tablename__ = 'attendance_notification'
 
     id = db.Column(db.Integer, primary_key=True)
-    attendance_log_id = db.Column(db.Integer, db.ForeignKey('attendance_log.id'), nullable=False)
+    attendance_log_id = db.Column(db.Integer, db.ForeignKey('attendance_log.id'), nullable=True)
     employee_id = db.Column(db.Integer, nullable=False)
     role = db.Column(db.String(20), nullable=False, default='hr')
     message = db.Column(db.Text, nullable=False)
@@ -1078,6 +1080,8 @@ class BonusSubmission(db.Model):
     approval_level = db.Column(db.Integer, default=0)  # 0=not approved, 1=first level, 2=second level, 3=final
     approvers = db.Column(JSONB, default=list)  # List of user IDs who approved
     supervisor_id = db.Column(db.Integer, db.ForeignKey('employee.id'))  # Current assigned supervisor
+    is_open_fetch = db.Column(db.Boolean, default=False)
+    bonus_pushed = db.Column(db.Boolean, default=False)
     
     # Relationships
     period = db.relationship('BonusEvaluationPeriod', back_populates='submissions')
@@ -1086,6 +1090,7 @@ class BonusSubmission(db.Model):
     supervisor = db.relationship('Employee', foreign_keys=[supervisor_id])
     evaluations = db.relationship('BonusEvaluation', back_populates='submission', cascade='all, delete-orphan')
     audit_logs = db.relationship('BonusAuditLog', back_populates='submission', cascade='all, delete-orphan')
+
     
     def calculate_total_points(self, employee_id=None):
         """Calculate total bonus points for all employees or a specific employee"""

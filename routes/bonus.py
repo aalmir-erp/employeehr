@@ -1332,12 +1332,6 @@ def hr_review_submission(submission_id):
                 user_id=current_user.id,
                 notes=notes or 'Submission rejected by HR'
             )
-
-
-
-
-
-            
             db.session.add(log)
             db.session.commit()
             
@@ -1441,6 +1435,7 @@ def hr_review_submission(submission_id):
 
             # Final approval - update status and other fields
             submission.status = 'approved'
+            submission.is_open_fetch = True
             submission.reviewed_by = current_user.id
             submission.reviewed_at = datetime.now()
             submission.notes = notes
@@ -1456,6 +1451,7 @@ def hr_review_submission(submission_id):
 
             db.session.add(final_log)
             print(" odoo hit methdo  Super HR ")
+            #TODO, here i need to call fatch from odoo
             
             # users = User.query.filter_by(is_bouns_approver=True).all()
             users = User.query.filter_by(role='hr', is_bouns_approver=False).all()
@@ -1503,6 +1499,9 @@ def hr_review_submission(submission_id):
                 send_whatsapp_notifications(submission, 'approved')
             except Exception as e:
                 current_app.logger.error(f"Failed to send WhatsApp notifications: {str(e)}")
+
+            #TODO, hit fatch from odoo here, after approve from all users
+
             
             flash('Final approval completed. Submission has been approved.', 'success')
         else:

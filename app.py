@@ -139,7 +139,8 @@ def inject_notification_preview():
         role_filter = current_user.role
 
     role_notifications = AttendanceNotification.query.filter(
-        AttendanceNotification.role == role_filter
+        AttendanceNotification.employee_id == current_user.employee_id
+
     )
 
     unread_count = role_notifications.filter(

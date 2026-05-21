@@ -132,6 +132,79 @@ def estimate_break_duration(logs):
 
 
 
+def mark_absent_for_past_dates(date_from, date_to):
+    """
+    Mark employees as ABSENT for past dates only
+    - Skips today
+    - Skips holidays & weekends
+    - Only if NO attendance_log AND NO attendance_record exists
+    """
+
+    from datetime import datetime, timedelta
+
+    today = datetime.utcnow().date()
+
+    # Never process today or future
+    effective_to = min(date_to, today - timedelta(days=1))
+
+    if date_from > effective_to:
+        print("DEBUG - No past dates to process for absents")
+        return 0
+
+    print(f"DEBUG - Marking absents from {date_from} to {effective_to}")
+
+    absent_created = 0
+
+    employees = Employee.query.all()
+
+    for emp in employees:
+        current_date = date_from
+
+        while current_date <= effective_to:
+
+            is_holiday, is_weekend = check_holiday_and_weekend(emp.id, current_date)
+
+            if is_holiday or is_weekend:
+                current_date += timedelta(days=1)
+                continue
+
+            # Check AttendanceRecord
+            record_exists = AttendanceRecord.query.filter_by(
+                employee_id=emp.id,
+                date=current_date
+            ).first()
+
+            if record_exists:
+                current_date += timedelta(days=1)
+                continue
+
+            # Check AttendanceLog
+            has_log = AttendanceLog.query.filter(
+                AttendanceLog.employee_id == emp.id,
+                func.date(AttendanceLog.timestamp) == current_date
+            ).first()
+
+            if not has_log:
+                db.session.add(AttendanceRecord(
+                    employee_id=emp.id,
+                    date=current_date,
+                    status='absent',
+                    check_in=None,
+                    check_out=None,
+                    work_hours=0,
+                    break_duration=0,
+                    is_holiday=False,
+                    is_weekend=False
+                ))
+                absent_created += 1
+
+            current_date += timedelta(days=1)
+
+    db.session.commit()
+
+    print(f"DEBUG - Absent records created: {absent_created}")
+    return absent_created
+
 def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
     from utils.overtime_engine import calculate_overtime
     from datetime import datetime, timedelta, time
@@ -141,6 +214,22 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
     print(f"DEBUG - Starting process_unprocessed_logs with limit={limit}, date_from={date_from}, date_to={date_to}")
 
     today = datetime.utcnow().date()
+    if date_from:
+        delete_start = date_from
+        delete_end = date_to or datetime.utcnow().date()
+
+        print(
+            f"DEBUG - Reprocessing mode: deleting AttendanceRecord "
+            f"from {delete_start} to {delete_end}"
+        )
+
+        delete_query = AttendanceRecord.query.filter(
+            AttendanceRecord.date >= delete_start,
+            AttendanceRecord.date <= delete_end
+        )
+
+        # records_to_delete = delete_query.all()
+
 
     stale_records = AttendanceRecord.query.filter(
         AttendanceRecord.status == 'in_progress',
@@ -165,7 +254,7 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
     if date_to:
         query = query.filter(func.date(AttendanceLog.timestamp) <= date_to)
 
-    unprocessed_combinations = query.distinct().order_by(
+    unprocessed_combinations = query.filter(AttendanceLog.employee_id == 2253).distinct().order_by(
         AttendanceLog.employee_id,
         func.date(AttendanceLog.timestamp)
     )
@@ -357,35 +446,35 @@ def process_unprocessed_logs(limit=None, date_from=None, date_to=None):
             print(f"ERROR - DB commit failed: {str(e)}")
 
     # Mark absents
-    if date_from and date_to:
-        print("DEBUG - Checking for missing dates to mark as absent...")
-        for emp in Employee.query.filter(Employee.id.in_(employee_ids)).all():
-            current_date = date_from
-            while current_date <= date_to:
-                record_exists = AttendanceRecord.query.filter_by(
-                    employee_id=emp.id,
-                    date=current_date
-                ).first()
-                is_holiday, is_weekend = check_holiday_and_weekend(emp.id, current_date)
-                has_any_log = AttendanceLog.query.filter(
-                    AttendanceLog.employee_id == emp.id,
-                    func.date(AttendanceLog.timestamp) == current_date
-                ).first()
-                if not record_exists and not has_any_log and not is_holiday and not is_weekend:
-                    db.session.add(AttendanceRecord(
-                        employee_id=emp.id,
-                        date=current_date,
-                        status='absent',
-                        check_in=None,
-                        check_out=None,
-                        work_hours=0,
-                        break_duration=0,
-                        is_holiday=False,
-                        is_weekend=False
-                    ))
-                    records_created += 1
-                current_date += timedelta(days=1)
-        db.session.commit()
+    # if date_from and date_to:
+    #     print("DEBUG - Checking for missing dates to mark as absent...")
+    #     for emp in Employee.query.filter(Employee.id.in_(employee_ids)).all():
+    #         current_date = date_from
+    #         while current_date <= date_to:
+    #             record_exists = AttendanceRecord.query.filter_by(
+    #                 employee_id=emp.id,
+    #                 date=current_date
+    #             ).first()
+    #             is_holiday, is_weekend = check_holiday_and_weekend(emp.id, current_date)
+    #             has_any_log = AttendanceLog.query.filter(
+    #                 AttendanceLog.employee_id == emp.id,
+    #                 func.date(AttendanceLog.timestamp) == current_date
+    #             ).first()
+    #             if not record_exists and not has_any_log and not is_holiday and not is_weekend:
+    #                 db.session.add(AttendanceRecord(
+    #                     employee_id=emp.id,
+    #                     date=current_date,
+    #                     status='absent',
+    #                     check_in=None,
+    #                     check_out=None,
+    #                     work_hours=0,
+    #                     break_duration=0,
+    #                     is_holiday=False,
+    #                     is_weekend=False
+    #                 ))
+    #                 records_created += 1
+    #             current_date += timedelta(days=1)
+    #     db.session.commit()
 
     print(f"DEBUG - Finished processing. Created {records_created} records, processed {logs_processed} logs")
     return records_created, logs_processed

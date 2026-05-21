@@ -8,6 +8,48 @@ from utils.whatsapp_sender import send_otp, verify_otp, find_employee_by_phone
 # Create blueprint
 bp = Blueprint('auth', __name__)
 
+
+@bp.route('/login/id', methods=['GET', 'POST'])
+def loginwithId():
+    """Handle user login"""
+    if current_user.is_authenticated:
+        return redirect(url_for('reports.dashboard'))
+    print(": in custom")
+
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        remember = 'remember' in request.form
+
+        user = User.query.filter_by(username=username).first()
+
+        if user and user.check_password(password):
+            login_user(user, remember=remember)
+
+            # Update last login timestamp
+            user.last_login = datetime.utcnow()
+            db.session.commit()
+
+            # Check if user needs to change password
+            if user.force_password_change:
+                flash('You must change your password before continuing', 'warning')
+                return redirect(url_for('auth.change_password'))
+
+            next_page = request.args.get('next')
+            if not next_page or not next_page.startswith('/'):
+                if current_user.role == 'employee' and not current_user.is_admin:
+                    next_page = url_for('reports.dashboard')
+                else:
+                    next_page = url_for('reports.dashboard')
+                # next_page = url_for('attendance.index')
+
+            flash(f'Welcome back, {user.username}!', 'success')
+            return redirect(next_page)
+        else:
+            flash('Invalid username or password', 'danger')
+
+    return render_template('loginwithid.html')
+
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
     """Handle user login"""
